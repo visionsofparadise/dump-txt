@@ -12,7 +12,7 @@ export interface PageSelection {
 	readonly scrollTop: number;
 }
 
-interface OccurrenceSession {
+export interface OccurrenceSession {
 	readonly seed: string;
 	readonly seedPageId: string;
 	readonly seedRange: TextRange;
@@ -29,7 +29,7 @@ export interface ViewSnapshot {
 	readonly occurrence: OccurrenceSession | null;
 }
 
-interface FindOptions {
+export interface FindOptions {
 	readonly query: string;
 	readonly matchCase: boolean;
 	readonly allPages: boolean;

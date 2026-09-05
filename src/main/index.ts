@@ -58,6 +58,7 @@ async function createWindow(): Promise<void> {
 		...bounds,
 		minWidth: 420,
 		minHeight: 280,
+		frame: false,
 		title: "dump.txt",
 		webPreferences: { preload: path.join(__dirname, "preload.cjs"), contextIsolation: true, nodeIntegration: false },
 	});

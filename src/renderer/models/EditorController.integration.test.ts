@@ -51,6 +51,141 @@ afterEach(() => {
 });
 
 describe("CodeMirror bridge", () => {
+	it("reconciles current-page find after navigation and replaces from the visible cursor", () => {
+		const { controller, session, documentState } = fixture();
+		controller.closeOccurrence();
+		documentState.pages = [
+			{ id: "first", text: "cat cat" },
+			{ id: "second", text: "cat cat" },
+		];
+		session.view = {
+			...session.view,
+			selections: {
+				first: { ranges: [{ anchor: 0, head: 0 }], mainIndex: 0, scrollTop: 0 },
+				second: { ranges: [{ anchor: 0, head: 0 }], mainIndex: 0, scrollTop: 0 },
+			},
+		};
+		controller.refresh();
+		controller.openFind();
+		controller.updateFind({ query: "cat", replacement: "dog", allPages: false });
+		controller.nextFind(1);
+		expect(session.find.activeMatch).toBe(1);
+		controller.showPage("second");
+		expect(session.find.activeMatch).toBe(-1);
+		controller.replaceFind(false);
+		expect(documentState.pages.map((page) => page.text)).toEqual(["cat cat", "dog cat"]);
+	});
+
+	it("reconciles find indexes after text edits and undo restores the selected match", () => {
+		const { controller, session, documentState, history } = fixture();
+		controller.closeOccurrence();
+		documentState.pages = [
+			{ id: "first", text: "cat cat" },
+			{ id: "second", text: "other" },
+		];
+		session.view = {
+			...session.view,
+			selections: { first: { ranges: [{ anchor: 0, head: 0 }], mainIndex: 0, scrollTop: 0 } },
+		};
+		controller.refresh();
+		controller.openFind();
+		controller.updateFind({ query: "cat", replacement: "dog" });
+		controller.nextFind(1);
+		expect(session.find.activeMatch).toBe(1);
+		controller.apply({ type: "replace", matches: [{ pageId: "first", from: 0, to: 3 }], text: "" });
+		expect(session.find.activeMatch).toBe(0);
+		history.undo();
+		expect(session.find.activeMatch).toBe(1);
+		controller.apply({ type: "insert", text: "dog" });
+		expect(session.find.activeMatch).toBe(-1);
+		history.undo();
+		expect(session.find.activeMatch).toBe(1);
+	});
+	it("runs Ctrl+D defaults and reveals next occurrences across pages", () => {
+		const { controller, session, view, documentState } = fixture();
+		controller.closeOccurrence();
+		view.dispatch({ selection: EditorSelection.cursor(1) });
+		view.contentDOM.dispatchEvent(
+			new KeyboardEvent("keydown", { key: "d", code: "KeyD", ctrlKey: true, bubbles: true, cancelable: true }),
+		);
+		expect(session.view.occurrence?.targets).toHaveLength(1);
+		controller.updateOccurrenceOptions({ allPages: true });
+		view.contentDOM.dispatchEvent(
+			new KeyboardEvent("keydown", { key: "d", code: "KeyD", ctrlKey: true, bubbles: true, cancelable: true }),
+		);
+		expect(session.view.activePageId).toBe("second");
+		expect(view.state.doc.toString()).toBe("two cat");
+		controller.apply({ type: "enclose", opening: "[" });
+		expect(documentState.pages.map((page) => page.text)).toEqual(["[cat] one", "two [cat]"]);
+	});
+
+	it("preserves occurrence mode for Alt page navigation and ends it for selection motion", () => {
+		const { session, view, documentState } = fixture();
+		view.contentDOM.dispatchEvent(
+			new KeyboardEvent("keydown", { key: "ArrowDown", altKey: true, bubbles: true, cancelable: true }),
+		);
+		expect(session.view.activePageId).toBe("second");
+		expect(session.view.occurrence?.targets).toHaveLength(2);
+		expect(documentState.pages.map((page) => page.text)).toEqual(["cat one", "two cat"]);
+		view.contentDOM.dispatchEvent(
+			new KeyboardEvent("keydown", { key: "ArrowLeft", bubbles: true, cancelable: true }),
+		);
+		expect(session.view.occurrence).toBeNull();
+	});
+
+	it("opens find through Ctrl+F and replaces across pages as one history entry", () => {
+		const { session, view, controller, history, documentState } = fixture();
+		view.contentDOM.dispatchEvent(
+			new KeyboardEvent("keydown", { key: "f", code: "KeyF", ctrlKey: true, bubbles: true, cancelable: true }),
+		);
+		expect(session.find.open).toBe(true);
+		expect(session.view.occurrence).toBeNull();
+		controller.updateFind({ query: "cat", allPages: true, replacement: "dog" });
+		controller.replaceFind(true);
+		expect(documentState.pages.map((page) => page.text)).toEqual(["dog one", "two dog"]);
+		history.undo();
+		expect(documentState.pages.map((page) => page.text)).toEqual(["cat one", "two cat"]);
+		expect(history.canUndo).toBe(false);
+	});
+
+	it("keeps replacement input edits on the current match and wraps next/previous", () => {
+		const { controller, session } = fixture();
+		controller.openFind();
+		controller.updateFind({ query: "cat", allPages: true });
+		controller.nextFind(1);
+		const selected = session.view.activePageId;
+		controller.updateFind({ replacement: "x" });
+		expect(session.view.activePageId).toBe(selected);
+		controller.nextFind(1);
+		expect(session.view.activePageId).not.toBe(selected);
+		controller.nextFind(-1);
+		expect(session.view.activePageId).toBe(selected);
+	});
+
+	it("leaves the document and history untouched for an empty find query", () => {
+		const { controller, history, documentState, session } = fixture();
+		const original = documentState.pages;
+		controller.openFind();
+		controller.updateFind({ query: "", replacement: "x", allPages: true });
+		controller.replaceFind(true);
+		expect(documentState.pages).toBe(original);
+		expect(history.canUndo).toBe(false);
+		expect(session.find.activeMatch).toBe(-1);
+	});
+
+	it("keeps find and occurrence preferences independent and Escape collapses to one cursor", () => {
+		const { controller, session, view } = fixture();
+		controller.updateOccurrenceOptions({ matchCase: true, allPages: true });
+		controller.openFind();
+		controller.updateFind({ matchCase: false, allPages: false });
+		expect(session.occurrencePreferences).toEqual({ matchCase: true, allPages: true });
+		controller.closeFind();
+		controller.selectNextOccurrence();
+		view.contentDOM.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+		expect(session.view.occurrence).toBeNull();
+		expect(view.state.selection.ranges).toHaveLength(1);
+		expect(view.state.selection.main.empty).toBe(true);
+	});
 	it("fans actual input transactions out at independent page offsets", () => {
 		const { documentState, view, history } = fixture();
 		view.dispatch({

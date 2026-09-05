@@ -2,8 +2,10 @@ import { defaultKeymap } from "@codemirror/commands";
 import { ChangeSet, Compartment, EditorSelection, EditorState, type Transaction } from "@codemirror/state";
 import { drawSelection, EditorView, keymap } from "@codemirror/view";
 import { flush, subscribe } from "opshot";
+import { findMatches } from "../utils/findMatches";
 import { participatingRanges, prepareChanges, prepareEdit } from "../utils/prepareEdit";
-import { snapshotView, type SessionState, type ViewSnapshot } from "./SessionState";
+import { rebuildOccurrence, selectNextOccurrence } from "../utils/selectNextOccurrence";
+import { snapshotView, type SessionState, type TextMatch, type ViewSnapshot } from "./SessionState";
 import type { DocumentState, Page } from "./DocumentState";
 import type { EditCommand } from "./EditCommand";
 import type { History } from "./History";
@@ -79,6 +81,155 @@ export class EditorController {
 		this.#view?.focus();
 	}
 
+	revealSelection(): void {
+		if (this.#view)
+			this.#view.dispatch({
+				effects: EditorView.scrollIntoView(this.#view.state.selection.main.head, { y: "nearest" }),
+			});
+	}
+
+	selectNextOccurrence(): void {
+		if (this.#locked) return;
+
+		this.finishComposition();
+		this.#session.find = { ...this.#session.find, open: false };
+		selectNextOccurrence({ document: this.#document, session: this.#session, history: this.#history, editor: this });
+	}
+
+	closeOccurrence(): void {
+		if (this.#locked) return;
+
+		this.#endOccurrence(true);
+		this.focus();
+	}
+
+	updateOccurrenceOptions(options: Partial<SessionState["occurrencePreferences"]>): void {
+		if (this.#locked) return;
+
+		this.#history.closeGroup();
+		this.#session.occurrencePreferences = { ...this.#session.occurrencePreferences, ...options };
+		rebuildOccurrence({ document: this.#document, session: this.#session, history: this.#history, editor: this });
+	}
+
+	openFind(): void {
+		if (this.#locked) return;
+
+		this.finishComposition();
+		this.#history.closeGroup();
+
+		const selection = this.#session.view.selections[this.#session.view.activePageId];
+		const range = selection?.ranges[selection.mainIndex];
+		const text = this.#document.pages.find((page) => page.id === this.#session.view.activePageId)?.text ?? "";
+		const query =
+			range && range.anchor !== range.head
+				? text.slice(Math.min(range.anchor, range.head), Math.max(range.anchor, range.head))
+				: this.#session.find.query;
+
+		this.#endOccurrence(true);
+		this.#session.find = { ...this.#session.find, open: true, query, activeMatch: -1 };
+		this.nextFind(1);
+	}
+
+	closeFind(): void {
+		this.#session.find = { ...this.#session.find, open: false };
+		this.#history.closeGroup();
+		this.focus();
+	}
+
+	updateFind(options: Partial<Pick<SessionState["find"], "query" | "replacement" | "matchCase" | "allPages">>): void {
+		if (this.#locked) return;
+
+		this.#history.closeGroup();
+
+		const searchChanged =
+			options.query !== undefined || options.matchCase !== undefined || options.allPages !== undefined;
+
+		this.#session.find = {
+			...this.#session.find,
+			...options,
+			activeMatch: searchChanged ? -1 : this.#session.find.activeMatch,
+		};
+
+		if (searchChanged) this.nextFind(1);
+	}
+
+	nextFind(direction: 1 | -1): void {
+		if (this.#locked) return;
+
+		this.#history.closeGroup();
+
+		const matches = findMatches(this.#session.find, { document: this.#document, session: this.#session });
+
+		if (matches.length === 0) {
+			this.#session.find = { ...this.#session.find, activeMatch: -1 };
+
+			return;
+		}
+
+		const previous = this.#session.find.activeMatch >= 0 ? this.#selectedFindIndex(matches) : -1;
+		let index: number;
+
+		if (previous >= 0 && previous < matches.length) index = (previous + direction + matches.length) % matches.length;
+		else {
+			const activePage = this.#document.pages.findIndex((page) => page.id === this.#session.view.activePageId);
+			const selection = this.#session.view.selections[this.#session.view.activePageId];
+			const range = selection?.ranges[selection.mainIndex];
+			const from = range ? Math.min(range.anchor, range.head) : 0;
+
+			index = matches.findIndex((match) => {
+				const pageIndex = this.#document.pages.findIndex((page) => page.id === match.pageId);
+
+				return pageIndex > activePage || (pageIndex === activePage && match.from >= from);
+			});
+
+			if (index === -1) index = 0;
+
+			if (direction === -1) index = (index - 1 + matches.length) % matches.length;
+		}
+
+		const match = matches[index];
+
+		if (!match) return;
+
+		this.#session.find = { ...this.#session.find, activeMatch: index };
+		this.#session.view = snapshotView({
+			...this.#session.view,
+			activePageId: match.pageId,
+			occurrence: null,
+			selections: {
+				...this.#session.view.selections,
+				[match.pageId]: {
+					ranges: [{ anchor: match.from, head: match.to }],
+					mainIndex: 0,
+					scrollTop: this.#session.view.selections[match.pageId]?.scrollTop ?? 0,
+				},
+			},
+		});
+		flush(this.#session);
+		this.refresh();
+		this.revealSelection();
+	}
+
+	replaceFind(all: boolean): void {
+		if (this.#locked) return;
+
+		const matches = findMatches(this.#session.find, { document: this.#document, session: this.#session });
+
+		if (!all && this.#selectedFindIndex(matches) === -1) {
+			this.#session.find = { ...this.#session.find, activeMatch: -1 };
+			this.nextFind(1);
+		}
+
+		const selected = matches[this.#selectedFindIndex(matches)];
+		const replacements = all ? matches : selected ? [selected] : [];
+
+		if (replacements.length === 0) return;
+
+		this.apply({ type: "replace", matches: replacements, text: this.#session.find.replacement });
+		this.#session.find = { ...this.#session.find, activeMatch: -1 };
+		this.nextFind(1);
+	}
+
 	setLocked(locked: boolean): void {
 		if (locked) this.finishComposition();
 
@@ -101,7 +252,11 @@ export class EditorController {
 	}
 
 	refresh(): void {
-		if (this.#updating || this.#composition || !this.#view) return;
+		if (this.#updating || this.#composition) return;
+
+		this.#synchronizeFind();
+
+		if (!this.#view) return;
 
 		const pageId = this.#session.view.activePageId;
 		const page = this.#document.pages.find((candidate) => candidate.id === pageId);
@@ -319,10 +474,14 @@ export class EditorController {
 				EditorView.theme({
 					"&": { height: "100%" },
 					".cm-scroller": { overflow: "auto", fontFamily: "inherit" },
-					".cm-content": { padding: "16px 22px", minHeight: "100%" },
+					".cm-content": { minHeight: "100%" },
 					"&.cm-focused": { outline: "none" },
 				}),
 				keymap.of([
+					{ key: "Alt-ArrowUp", run: () => this.#navigatePage(-1) },
+					{ key: "Alt-ArrowDown", run: () => this.#navigatePage(1) },
+					{ key: "Alt-Home", run: () => this.#navigatePage("first") },
+					{ key: "Alt-End", run: () => this.#navigatePage("last") },
 					{ key: "Mod-z", run: () => this.#replay("undo") },
 					{ key: "Mod-y", run: () => this.#replay("redo") },
 					{ key: "Mod-Shift-z", run: () => this.#replay("redo") },
@@ -332,7 +491,10 @@ export class EditorController {
 							if (!this.#locked) {
 								this.finishComposition();
 								this.#history.closeGroup();
-								this.#callbacks.selectNextOccurrence?.();
+
+								if (this.#callbacks.selectNextOccurrence) this.#callbacks.selectNextOccurrence();
+								else this.selectNextOccurrence();
+
 								this.refresh();
 							}
 
@@ -343,8 +505,9 @@ export class EditorController {
 						key: "Mod-f",
 						run: () => {
 							this.finishComposition();
-							this.#endOccurrence(true);
-							this.#callbacks.openFind?.();
+
+							if (this.#callbacks.openFind) this.#callbacks.openFind();
+							else this.openFind();
 
 							return true;
 						},
@@ -423,6 +586,7 @@ export class EditorController {
 					},
 					keydown: (event) => {
 						if (
+							!event.altKey &&
 							["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End", "PageUp", "PageDown"].includes(
 								event.key,
 							)
@@ -467,6 +631,41 @@ export class EditorController {
 			...this.#session.view,
 			selections: { ...this.#session.view.selections, [this.#pageId]: selection },
 		});
+	}
+
+	#selectedFindIndex(matches: ReadonlyArray<TextMatch>): number {
+		const pageId = this.#session.view.activePageId;
+		const selection = this.#session.view.selections[pageId];
+		const range = selection?.ranges[selection.mainIndex];
+
+		if (!range) return -1;
+
+		return matches.findIndex(
+			(match) =>
+				match.pageId === pageId &&
+				match.from === Math.min(range.anchor, range.head) &&
+				match.to === Math.max(range.anchor, range.head),
+		);
+	}
+
+	#synchronizeFind(): void {
+		if (!this.#session.find.open) return;
+
+		const matches = findMatches(this.#session.find, { document: this.#document, session: this.#session });
+		const activeMatch = this.#selectedFindIndex(matches);
+
+		if (activeMatch !== this.#session.find.activeMatch) this.#session.find = { ...this.#session.find, activeMatch };
+	}
+
+	#navigatePage(direction: -1 | 1 | "first" | "last"): boolean {
+		const pages = this.#document.pages;
+		const current = pages.findIndex((page) => page.id === this.#session.view.activePageId);
+		const index = direction === "first" ? 0 : direction === "last" ? pages.length - 1 : current + direction;
+		const page = pages[index];
+
+		if (page) this.showPage(page.id);
+
+		return true;
 	}
 
 	#endOccurrence(collapse: boolean): void {

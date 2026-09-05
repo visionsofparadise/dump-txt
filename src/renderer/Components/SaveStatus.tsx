@@ -21,16 +21,18 @@ export const SaveStatus = scope(({ context }: SaveStatusProps) => {
 	if (!persistenceState.error) return null;
 
 	return (
-		<div
-			role="status"
-			aria-live="polite"
-			className="flex flex-wrap items-center justify-between gap-2 border-b border-current bg-bar px-3 py-2 text-xs"
-		>
+		<div role="status" aria-live="polite" className="save-error">
 			<span>{persistenceState.error}</span>
-			<div className="flex shrink-0 gap-3">
-				<button onClick={retry}>Retry</button>
-				<button onClick={saveAs}>Save As…</button>
-				<button onClick={open}>Open…</button>
+			<div className="save-error-actions">
+				<button className="panel-button" disabled={persistenceState.locked} onClick={retry}>
+					Retry
+				</button>
+				<button className="panel-button" disabled={persistenceState.locked} onClick={saveAs}>
+					Save As…
+				</button>
+				<button className="panel-button" disabled={persistenceState.locked} onClick={open}>
+					Open…
+				</button>
 			</div>
 		</div>
 	);

@@ -592,12 +592,20 @@ export class PersistenceController {
 
 		const history = new History(document, session, () => this.changed());
 		const editor = new EditorController(document, session, history, {
-			openFind: () => {
-				if (this.#context) this.#callbacks.openFind?.(this.#context);
-			},
-			selectNextOccurrence: () => {
-				if (this.#context) this.#callbacks.selectNextOccurrence?.(this.#context);
-			},
+			...(this.#callbacks.openFind
+				? {
+						openFind: () => {
+							if (this.#context) this.#callbacks.openFind?.(this.#context);
+						},
+					}
+				: {}),
+			...(this.#callbacks.selectNextOccurrence
+				? {
+						selectNextOccurrence: () => {
+							if (this.#context) this.#callbacks.selectNextOccurrence?.(this.#context);
+						},
+					}
+				: {}),
 		});
 
 		this.#context = {
