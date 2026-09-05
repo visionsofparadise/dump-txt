@@ -23,9 +23,12 @@
 		"@codemirror/state": "6.7.4",
 		"@codemirror/view": "6.43.11",
 		"electron-squirrel-startup": "1.0.1",
+		"events": "3.3.0",
 		"opshot": "0.5.3",
 		"react": "19.2.8",
-		"react-dom": "19.2.8"
+		"react-dom": "19.2.8",
+		"write-file-atomic": "8.0.0",
+		"zod": "4.5.4"
 	},
 	"devDependencies": {
 		"@commitlint/cli": "21.2.2",
@@ -46,6 +49,7 @@
 		"@types/node": "26.4.1",
 		"@types/react": "19.2.18",
 		"@types/react-dom": "19.2.7",
+		"@types/write-file-atomic": "4.0.3",
 		"@vitejs/plugin-react": "6.1.1",
 		"concurrently": "10.0.5",
 		"electron": "44.2.0",

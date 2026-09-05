@@ -9,7 +9,10 @@ export function PageEditor({ editor }: PageEditorProps) {
 	const parent = useRef<HTMLDivElement>(null);
 
 	useEffect(() => {
-		if (parent.current) editor.attach(parent.current);
+		if (parent.current) {
+			editor.attach(parent.current);
+			editor.focus();
+		}
 
 		return () => editor.detach();
 	}, [editor]);

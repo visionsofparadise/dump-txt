@@ -3,5 +3,11 @@
 	"project": ["src/**/*.{ts,tsx,css}", "*.config.ts"],
 	"entry": ["forge.config.ts"],
 	"vite": { "config": ["vite.*.config.ts"] },
-	"ignoreDependencies": ["prettier", "@commitlint/cli", "textlint-filter-rule-comments", "textlint-rule-no-dead-link"]
+	"ignoreDependencies": [
+		"prettier",
+		"@commitlint/cli",
+		"events",
+		"textlint-filter-rule-comments",
+		"textlint-rule-no-dead-link"
+	]
 }
