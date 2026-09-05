@@ -74,7 +74,7 @@ describe("semantic editing", () => {
 		expect(prepareEdit({ type: "insert", text: "!" }, document, session).pages[0]!.text).toBe("a!f");
 	});
 
-	it.each(["👨‍👩‍👧‍👦", "e\u0301", "😀"])("deletes one complete grapheme %s", (grapheme) => {
+	it.each(["👨‍👩‍👧‍👦", "e\u0301", "😀", "🇬🇧", "👍🏽"])("deletes one complete grapheme %s", (grapheme) => {
 		const { document, session } = fixture(
 			[`a${grapheme}z`, `a${grapheme}z`],
 			[
@@ -85,6 +85,50 @@ describe("semantic editing", () => {
 		expect(
 			prepareEdit({ type: "delete", direction: "backward" }, document, session).pages.map((page) => page.text),
 		).toEqual(["az", "az"]);
+	});
+
+	it.each(["👨‍👩‍👧‍👦", "e\u0301", "😀", "🇬🇧", "👍🏽"])("deletes forward across one grapheme %s", (grapheme) => {
+		const { document, session } = fixture([`a${grapheme}z`], [[{ anchor: 1, head: 1 }]], false);
+		const edit = prepareEdit({ type: "delete", direction: "forward" }, document, session);
+		expect(edit.pages[0]!.text).toBe("az");
+		expect(edit.after.selections["page-0"]!.ranges).toEqual([{ anchor: 1, head: 1 }]);
+	});
+
+	it.each([
+		{ text: "", position: 0, direction: "forward", expected: "", cursor: 0 },
+		{ text: "", position: 0, direction: "backward", expected: "", cursor: 0 },
+		{ text: "a😀", position: 3, direction: "forward", expected: "a😀", cursor: 3 },
+		{ text: "ae\u0301z", position: 2, direction: "backward", expected: "a\u0301z", cursor: 1 },
+		{ text: "ae\u0301z", position: 2, direction: "forward", expected: "aez", cursor: 2 },
+	] as const)(
+		"preserves deletion boundaries $direction at $position in $text",
+		({ text, position, direction, expected, cursor }) => {
+			const { document, session } = fixture([text], [[{ anchor: position, head: position }]], false);
+			const edit = prepareEdit({ type: "delete", direction }, document, session);
+			expect(edit.pages[0]!.text).toBe(expected);
+			expect(edit.after.selections["page-0"]!.ranges).toEqual([{ anchor: cursor, head: cursor }]);
+		},
+	);
+
+	it("preserves reverse selection and UTF-16 offsets when wrapping the end of a large plain page", () => {
+		const prefix = "a".repeat(1024 * 1024);
+		const { document, session } = fixture(
+			[`${prefix}😀`],
+			[[{ anchor: prefix.length + 2, head: prefix.length }]],
+			false,
+		);
+		const edit = prepareEdit({ type: "enclose", opening: "[" }, document, session);
+		expect(edit.pages[0]).toEqual({ id: "page-0", text: `${prefix}[😀]` });
+		expect(edit.after.selections["page-0"]!.ranges).toEqual([{ anchor: prefix.length + 3, head: prefix.length + 1 }]);
+	});
+
+	it("maps a pasted inline separator to the new page after a large plain prefix", () => {
+		const prefix = "a".repeat(1024 * 1024);
+		const { document, session } = fixture([`${prefix}z`], [[{ anchor: prefix.length, head: prefix.length }]], false);
+		const edit = prepareEdit({ type: "paste", text: "\f😀" }, document, session);
+		expect(edit.pages.map((page) => page.text)).toEqual([prefix, "😀z"]);
+		expect(edit.after.activePageId).toBe(edit.pages[1]!.id);
+		expect(edit.after.selections[edit.pages[1]!.id]!.ranges).toEqual([{ anchor: 2, head: 2 }]);
 	});
 
 	it("keeps page-edge deletion local", () => {

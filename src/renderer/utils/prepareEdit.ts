@@ -79,23 +79,13 @@ export function participatingRanges(
 
 function adjacentGrapheme(text: string, position: number, direction: "backward" | "forward"): number {
 	const segments = new Intl.Segmenter(undefined, { granularity: "grapheme" }).segment(text);
+	const segment = segments.containing(direction === "backward" ? position - 1 : position);
 
-	if (direction === "forward") {
-		for (const segment of segments)
-			if (segment.index + segment.segment.length > position) return segment.index + segment.segment.length;
-
-		return text.length;
-	}
-
-	let previous = 0;
-
-	for (const segment of segments) {
-		if (segment.index >= position) break;
-
-		previous = segment.index;
-	}
-
-	return previous;
+	return segment
+		? segment.index + (direction === "forward" ? segment.segment.length : 0)
+		: direction === "backward"
+			? 0
+			: text.length;
 }
 
 function touchedLines(text: string, range: TextRange): Array<number> {
@@ -210,6 +200,11 @@ function normalizedOffset(text: string, offset: number): number {
 }
 
 function splitPosition(text: string, pages: ReadonlyArray<Page>, offset: number): { pageId: string; offset: number } {
+	const first = pages[0];
+
+	if (pages.length === 1 && first)
+		return { pageId: first.id, offset: Math.max(0, Math.min(first.text.length, offset)) };
+
 	const normalized = normalizeFormFeeds(text);
 	const position = normalizedOffset(text, offset);
 	let pageIndex = 0;
