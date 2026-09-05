@@ -1,0 +1,11 @@
+**/node_modules/**
+**/.*/**
+**/dist/**
+**/out/**
+**/build/**
+**/coverage/**
+**/.scratch/**
+**/scratch/**
+tmp_*
+
+designs/**

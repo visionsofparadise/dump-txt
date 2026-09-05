@@ -1,0 +1,540 @@
+import { defaultKeymap } from "@codemirror/commands";
+import { ChangeSet, Compartment, EditorSelection, EditorState, type Transaction } from "@codemirror/state";
+import { drawSelection, EditorView, keymap } from "@codemirror/view";
+import { flush, subscribe } from "opshot";
+import { participatingRanges, prepareChanges, prepareEdit } from "../utils/prepareEdit";
+import { snapshotView, type SessionState, type ViewSnapshot } from "./SessionState";
+import type { DocumentState, Page } from "./DocumentState";
+import type { EditCommand } from "./EditCommand";
+import type { History } from "./History";
+
+interface EditorCallbacks {
+	readonly openFind?: () => void;
+	readonly selectNextOccurrence?: () => void;
+	readonly changed?: () => void;
+}
+
+interface Composition {
+	readonly pages: ReadonlyArray<Page>;
+	readonly view: ViewSnapshot;
+	readonly state: EditorState;
+	latest: EditorState;
+	changes: ChangeSet;
+}
+
+export class EditorController {
+	readonly #document: DocumentState;
+	readonly #session: SessionState;
+	readonly #history: History;
+	readonly #callbacks: EditorCallbacks;
+	readonly #states = new Map<string, EditorState>();
+	readonly #editable = new Compartment();
+	readonly #unsubscribers: ReadonlyArray<() => void>;
+	#view: EditorView | null = null;
+	#pageId: string;
+	#updating = false;
+	#locked = false;
+	#composition: Composition | null = null;
+
+	constructor(document: DocumentState, session: SessionState, history: History, callbacks: EditorCallbacks = {}) {
+		this.#document = document;
+		this.#session = session;
+		this.#history = history;
+		this.#callbacks = callbacks;
+		this.#pageId = session.view.activePageId;
+		this.#unsubscribers = [subscribe(document, () => this.refresh()), subscribe(session, () => this.refresh())];
+	}
+
+	attach(parent: HTMLElement): void {
+		this.detach();
+		this.#pageId = this.#session.view.activePageId;
+		this.#view = new EditorView({
+			parent,
+			state: this.#stateFor(this.#pageId),
+			dispatchTransactions: (transactions, view) => this.dispatch(transactions, view),
+		});
+		this.#view.scrollDOM.scrollTop = this.#session.view.selections[this.#pageId]?.scrollTop ?? 0;
+	}
+
+	detach(): void {
+		this.finishComposition();
+
+		if (this.#view) {
+			this.#rememberSelection();
+			this.#states.set(this.#pageId, this.#view.state);
+			this.#view.destroy();
+			this.#view = null;
+		}
+	}
+
+	dispose(): void {
+		this.detach();
+
+		for (const unsubscribe of this.#unsubscribers) unsubscribe();
+
+		this.#states.clear();
+	}
+
+	focus(): void {
+		this.#view?.focus();
+	}
+
+	setLocked(locked: boolean): void {
+		if (locked) this.finishComposition();
+
+		this.#locked = locked;
+		this.#view?.dispatch({
+			effects: this.#editable.reconfigure([EditorState.readOnly.of(locked), EditorView.editable.of(!locked)]),
+		});
+	}
+
+	showPage(pageId: string): void {
+		if (this.#locked || !this.#document.pages.some((page) => page.id === pageId)) return;
+
+		this.finishComposition();
+		this.#rememberSelection();
+		this.#history.closeGroup();
+		this.#session.view = snapshotView({ ...this.#session.view, activePageId: pageId });
+		flush(this.#session);
+		this.refresh();
+		this.focus();
+	}
+
+	refresh(): void {
+		if (this.#updating || this.#composition || !this.#view) return;
+
+		const pageId = this.#session.view.activePageId;
+		const page = this.#document.pages.find((candidate) => candidate.id === pageId);
+
+		if (!page) return;
+
+		this.#updating = true;
+
+		try {
+			const selection = this.#selectionFor(pageId, page.text.length);
+
+			if (this.#pageId !== pageId || this.#view.state.doc.toString() !== page.text) {
+				this.#states.set(this.#pageId, this.#view.state);
+				this.#pageId = pageId;
+				this.#view.setState(this.#stateFor(pageId));
+				this.#view.scrollDOM.scrollTop = this.#session.view.selections[pageId]?.scrollTop ?? 0;
+			} else if (!this.#view.state.selection.eq(selection)) this.#view.dispatch({ selection });
+
+			for (const cachedId of this.#states.keys())
+				if (!this.#document.pages.some((candidate) => candidate.id === cachedId)) this.#states.delete(cachedId);
+		} finally {
+			this.#updating = false;
+		}
+	}
+
+	apply(command: EditCommand): void {
+		if (this.#locked) return;
+
+		this.finishComposition();
+		this.#history.closeGroup();
+		this.#history.commit(prepareEdit(command, this.#document, this.#session));
+		this.refresh();
+		this.#callbacks.changed?.();
+	}
+
+	dispatch(transactions: ReadonlyArray<Transaction>, view: EditorView): void {
+		if (this.#locked && transactions.some((transaction) => transaction.docChanged)) return;
+
+		if (this.#updating) {
+			view.update(transactions);
+
+			return;
+		}
+
+		this.#updating = true;
+
+		try {
+			for (const transaction of transactions) {
+				view.update([transaction]);
+
+				if (this.#composition) {
+					this.#composition.latest = transaction.state;
+					this.#composition.changes = this.#composition.changes.compose(transaction.changes);
+
+					continue;
+				}
+
+				if (!transaction.docChanged) {
+					if (transaction.selection) {
+						this.#endOccurrence(false);
+						this.#rememberSelection();
+						this.#history.closeGroup();
+					}
+
+					continue;
+				}
+
+				const changes: Array<{ from: number; to: number; insert: string }> = [];
+
+				transaction.changes.iterChanges((from, to, _fromAfter, _toAfter, inserted) =>
+					changes.push({ from, to, insert: inserted.toString() }),
+				);
+
+				const isTyping = transaction.isUserEvent("input.type");
+				const isDeletion = transaction.isUserEvent("delete");
+				const group =
+					isTyping || isDeletion
+						? `${isTyping ? "typing" : "delete"}:${[...participatingRanges(this.#document, this.#session.view)].map(([pageId, ranges]) => `${pageId}:${ranges.length}`).join(",")}`
+						: null;
+
+				if (this.#session.view.occurrence) {
+					const first = changes[0];
+
+					if (first) {
+						const command: EditCommand = first.insert
+							? { type: "insert", text: first.insert }
+							: {
+									type: "delete",
+									direction: transaction.isUserEvent("delete.forward") ? "forward" : "backward",
+								};
+
+						this.#history.commit({ ...prepareEdit(command, this.#document, this.#session), group });
+					}
+				} else {
+					this.#history.commit(
+						prepareChanges(
+							[
+								{
+									pageId: this.#pageId,
+									changes,
+									ranges: transaction.state.selection.ranges.map(({ anchor, head }) => ({ anchor, head })),
+								},
+							],
+							this.#document,
+							this.#session,
+							group,
+						),
+					);
+				}
+
+				this.#callbacks.changed?.();
+			}
+		} finally {
+			this.#updating = false;
+		}
+
+		this.refresh();
+	}
+
+	finishComposition(): void {
+		const composition = this.#composition;
+
+		if (!composition) return;
+
+		this.#composition = null;
+
+		const before = composition.state.doc.toString();
+		const after = composition.latest.doc.toString();
+
+		if (before !== after) {
+			const document = { pages: composition.pages };
+			const session = { ...this.#session, view: composition.view };
+			const primary = composition.state.selection.main;
+			const composedText = after.slice(
+				composition.changes.mapPos(primary.from, -1),
+				composition.changes.mapPos(primary.to, 1),
+			);
+			const changes: Array<{ from: number; to: number; insert: string }> = [];
+
+			composition.changes.iterChanges((from, to, _fromAfter, _toAfter, inserted) =>
+				changes.push({ from, to, insert: inserted.toString() }),
+			);
+
+			const edit = composition.view.occurrence
+				? prepareEdit({ type: "insert", text: composedText }, document, session)
+				: prepareChanges(
+						[
+							{
+								pageId: composition.view.activePageId,
+								changes,
+								ranges: composition.latest.selection.ranges.map(({ anchor, head }) => ({ anchor, head })),
+							},
+						],
+						document,
+						session,
+					);
+
+			this.#history.closeGroup();
+			this.#history.commit(edit);
+			this.#callbacks.changed?.();
+		}
+
+		this.#history.closeGroup();
+		this.refresh();
+	}
+
+	#selectionFor(pageId: string, length: number): EditorSelection {
+		const remembered = this.#session.view.selections[pageId];
+		const targets = this.#session.view.occurrence?.targets.filter((target) => target.pageId === pageId);
+		const ranges = targets?.length
+			? targets.map((target) => target.range)
+			: (remembered?.ranges ?? [{ anchor: 0, head: 0 }]);
+		const occurrence = this.#session.view.occurrence;
+		const primaryTarget = occurrence?.targets[occurrence.primaryTarget];
+		const mainIndex =
+			primaryTarget?.pageId === pageId
+				? Math.max(0, targets?.indexOf(primaryTarget) ?? 0)
+				: (remembered?.mainIndex ?? 0);
+
+		return EditorSelection.create(
+			ranges.map((range) =>
+				EditorSelection.range(
+					Math.max(0, Math.min(length, range.anchor)),
+					Math.max(0, Math.min(length, range.head)),
+				),
+			),
+			Math.min(mainIndex, ranges.length - 1),
+		);
+	}
+
+	#stateFor(pageId: string): EditorState {
+		const text = this.#document.pages.find((page) => page.id === pageId)?.text ?? "";
+		const cached = this.#states.get(pageId);
+		const selection = this.#selectionFor(pageId, text.length);
+
+		if (cached?.doc.toString() === text)
+			return cached.update({
+				selection,
+				effects: this.#editable.reconfigure([
+					EditorState.readOnly.of(this.#locked),
+					EditorView.editable.of(!this.#locked),
+				]),
+			}).state;
+
+		return EditorState.create({
+			doc: text,
+			selection,
+			extensions: [
+				EditorState.allowMultipleSelections.of(true),
+				EditorState.tabSize.of(4),
+				EditorView.lineWrapping,
+				drawSelection(),
+				this.#editable.of([EditorState.readOnly.of(this.#locked), EditorView.editable.of(!this.#locked)]),
+				EditorView.contentAttributes.of({ "aria-label": "Scratchpad text", spellcheck: "false" }),
+				EditorView.theme({
+					"&": { height: "100%" },
+					".cm-scroller": { overflow: "auto", fontFamily: "inherit" },
+					".cm-content": { padding: "16px 22px", minHeight: "100%" },
+					"&.cm-focused": { outline: "none" },
+				}),
+				keymap.of([
+					{ key: "Mod-z", run: () => this.#replay("undo") },
+					{ key: "Mod-y", run: () => this.#replay("redo") },
+					{ key: "Mod-Shift-z", run: () => this.#replay("redo") },
+					{
+						key: "Mod-d",
+						run: () => {
+							if (!this.#locked) {
+								this.finishComposition();
+								this.#history.closeGroup();
+								this.#callbacks.selectNextOccurrence?.();
+								this.refresh();
+							}
+
+							return true;
+						},
+					},
+					{
+						key: "Mod-f",
+						run: () => {
+							this.finishComposition();
+							this.#endOccurrence(true);
+							this.#callbacks.openFind?.();
+
+							return true;
+						},
+					},
+					{
+						key: "Tab",
+						run: () => {
+							this.apply({ type: "indent", direction: "in" });
+
+							return true;
+						},
+					},
+					{
+						key: "Ctrl-Tab",
+						run: () => {
+							this.apply({ type: "indent", direction: "out" });
+
+							return true;
+						},
+					},
+					{ key: "Backspace", run: () => this.#delete("backward") },
+					{ key: "Delete", run: () => this.#delete("forward") },
+					{
+						key: "Escape",
+						run: () => {
+							if (!this.#session.view.occurrence) return false;
+
+							this.#endOccurrence(true);
+
+							return true;
+						},
+					},
+					...defaultKeymap,
+				]),
+				EditorView.inputHandler.of((_view, _from, _to, text) => {
+					if (this.#composition) return false;
+
+					if (
+						"([{<'\"`".includes(text) &&
+						text.length === 1 &&
+						[...participatingRanges(this.#document, this.#session.view).values()].some((ranges) =>
+							ranges.some((range) => range.anchor !== range.head),
+						)
+					) {
+						this.apply({ type: "enclose", opening: text });
+
+						return true;
+					}
+
+					return false;
+				}),
+				EditorView.domEventHandlers({
+					compositionstart: () => {
+						if (!this.#locked && this.#view) {
+							this.#history.closeGroup();
+							this.#composition = {
+								pages: this.#document.pages,
+								view: snapshotView(this.#session.view),
+								state: this.#view.state,
+								latest: this.#view.state,
+								changes: ChangeSet.empty(this.#view.state.doc.length),
+							};
+						}
+
+						return false;
+					},
+					compositionend: () => {
+						queueMicrotask(() => this.finishComposition());
+
+						return false;
+					},
+					mousedown: () => {
+						this.#endOccurrence(false);
+
+						return false;
+					},
+					keydown: (event) => {
+						if (
+							["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End", "PageUp", "PageDown"].includes(
+								event.key,
+							)
+						)
+							this.#endOccurrence(true);
+
+						return false;
+					},
+					paste: (event) => {
+						if (!event.clipboardData || this.#locked) return false;
+
+						event.preventDefault();
+						this.apply({ type: "paste", text: event.clipboardData.getData("text/plain") });
+
+						return true;
+					},
+					copy: (event) => this.#clipboard(event, false),
+					cut: (event) => this.#clipboard(event, true),
+					scroll: () => {
+						if (!this.#updating && !this.#composition) this.#rememberSelection();
+
+						return false;
+					},
+				}),
+			],
+		});
+	}
+
+	#rememberSelection(): void {
+		if (!this.#view || !this.#document.pages.some((page) => page.id === this.#pageId)) return;
+
+		const selection = {
+			ranges: this.#view.state.selection.ranges.map(({ anchor, head }) => ({ anchor, head })),
+			mainIndex: this.#view.state.selection.mainIndex,
+			scrollTop: this.#view.scrollDOM.scrollTop,
+		};
+		const previous = this.#session.view.selections[this.#pageId];
+
+		if (previous && JSON.stringify(previous) === JSON.stringify(selection)) return;
+
+		this.#session.view = snapshotView({
+			...this.#session.view,
+			selections: { ...this.#session.view.selections, [this.#pageId]: selection },
+		});
+	}
+
+	#endOccurrence(collapse: boolean): void {
+		if (!this.#session.view.occurrence) return;
+
+		this.#history.closeGroup();
+
+		const view = this.#session.view;
+		const head = this.#view?.state.selection.main.head ?? view.selections[view.activePageId]?.ranges[0]?.head ?? 0;
+
+		this.#session.view = snapshotView({
+			...view,
+			occurrence: null,
+			selections: collapse
+				? {
+						...view.selections,
+						[view.activePageId]: {
+							ranges: [{ anchor: head, head }],
+							mainIndex: 0,
+							scrollTop: this.#view?.scrollDOM.scrollTop ?? 0,
+						},
+					}
+				: view.selections,
+		});
+
+		if (collapse) this.refresh();
+	}
+
+	#delete(direction: "backward" | "forward"): boolean {
+		if (this.#locked) return true;
+
+		this.finishComposition();
+
+		const group = `delete:${direction}:${[...participatingRanges(this.#document, this.#session.view)].map(([pageId, ranges]) => `${pageId}:${ranges.length}`).join(",")}`;
+
+		this.#history.commit({ ...prepareEdit({ type: "delete", direction }, this.#document, this.#session), group });
+		this.refresh();
+
+		return true;
+	}
+
+	#replay(direction: "undo" | "redo"): boolean {
+		if (!this.#locked) {
+			this.finishComposition();
+			this.#history[direction]();
+			this.refresh();
+		}
+
+		return true;
+	}
+
+	#clipboard(event: ClipboardEvent, cut: boolean): boolean {
+		if (!event.clipboardData || !this.#session.view.occurrence || (cut && this.#locked)) return false;
+
+		const targets = participatingRanges(this.#document, this.#session.view);
+		const text = this.#document.pages
+			.flatMap((page) =>
+				(targets.get(page.id) ?? []).map((range) =>
+					page.text.slice(Math.min(range.anchor, range.head), Math.max(range.anchor, range.head)),
+				),
+			)
+			.join("\n");
+
+		event.preventDefault();
+		event.clipboardData.setData("text/plain", text);
+
+		if (cut) this.apply({ type: "insert", text: "" });
+
+		return true;
+	}
+}

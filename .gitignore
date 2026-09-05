@@ -1,0 +1,11 @@
+node_modules/
+dist/
+out/
+build/
+coverage/
+.vite/
+.tools/
+.scratch/
+*.tsbuildinfo
+.eslintcache
+.stylelintcache

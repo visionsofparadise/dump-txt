@@ -1,0 +1,22 @@
+{
+	"minLines": 5,
+	"minTokens": 50,
+	"gitignore": true,
+	"absolute": true,
+	"threshold": 0,
+	"format": ["javascript", "typescript", "jsx", "tsx"],
+	"reporters": ["console"],
+	"ignore": [
+		"**/.*/**",
+		"**/*.md",
+		"**/*.test.ts",
+		"**/*.test.tsx",
+		"**/__fixtures__/**",
+		"**/types/*.d.ts",
+		"**/package.json",
+		"package-lock.json",
+		"pnpm-lock.yaml",
+		"yarn.lock",
+		"designs/**"
+	]
+}
