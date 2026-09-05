@@ -60,6 +60,7 @@
 		"@vitejs/plugin-react": "6.1.1",
 		"concurrently": "10.0.5",
 		"electron": "44.2.0",
+		"electron-winstaller": "5.4.4",
 		"eslint": "9.39.5",
 		"eslint-config-prettier": "10.1.8",
 		"eslint-formatter-unix": "9.0.1",
@@ -88,7 +89,7 @@
 		"vitest": "5.0.0"
 	},
 	"allowScripts": {
-		"electron-winstaller@5.4.4": true,
-		"unrs-resolver@1.12.2": true
+		"unrs-resolver@1.12.2": true,
+		"electron-winstaller": false
 	}
 }
