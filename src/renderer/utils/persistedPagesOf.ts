@@ -10,9 +10,11 @@ export function persistedPagesOf(
 	if (retained.length === 0) retained.push({ id: view.activePageId, text: "" });
 
 	const index = pages.findIndex((page) => page.id === view.activePageId);
-	const activePageId = retained.some((page) => page.id === view.activePageId)
-		? view.activePageId
-		: retained[Math.min(Math.max(index, 0), retained.length - 1)]!.id;
+	const fallback = retained[Math.min(Math.max(index, 0), retained.length - 1)];
+
+	if (!fallback) throw new Error("A saved dump requires at least one page.");
+
+	const activePageId = retained.some((page) => page.id === view.activePageId) ? view.activePageId : fallback.id;
 	const selections = Object.fromEntries(
 		retained.map((page) => [
 			page.id,

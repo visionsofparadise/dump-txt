@@ -1,6 +1,6 @@
 import { flush } from "opshot";
-import { snapshotView, type SessionState } from "./SessionState";
 import { freezePages, type DocumentState } from "./DocumentState";
+import { snapshotView, type SessionState } from "./SessionState";
 
 export type PageEntry = "restore" | "start" | "end";
 
@@ -28,6 +28,7 @@ export class PageNavigation {
 
 	show(pageId: string, entry: PageEntry = "restore"): void {
 		if (this.#locked || pageId === this.#session.view.activePageId) return;
+
 		if (!this.#document.pages.some((page) => page.id === pageId)) return;
 
 		for (const listener of this.#listeners) listener(entry);
@@ -61,6 +62,7 @@ export class PageNavigation {
 			if (!currentPage || (currentPage.temporary && currentPage.text === "")) return true;
 
 			const created = { id: crypto.randomUUID(), text: "", temporary: true as const };
+
 			this.#document.pages = freezePages(direction < 0 ? [created, ...settled] : [...settled, created]);
 			this.#activate(created.id);
 			flush(this.#document);
@@ -102,6 +104,7 @@ export class PageNavigation {
 		const selections = Object.fromEntries(
 			Object.entries(this.#session.view.selections).filter(([id]) => pages.some((page) => page.id === id)),
 		);
+
 		this.#document.pages = freezePages(pages);
 		this.#session.view = snapshotView({ ...this.#session.view, selections });
 		flush(this.#document);

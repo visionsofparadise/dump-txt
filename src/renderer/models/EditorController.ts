@@ -360,7 +360,7 @@ export class EditorController {
 			return;
 		}
 
-		if (event.ctrlKey || this.#locked || this.#composition) return;
+		if (this.#locked || this.#composition) return;
 
 		const wheelTicks =
 			"wheelDeltaY" in event && typeof event.wheelDeltaY === "number" && event.wheelDeltaY !== 0
@@ -405,7 +405,7 @@ export class EditorController {
 
 		event.preventDefault();
 
-		if (this.#wheelConsumed || this.#restoring) return;
+		if (this.#wheelConsumed) return;
 
 		this.#wheelDistance += Math.abs(delta);
 

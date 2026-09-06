@@ -165,7 +165,7 @@ try {
 				document.querySelectorAll(".page-snapshot").length === 0 &&
 				!document.querySelector(".page-current .page-editor-covered"),
 		);
-		await delay(180);
+		await delay(250);
 	};
 	const navigate = async (direction) => {
 		await chord(Key.Alt, direction > 0 ? Key.ArrowDown : Key.ArrowUp);
@@ -386,7 +386,7 @@ try {
 	const lineHeight = await evaluate(() =>
 		parseFloat(getComputedStyle(document.querySelector(".cm-content")).lineHeight),
 	);
-	report.syntheticWheel = await evaluate(() => {
+	report.syntheticWheel = await evaluate(async () => {
 		const event = new WheelEvent("wheel", { deltaY: 3, deltaMode: 1, bubbles: true, cancelable: true });
 		const constructorValues = {
 			deltaY: event.deltaY,
@@ -394,16 +394,35 @@ try {
 			wheelDeltaY: event.wheelDeltaY ?? null,
 		};
 		Object.defineProperty(event, "wheelDeltaY", { value: -120 });
-		document.querySelector(".page-current .cm-scroller").dispatchEvent(event);
-		return { constructorValues, suppliedWheelDeltaY: -120 };
+		const scroller = document.querySelector(".page-current .cm-scroller");
+		const startedAt = performance.now();
+		const frames = [{ elapsed: 0, top: scroller.scrollTop }];
+		scroller.dispatchEvent(event);
+		while (performance.now() - startedAt < 350) {
+			await new Promise(requestAnimationFrame);
+			frames.push({ elapsed: performance.now() - startedAt, top: scroller.scrollTop });
+		}
+		return { constructorValues, suppliedWheelDeltaY: -120, frames };
 	});
-	await delay(350);
 	check(
 		"one normalized notch moves three rendered lines",
 		await evaluate(() => document.querySelector(".page-current .cm-scroller").scrollTop),
 		lineHeight * 3,
 		2,
 		"Synthetic DOM notch with deltaMode=LINE, deltaY=3, wheelDeltaY=-120; physical notch remains pending",
+	);
+	if (!report.engine.reducedMotion)
+		check(
+			"normalized notch has intermediate smooth positions",
+			report.syntheticWheel.frames.some((frame) => frame.top > 1 && frame.top < lineHeight * 3 - 1),
+			true,
+			0,
+			"Synthetic DOM notch; requestAnimationFrame samples of actual scrollTop",
+		);
+	check(
+		"normalized notch advances monotonically",
+		report.syntheticWheel.frames.every((frame, index, frames) => index === 0 || frame.top >= frames[index - 1].top),
+		true,
 	);
 	await scroll(0);
 	const boundaryPage = await evaluate(() => {
@@ -691,6 +710,61 @@ try {
 	await chord(modifier, "z");
 	await settled();
 	check("temporary reversal fixture removed by undo", await count(), "1 / 3");
+	const rapid = await evaluate(async () => {
+		const observations = [];
+		for (const deltaY of [120, 120, -120]) {
+			const snapshotsBefore = document.querySelectorAll(".page-snapshot").length;
+			document
+				.querySelector(".page-current .cm-scroller")
+				.dispatchEvent(new WheelEvent("wheel", { deltaY, shiftKey: true, bubbles: true, cancelable: true }));
+			await new Promise(requestAnimationFrame);
+			observations.push({
+				page: document.querySelector(".page-count").textContent.trim().replace("Pages ", ""),
+				snapshotsBefore,
+			});
+		}
+		return observations;
+	});
+	report.rapidNavigation = rapid;
+	check("rapid Shift wheel follows every direction", rapid.map((item) => item.page).join(","), "2 / 3,3 / 3,2 / 3");
+	if (!report.engine.reducedMotion)
+		check(
+			"rapid Shift wheel supersedes an active slide",
+			rapid.slice(1).every((item) => item.snapshotsBefore > 0),
+			true,
+		);
+	await settled();
+	check("rapid Shift wheel settles on latest page", await count(), "2 / 3");
+	await navigate(-1);
+	await wheel(-120, { bar: true });
+	await settled();
+	check("scrolling above first page opens one temporary page", await count(), "1 / 4");
+	await wheel(-120, { shiftKey: true });
+	await settled();
+	check("empty temporary page cannot grow another page", await count(), "1 / 4");
+	await wheel(120, { bar: true });
+	await settled();
+	check("leaving empty temporary page restores original numbering", await count(), "1 / 3");
+	await navigate(1);
+	await navigate(1);
+	await wheel(120, { shiftKey: true });
+	await settled();
+	check("scrolling below last page opens one temporary page", await count(), "4 / 4");
+	await click(".page-current .cm-content");
+	await typeText("Retained temporary page");
+	await waitFor(() => document.querySelector(".page-current .cm-content").textContent === "Retained temporary page");
+	await navigate(-1);
+	check("typing retains temporary page after leaving", await count(), "3 / 4");
+	await navigate(1);
+	check(
+		"retained temporary page keeps typed text",
+		await evaluate(() => document.querySelector(".page-current .cm-content").textContent),
+		"Retained temporary page",
+	);
+	await chord(modifier, "z");
+	await settled();
+	await navigate(-1);
+	check("undoing temporary page text permits empty-page cleanup", await count(), "3 / 3");
 	report.events = await evaluate(() => window.tauriTestEvents);
 	report.selections = await evaluate(() => window.tauriTestSelections);
 	check("renderer errors", (await evaluate(() => window.tauriTestErrors)).join("\n"), "");
