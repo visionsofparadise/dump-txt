@@ -1,15 +1,38 @@
 import { Copy, Minus, Square, X } from "lucide-react";
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { scope } from "opshot";
+import { useCallback, useEffect, useState, type PointerEvent, type ReactNode } from "react";
+import { cn } from "../utils/cn";
 import type { AppContext } from "../models/AppContext";
+import type { ChromeState } from "../models/ChromeState";
 
 interface TitleBarProps {
 	readonly children?: ReactNode;
+	readonly chrome?: ChromeState;
+	readonly onDismissMenu?: () => void;
 	readonly context: AppContext;
 }
 
-export function TitleBar({ children, context }: TitleBarProps) {
-	const { main, events, persistence } = context;
+export const TitleBar = scope(({ children, chrome, onDismissMenu, context }: TitleBarProps) => {
+	const { main, events, persistence, persistenceState } = context;
 	const [maximized, setMaximized] = useState(false);
+	const filename = persistenceState.path?.split(/[\\/]/u).at(-1) ?? "dump.txt";
+	const menuOpen = chrome?.menuOpen ?? false;
+	const dismissMenu = useCallback(
+		(event: PointerEvent<HTMLElement>) => {
+			if (
+				event.target instanceof Node &&
+				event.currentTarget.contains(event.target) &&
+				!(event.target instanceof Element && event.target.closest(".title-menu"))
+			)
+				onDismissMenu?.();
+		},
+		[onDismissMenu],
+	);
+
+	useEffect(() => {
+		document.title = filename;
+		void main.setTitle(filename).catch((error: unknown) => console.error(error));
+	}, [filename, main]);
 
 	useEffect(() => {
 		events.on("maximizedChanged", setMaximized);
@@ -30,12 +53,18 @@ export function TitleBar({ children, context }: TitleBarProps) {
 	}, [persistence]);
 
 	return (
-		<header className="title-bar" aria-label="Window controls">
+		<header
+			className={cn("title-bar", menuOpen && "title-bar-menu-open")}
+			aria-label="Window controls"
+			onPointerDown={menuOpen ? dismissMenu : undefined}
+		>
 			<div className="title-menu">{children}</div>
-			<span className="app-name">dump.txt</span>
+			<span className="app-name" title={filename}>
+				{filename}
+			</span>
 			<div className="window-controls">
 				<button className="chrome-button" aria-label="Minimize" title="Minimize" onClick={minimize}>
-					<Minus size={12} aria-hidden />
+					<Minus size={14} aria-hidden />
 				</button>
 				<button
 					className="chrome-button"
@@ -43,7 +72,7 @@ export function TitleBar({ children, context }: TitleBarProps) {
 					title={maximized ? "Restore window" : "Maximize"}
 					onClick={toggleMaximize}
 				>
-					{maximized ? <Copy size={11} aria-hidden /> : <Square size={11} aria-hidden />}
+					{maximized ? <Copy size={13} aria-hidden /> : <Square size={13} aria-hidden />}
 				</button>
 				<button
 					className="chrome-button window-close"
@@ -51,9 +80,9 @@ export function TitleBar({ children, context }: TitleBarProps) {
 					title="Close window (Ctrl+W)"
 					onClick={close}
 				>
-					<X size={12} aria-hidden />
+					<X size={14} aria-hidden />
 				</button>
 			</div>
 		</header>
 	);
-}
+});

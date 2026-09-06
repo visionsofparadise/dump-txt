@@ -5,6 +5,7 @@ import { ReadFileRendererIpc } from "../../shared/ipc/FileSystem/readFile/Render
 import { WriteFileRendererIpc } from "../../shared/ipc/FileSystem/writeFile/Renderer";
 import { FinishCloseRendererIpc } from "../../shared/ipc/Window/finishClose/Renderer";
 import { MinimizeRendererIpc } from "../../shared/ipc/Window/minimize/Renderer";
+import { SetTitleRendererIpc } from "../../shared/ipc/Window/setTitle/Renderer";
 import { ToggleMaximizeRendererIpc } from "../../shared/ipc/Window/toggleMaximize/Renderer";
 import type { BridgeCapabilities, MainCapabilities } from "../../shared/ipc/asyncRendererIpcs";
 import type { MainEventMap } from "../../shared/utils/emitToRenderer";
@@ -30,6 +31,7 @@ export function createMain(bridge: MainBridge): Main {
 		readFile: new ReadFileRendererIpc().connect(bridge.readFile),
 		writeFile: new WriteFileRendererIpc().connect(bridge.writeFile),
 		finishClose: new FinishCloseRendererIpc().connect(bridge.finishClose),
+		setTitle: new SetTitleRendererIpc().connect(bridge.setTitle),
 		minimize: new MinimizeRendererIpc().connect(bridge.minimize),
 		toggleMaximize: new ToggleMaximizeRendererIpc().connect(bridge.toggleMaximize),
 		events: bridge.events,

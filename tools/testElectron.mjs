@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
+import { createHash } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import { createServer } from "node:net";
 import path from "node:path";
@@ -26,7 +27,23 @@ const pages = [
 	).join("\n") + "\nalpha",
 	"",
 ];
-await writeFile(path.join(folder, "dump.txt"), pages.join("\n\f\n"));
+const fixturePath = path.join(folder, "session-notes.txt");
+const fixtureText = pages.join("\n\f\n");
+await writeFile(fixturePath, fixtureText);
+await writeFile(
+	path.join(folder, "app-state.json"),
+	JSON.stringify({
+		version: 1,
+		activePath: fixturePath,
+		appearance: { theme: "system", font: "Consolas", textSize: 11 },
+		findPreferences: { matchCase: false, allPages: false },
+		occurrencePreferences: { matchCase: false, allPages: false },
+		windowBounds: null,
+		savedContentHash: createHash("sha256").update(fixtureText).digest("hex"),
+		activePageIndex: 0,
+		selections: pages.map(() => ({ ranges: [{ anchor: 0, head: 0 }], mainIndex: 0, scrollTop: 0 })),
+	}),
+);
 const server = createServer();
 await new Promise((resolve, reject) => {
 	server.once("error", reject);
@@ -43,7 +60,7 @@ const child = spawn(
 		"--disable-background-timer-throttling",
 		`--user-data-dir=${folder}`,
 	],
-	{ windowsHide: true, stdio: ["ignore", "pipe", "pipe"] },
+	{ windowsHide: !process.argv.includes("--interactive"), stdio: ["ignore", "pipe", "pipe"] },
 );
 let output = "";
 child.stdout.on("data", (data) => {
@@ -126,6 +143,16 @@ try {
 		await send("Input.dispatchKeyEvent", { type: "keyDown", key, code, modifiers });
 		await send("Input.dispatchKeyEvent", { type: "keyUp", key, code, modifiers });
 	};
+	const clickAt = async (point) => {
+		await send("Input.dispatchMouseEvent", { type: "mousePressed", ...point, button: "left", clickCount: 1 });
+		await send("Input.dispatchMouseEvent", { type: "mouseReleased", ...point, button: "left", clickCount: 1 });
+	};
+	const click = async (label) => {
+		const point = await evaluate(
+			`(()=>{const element=[...document.querySelectorAll('button')].find(button=>button.getAttribute('aria-label')===${JSON.stringify(label)});if(!element)throw new Error('Missing button');const rect=element.getBoundingClientRect();return {x:rect.left+rect.width/2,y:rect.top+rect.height/2};})()`,
+		);
+		await clickAt(point);
+	};
 	const check = (name, actual, expected, tolerance = 0) => {
 		observations.push({ name, actual, expected });
 		if (
@@ -176,6 +203,55 @@ try {
 		"!!document.querySelector('.cm-content') && document.querySelector('.page-count')?.textContent.includes('1 / 4')",
 	);
 	await delay(250);
+	if (!baseline) {
+		check(
+			"title follows current filename",
+			await evaluate("document.querySelector('.app-name').textContent"),
+			"session-notes.txt",
+		);
+		check(
+			"all bars are40px",
+			await evaluate(
+				"[...document.querySelectorAll('.title-bar,.page-bar')].every(bar=>bar.getBoundingClientRect().height===40)",
+			),
+			true,
+		);
+		check(
+			"filename and page count use Arial",
+			await evaluate(
+				"['.app-name','.page-count'].every(selector=>getComputedStyle(document.querySelector(selector)).fontFamily.includes('Arial'))",
+			),
+			true,
+		);
+		check(
+			"plus remains in top left slot",
+			await evaluate("!!document.querySelector('.page-bar-leading [aria-label=\"Insert page above\"]')"),
+			true,
+		);
+		check(
+			"previous arrow hidden on first page",
+			await evaluate("getComputedStyle(document.querySelector('.page-bar .page-nav-main')).visibility"),
+			"hidden",
+		);
+		const scrollbar = await evaluate(
+			"(()=>{const scroller=document.querySelector('.page-current .cm-scroller');const bar=getComputedStyle(document.querySelector('.page-bar')).backgroundColor;return {matches:getComputedStyle(scroller,'::-webkit-scrollbar-track').backgroundColor===bar||getComputedStyle(scroller).scrollbarColor.includes(bar),arrows:getComputedStyle(scroller,'::-webkit-scrollbar-button').display};})()",
+		);
+		check("scroll track matches page bars", scrollbar.matches, true);
+		check("scrollbar arrows removed", scrollbar.arrows, "none");
+		await click("App menu");
+		await waitFor("!!document.querySelector('.menu-content')");
+		const menu = await evaluate(
+			"(()=>{const element=document.querySelector('.menu-content');return {left:element.getBoundingClientRect().left,radius:getComputedStyle(element).borderRadius,text:element.textContent};})()",
+		);
+		check("app menu meets left window edge", menu.left, 0, 1);
+		check("app menu is square", menu.radius, "0px");
+		check("app menu has Close", menu.text.includes("Close"), true);
+		check("app menu omits Delete page", menu.text.includes("Delete page"), false);
+		await screenshot("app-menu");
+		await clickAt({ x: 300, y: 20 });
+		await waitFor("!document.querySelector('.menu-content')");
+		check("title click closes menu", await evaluate("!!document.querySelector('.menu-content')"), false);
+	}
 	await screenshot("initial");
 	const remembered = await scroll(1700);
 	await evaluate(
@@ -414,10 +490,26 @@ try {
 			await evaluate("document.querySelectorAll('.page-current .cm-occurrence-preview').length"),
 			0,
 		);
+		await navigate(1);
+		check(
+			"last page plus remains in left slot",
+			await evaluate(
+				"!!document.querySelector('.page-bar-bottom .page-bar-leading [aria-label=\"Insert page below\"]')",
+			),
+			true,
+		);
+		check(
+			"next arrow hidden on last page",
+			await evaluate("getComputedStyle(document.querySelector('.page-bar-bottom .page-nav-main')).visibility"),
+			"hidden",
+		);
 	}
 	await screenshot("final");
 	check("renderer exceptions", errors.length, 0);
-	await evaluate("setTimeout(()=>window.close(),0)");
+	if (process.argv.includes("--interactive")) {
+		console.log(`Native verification ready: ${folder}`);
+		await new Promise((resolve) => child.once("exit", resolve));
+	} else await evaluate("setTimeout(()=>window.close(),0)");
 	for (let attempt = 0; attempt < 100 && child.exitCode === null; attempt++) await delay(50);
 	check("normal close", child.exitCode, 0);
 } finally {

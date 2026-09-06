@@ -10,6 +10,7 @@
 	--color-border: light-dark(#dcdcdc, #404040);
 	--color-hover: light-dark(#e8e8e8, #383838);
 	--color-focus: light-dark(#505050, #bababa);
+	--spacing-bar: 40px;
 	--font-interface: "Segoe UI", sans-serif;
 }
 
@@ -52,7 +53,7 @@ input:focus-visible {
 .dump-app {
 	display: grid;
 	height: 100%;
-	grid-template-rows: 32px 32px minmax(0, 1fr) 32px;
+	grid-template-rows: var(--spacing-bar) var(--spacing-bar) minmax(0, 1fr) var(--spacing-bar);
 	background: var(--color-surface);
 	overflow: hidden;
 }
@@ -68,29 +69,37 @@ input:focus-visible {
 }
 .title-bar {
 	display: grid;
-	grid-template-columns: 1fr auto 1fr;
+	grid-template-columns: minmax(138px, 1fr) minmax(0, auto) minmax(138px, 1fr);
 	align-items: center;
-	height: 32px;
+	height: var(--spacing-bar);
 	user-select: none;
 	background: var(--color-chrome);
 	-webkit-app-region: drag;
 }
 .title-menu,
 .window-controls {
-	height: 32px;
+	height: var(--spacing-bar);
 	display: flex;
 }
 .window-controls {
 	justify-content: flex-end;
 }
+.title-bar-menu-open {
+	-webkit-app-region: no-drag;
+}
 .app-name {
+	font-family: Arial, sans-serif;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 	font-size: 12px;
 	letter-spacing: 0.14em;
 	color: light-dark(#9a9a9a, #6a6a6a);
 }
 .chrome-button {
 	width: 46px;
-	height: 32px;
+	height: var(--spacing-bar);
 	padding: 0;
 	border: 0;
 	display: grid;
@@ -110,7 +119,7 @@ input:focus-visible {
 	color: #fff;
 }
 .page-bar {
-	height: 32px;
+	height: var(--spacing-bar);
 	display: grid;
 	grid-template-columns: 46px minmax(0, 1fr) 46px;
 	position: relative;
@@ -139,11 +148,15 @@ input:focus-visible {
 	background: light-dark(#e8e8e8, #2a2a2a);
 	color: var(--color-ink);
 }
+.page-nav-hidden {
+	visibility: hidden;
+}
 .page-count {
+	font-family: Arial, sans-serif;
 	position: absolute;
 	left: 58px;
 	top: 0;
-	height: 32px;
+	height: var(--spacing-bar);
 	display: flex;
 	align-items: center;
 	font-size: 11px;
@@ -232,12 +245,12 @@ input:focus-visible {
 .menu-content {
 	z-index: 20;
 	width: 264px;
-	max-width: calc(100vw - 12px);
+	max-width: 100vw;
 	max-height: var(--radix-dropdown-menu-content-available-height);
 	overflow-y: auto;
 	padding: 4px 0;
 	border: 1px solid var(--color-border);
-	border-radius: 0 0 6px 6px;
+	border-radius: 0;
 	background: var(--color-panel);
 	color: var(--color-ink);
 	box-shadow: 0 8px 24px #0003;
@@ -248,7 +261,7 @@ input:focus-visible {
 	width: max-content;
 	min-width: 160px;
 	max-height: min(280px, var(--radix-dropdown-menu-content-available-height));
-	border-radius: 4px;
+	border-radius: 0;
 }
 .menu-item {
 	display: flex;
@@ -411,4 +424,23 @@ input:focus-visible {
 	.menu-content {
 		animation: none;
 	}
+}
+
+.page-editor .cm-scroller::-webkit-scrollbar {
+	width: 12px;
+	height: 12px;
+}
+.page-editor .cm-scroller::-webkit-scrollbar-track,
+.page-editor .cm-scroller::-webkit-scrollbar-corner {
+	background: var(--color-bar);
+}
+.page-editor .cm-scroller::-webkit-scrollbar-thumb {
+	background: light-dark(#b8b8b8, #686868);
+	border: 3px solid var(--color-bar);
+	border-radius: 6px;
+}
+.page-editor .cm-scroller::-webkit-scrollbar-button {
+	display: none;
+	width: 0;
+	height: 0;
 }

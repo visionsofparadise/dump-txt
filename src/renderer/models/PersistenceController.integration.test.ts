@@ -75,6 +75,7 @@ async function fixture(initial?: string) {
 		},
 		showOpenDialog: async () => openChoice,
 		showSaveDialog: async () => saveChoice,
+		setTitle: async () => undefined,
 		minimize: async () => undefined,
 		toggleMaximize: async () => undefined,
 		finishClose: async () => {

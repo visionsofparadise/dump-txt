@@ -1,34 +1,31 @@
-import { CaseSensitive, FolderOpen, Menu, Paintbrush, Redo2, Save, Search, Trash2, Type, Undo2 } from "lucide-react";
+import { FolderOpen, Menu, Redo2, Save, Search, X, Undo2 } from "lucide-react";
 import { scope } from "opshot";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback } from "react";
+import { AppearanceMenu } from "./AppearanceMenu";
+import { FontMenu } from "./FontMenu";
+import { TextSizeMenu } from "./TextSizeMenu";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuItem,
-	DropdownMenuRadioGroup,
-	DropdownMenuRadioItem,
 	DropdownMenuSeparator,
-	DropdownMenuSub,
-	DropdownMenuSubContent,
-	DropdownMenuSubTrigger,
 	DropdownMenuTrigger,
 } from "./UI/DropdownMenu";
-import type { DumpContext } from "../models/DumpContext";
+import type { ChromeContext } from "../models/ChromeContext";
 
 interface AppMenuProps {
-	readonly context: DumpContext;
+	readonly context: ChromeContext;
 }
 
 export const AppMenu = scope(({ context }: AppMenuProps) => {
-	const { session, editor, history, persistence, persistenceState } = context;
-	const [open, setOpen] = useState(false);
+	const { session, editor, history, persistence, persistenceState, chrome } = context;
 	const menuChanged = useCallback(
 		(value: boolean) => {
 			editor.finishComposition();
 			history.closeGroup();
-			setOpen(value);
+			chrome.menuOpen = value;
 		},
-		[editor, history],
+		[chrome, editor, history],
 	);
 	const openFile = useCallback(() => {
 		if (persistence.state.locked) return;
@@ -55,42 +52,9 @@ export const AppMenu = scope(({ context }: AppMenuProps) => {
 	const find = useCallback(() => {
 		if (!persistence.state.locked) editor.openFind();
 	}, [editor, persistence]);
-	const remove = useCallback(() => {
-		if (!persistence.state.locked) editor.apply({ type: "deletePage" });
-	}, [editor, persistence]);
-	const fontChanged = useCallback(
-		(font: string) => {
-			if (persistence.state.locked) return;
-
-			history.closeGroup();
-			session.appearance = { ...session.appearance, font };
-		},
-		[history, persistence, session],
-	);
-	const sizeChanged = useCallback(
-		(size: string) => {
-			if (persistence.state.locked) return;
-
-			const textSize = Number(size);
-
-			if (textSize >= 8 && textSize <= 24) {
-				history.closeGroup();
-				session.appearance = { ...session.appearance, textSize };
-			}
-		},
-		[history, persistence, session],
-	);
-	const themeChanged = useCallback(
-		(theme: string) => {
-			if (persistence.state.locked) return;
-
-			if (theme === "system" || theme === "light" || theme === "dark") {
-				history.closeGroup();
-				session.appearance = { ...session.appearance, theme };
-			}
-		},
-		[history, persistence, session],
-	);
+	const close = useCallback(() => {
+		void persistence.close().catch(() => undefined);
+	}, [persistence]);
 	const restoreFocus = useCallback(
 		(event: Event) => {
 			event.preventDefault();
@@ -101,7 +65,7 @@ export const AppMenu = scope(({ context }: AppMenuProps) => {
 	);
 
 	return (
-		<DropdownMenu open={open} onOpenChange={menuChanged}>
+		<DropdownMenu modal={false} open={chrome.menuOpen} onOpenChange={menuChanged}>
 			<DropdownMenuTrigger asChild>
 				<button
 					className="chrome-button menu-trigger"
@@ -109,127 +73,47 @@ export const AppMenu = scope(({ context }: AppMenuProps) => {
 					title="App menu"
 					disabled={persistenceState.locked}
 				>
-					<Menu size={14} aria-hidden />
+					<Menu size={16} aria-hidden />
 				</button>
 			</DropdownMenuTrigger>
 			<DropdownMenuContent align="start" onCloseAutoFocus={restoreFocus}>
 				<DropdownMenuItem onSelect={openFile} disabled={persistenceState.locked}>
-					<FolderOpen size={14} aria-hidden />
+					<FolderOpen size={16} aria-hidden />
 					<span>Open…</span>
 					<span className="menu-shortcut">Ctrl+O</span>
 				</DropdownMenuItem>
 				<DropdownMenuItem onSelect={saveAs} disabled={persistenceState.locked}>
-					<Save size={14} aria-hidden />
+					<Save size={16} aria-hidden />
 					<span>Save As…</span>
 					<span className="menu-shortcut">Ctrl+Shift+S</span>
 				</DropdownMenuItem>
 				<DropdownMenuSeparator />
 				<DropdownMenuItem onSelect={undo} disabled={!session.canUndo || persistenceState.locked}>
-					<Undo2 size={14} aria-hidden />
+					<Undo2 size={16} aria-hidden />
 					<span>Undo</span>
 					<span className="menu-shortcut">Ctrl+Z</span>
 				</DropdownMenuItem>
 				<DropdownMenuItem onSelect={redo} disabled={!session.canRedo || persistenceState.locked}>
-					<Redo2 size={14} aria-hidden />
+					<Redo2 size={16} aria-hidden />
 					<span>Redo</span>
 					<span className="menu-shortcut">Ctrl+Y</span>
 				</DropdownMenuItem>
 				<DropdownMenuItem onSelect={find} disabled={persistenceState.locked}>
-					<Search size={14} aria-hidden />
+					<Search size={16} aria-hidden />
 					<span>Find and replace</span>
 					<span className="menu-shortcut">Ctrl+F</span>
 				</DropdownMenuItem>
 				<DropdownMenuSeparator />
-				<DropdownMenuSub>
-					<DropdownMenuSubTrigger disabled={persistenceState.locked}>
-						<Type size={14} aria-hidden />
-						<span>Text size</span>
-						<span className="menu-value">{session.appearance.textSize} pt</span>
-					</DropdownMenuSubTrigger>
-					<DropdownMenuSubContent>
-						<DropdownMenuRadioGroup value={String(session.appearance.textSize)} onValueChange={sizeChanged}>
-							{Array.from({ length: 17 }, (_value, index) => index + 8).map((size) => (
-								<DropdownMenuRadioItem key={size} value={String(size)} disabled={persistenceState.locked}>
-									{size} pt
-								</DropdownMenuRadioItem>
-							))}
-						</DropdownMenuRadioGroup>
-					</DropdownMenuSubContent>
-				</DropdownMenuSub>
-				<DropdownMenuSub>
-					<DropdownMenuSubTrigger disabled={persistenceState.locked}>
-						<CaseSensitive size={14} aria-hidden />
-						<span>Font</span>
-						<span className="menu-value">{session.appearance.font}</span>
-					</DropdownMenuSubTrigger>
-					<DropdownMenuSubContent>
-						<DropdownMenuRadioGroup value={session.appearance.font} onValueChange={fontChanged}>
-							{[
-								"Consolas",
-								"Cascadia Mono",
-								"Segoe UI",
-								"Calibri",
-								"Arial",
-								"Verdana",
-								"Tahoma",
-								"Georgia",
-								"Cambria",
-								"Times New Roman",
-								"Courier New",
-							].map((font) => (
-								<FontMenuItem key={font} font={font} disabled={persistenceState.locked} />
-							))}
-						</DropdownMenuRadioGroup>
-					</DropdownMenuSubContent>
-				</DropdownMenuSub>
-				<DropdownMenuSub>
-					<DropdownMenuSubTrigger disabled={persistenceState.locked}>
-						<Paintbrush size={14} aria-hidden />
-						<span>Appearance</span>
-						<span className="menu-value">
-							{session.appearance.theme === "system"
-								? "System"
-								: session.appearance.theme === "light"
-									? "Light"
-									: "Dark"}
-						</span>
-					</DropdownMenuSubTrigger>
-					<DropdownMenuSubContent>
-						<DropdownMenuRadioGroup value={session.appearance.theme} onValueChange={themeChanged}>
-							<DropdownMenuRadioItem value="system" disabled={persistenceState.locked}>
-								System
-							</DropdownMenuRadioItem>
-							<DropdownMenuRadioItem value="light" disabled={persistenceState.locked}>
-								Light
-							</DropdownMenuRadioItem>
-							<DropdownMenuRadioItem value="dark" disabled={persistenceState.locked}>
-								Dark
-							</DropdownMenuRadioItem>
-						</DropdownMenuRadioGroup>
-					</DropdownMenuSubContent>
-				</DropdownMenuSub>
+				<TextSizeMenu context={context} />
+				<FontMenu context={context} />
+				<AppearanceMenu context={context} />
 				<DropdownMenuSeparator />
-				<DropdownMenuItem onSelect={remove} disabled={persistenceState.locked}>
-					<Trash2 size={14} aria-hidden />
-					<span>Delete page</span>
-					<span className="menu-shortcut">Ctrl+Shift+Delete</span>
+				<DropdownMenuItem onSelect={close} disabled={persistenceState.locked}>
+					<X size={16} aria-hidden />
+					<span>Close</span>
+					<span className="menu-shortcut">Ctrl+W</span>
 				</DropdownMenuItem>
 			</DropdownMenuContent>
 		</DropdownMenu>
 	);
 });
-
-interface FontMenuItemProps {
-	readonly font: string;
-	readonly disabled: boolean;
-}
-
-function FontMenuItem({ font, disabled }: FontMenuItemProps) {
-	const style = useMemo(() => ({ fontFamily: font }), [font]);
-
-	return (
-		<DropdownMenuRadioItem value={font} disabled={disabled}>
-			<span style={style}>{font}</span>
-		</DropdownMenuRadioItem>
-	);
-}

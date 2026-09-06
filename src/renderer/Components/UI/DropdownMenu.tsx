@@ -36,7 +36,7 @@ interface DropdownMenuContentProps extends ComponentProps<typeof Content> {}
 export function DropdownMenuContent({
 	className,
 	sideOffset = 0,
-	collisionPadding = 6,
+	collisionPadding = 0,
 	...props
 }: DropdownMenuContentProps) {
 	return (
@@ -85,7 +85,7 @@ interface DropdownMenuSubContentProps extends ComponentProps<typeof SubContent> 
 export function DropdownMenuSubContent({ className, ...props }: DropdownMenuSubContentProps) {
 	return (
 		<Portal>
-			<SubContent className={cn("menu-content menu-subcontent", className)} collisionPadding={6} {...props} />
+			<SubContent className={cn("menu-content menu-subcontent", className)} collisionPadding={0} {...props} />
 		</Portal>
 	);
 }

@@ -5,6 +5,7 @@ import { ReadFileRendererIpc } from "./FileSystem/readFile/Renderer";
 import { WriteFileRendererIpc } from "./FileSystem/writeFile/Renderer";
 import { FinishCloseRendererIpc } from "./Window/finishClose/Renderer";
 import { MinimizeRendererIpc } from "./Window/minimize/Renderer";
+import { SetTitleRendererIpc } from "./Window/setTitle/Renderer";
 import { ToggleMaximizeRendererIpc } from "./Window/toggleMaximize/Renderer";
 
 export const ASYNC_RENDERER_IPCS = [
@@ -15,6 +16,7 @@ export const ASYNC_RENDERER_IPCS = [
 	WriteFileRendererIpc,
 	FinishCloseRendererIpc,
 	MinimizeRendererIpc,
+	SetTitleRendererIpc,
 	ToggleMaximizeRendererIpc,
 ];
 

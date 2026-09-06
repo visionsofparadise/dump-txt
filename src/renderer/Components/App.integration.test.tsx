@@ -32,6 +32,7 @@ async function fixture(text = "first\n\f\nsecond\n\f\nthird") {
 		},
 		showOpenDialog: vi.fn(async () => null),
 		showSaveDialog: vi.fn(async () => null),
+		setTitle: vi.fn(async () => undefined),
 		minimize: vi.fn(async () => undefined),
 		toggleMaximize: vi.fn(async () => undefined),
 		finishClose: async () => {
@@ -78,8 +79,12 @@ afterEach(() => {
 });
 
 describe("scratchpad interface", () => {
-	it("substitutes insertion at ends and keeps middle-page controls reachable", async () => {
+	it("keeps insertion slots fixed and hides boundary navigation", async () => {
 		const { user } = await fixture();
+		const above = screen.getByRole("button", { name: "Insert page above" });
+		const below = screen.getByRole("button", { name: "Insert page below" });
+		expect(above.parentElement?.className).toBe("page-bar-leading");
+		expect(below.parentElement?.className).toBe("page-bar-leading");
 		expect(screen.getByRole("button", { name: "First page" }).hasAttribute("disabled")).toBe(true);
 		expect(screen.queryByRole("button", { name: "Previous page" })).toBeNull();
 		expect(screen.getAllByRole("button", { name: "Insert page above" })).toHaveLength(1);
@@ -91,6 +96,42 @@ describe("scratchpad interface", () => {
 		await user.click(screen.getByRole("button", { name: "Last page" }));
 		expect(screen.getByRole("button", { name: "Last page" }).hasAttribute("disabled")).toBe(true);
 		expect(screen.queryByRole("button", { name: "Next page" })).toBeNull();
+		expect(screen.getByRole("button", { name: "Insert page above" })).toBe(above);
+		expect(screen.getByRole("button", { name: "Insert page below" })).toBe(below);
+	});
+
+	it("dismisses the app menu from the title and closes through autosave", async () => {
+		const { user, insert, files, closed, container } = await fixture("");
+		await insert("saved from menu");
+		await user.click(screen.getByRole("button", { name: "App menu" }));
+		expect(await screen.findByRole("menuitem", { name: /^Close/u })).toBeTruthy();
+		expect(screen.queryByRole("menuitem", { name: /Delete page/u })).toBeNull();
+		expect(container.querySelector(".title-bar-menu-open")).not.toBeNull();
+		fireEvent.pointerDown(container.querySelector(".app-name")!);
+		await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
+		expect(container.querySelector(".title-bar-menu-open")).toBeNull();
+		await user.click(screen.getByRole("button", { name: "App menu" }));
+		await user.click(await screen.findByRole("menuitem", { name: /^Close/u }));
+		await waitFor(() => expect(closed).toHaveBeenCalledOnce());
+		expect(new TextDecoder().decode(files.get("/app/dump.txt"))).toBe("saved from menu");
+	});
+
+	it("follows successful filenames while cancelled Save As retains the title", async () => {
+		const { container, editor, files } = await fixture("original");
+		await waitFor(() => expect(main.setTitle).toHaveBeenLastCalledWith("dump.txt"));
+		press("s", { ctrlKey: true, shiftKey: true });
+		await waitFor(() => expect(main.showSaveDialog).toHaveBeenCalledOnce());
+		expect(container.querySelector(".app-name")?.textContent).toBe("dump.txt");
+		main.showSaveDialog = async () => ({ path: "C:/notes/renamed.txt", hash: null });
+		press("s", { ctrlKey: true, shiftKey: true });
+		await waitFor(() => expect(main.setTitle).toHaveBeenLastCalledWith("renamed.txt"));
+		expect(container.querySelector(".app-name")?.textContent).toBe("renamed.txt");
+		files.set("C:/notes/opened.txt", new TextEncoder().encode("replacement"));
+		main.showOpenDialog = async () => ({ path: "C:/notes/opened.txt", hash: null });
+		press("o", { ctrlKey: true });
+		await waitFor(() => expect(editor().state.doc.toString()).toBe("replacement"));
+		expect(container.querySelector(".app-name")?.textContent).toBe("opened.txt");
+		await waitFor(() => expect(main.setTitle).toHaveBeenLastCalledWith("opened.txt"));
 	});
 
 	it("keeps one blank page after deletion and restores text with global undo", async () => {
@@ -201,5 +242,29 @@ describe("scratchpad interface", () => {
 			const settings = JSON.parse(new TextDecoder().decode(files.get("/app/app-state.json"))) as AppState;
 			expect(settings.appearance.theme).toBe("dark");
 		});
+	});
+
+	it("updates font and text size through the extracted submenus", async () => {
+		const { user, container } = await fixture();
+		await user.click(screen.getByRole("button", { name: "App menu" }));
+		await user.click(await screen.findByRole("menuitem", { name: /Font/u }));
+		const font = await screen.findByRole("menuitemradio", { name: "Arial" });
+		font.focus();
+		await user.keyboard("{Enter}");
+		await waitFor(() =>
+			expect(container.querySelector<HTMLElement>(".dump-app")?.style.getPropertyValue("--editor-font")).toBe(
+				'"Arial", sans-serif',
+			),
+		);
+		await user.click(screen.getByRole("button", { name: "App menu" }));
+		await user.click(await screen.findByRole("menuitem", { name: /Text size/u }));
+		const size = await screen.findByRole("menuitemradio", { name: "14 pt" });
+		size.focus();
+		await user.keyboard("{Enter}");
+		await waitFor(() =>
+			expect(container.querySelector<HTMLElement>(".dump-app")?.style.getPropertyValue("--editor-size")).toBe(
+				"14pt",
+			),
+		);
 	});
 });

@@ -5,6 +5,7 @@ import { ReadFileMainIpc } from "./FileSystem/readFile/Main";
 import { WriteFileMainIpc } from "./FileSystem/writeFile/Main";
 import { FinishCloseMainIpc } from "./Window/finishClose/Main";
 import { MinimizeMainIpc } from "./Window/minimize/Main";
+import { SetTitleMainIpc } from "./Window/setTitle/Main";
 import { ToggleMaximizeMainIpc } from "./Window/toggleMaximize/Main";
 
 export const ASYNC_MAIN_IPCS = [
@@ -15,5 +16,6 @@ export const ASYNC_MAIN_IPCS = [
 	WriteFileMainIpc,
 	FinishCloseMainIpc,
 	MinimizeMainIpc,
+	SetTitleMainIpc,
 	ToggleMaximizeMainIpc,
 ];

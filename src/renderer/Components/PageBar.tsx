@@ -33,8 +33,7 @@ export const PageBar = scope(({ position, context }: PageBarProps) => {
 		const page = document.pages[index + (top ? -1 : 1)];
 
 		if (page) editor.showPage(page.id);
-		else insert();
-	}, [document, editor, index, insert, top]);
+	}, [document, editor, index, top]);
 	const boundary = useCallback(() => {
 		const page = top ? document.pages[0] : document.pages.at(-1);
 
@@ -45,7 +44,7 @@ export const PageBar = scope(({ position, context }: PageBarProps) => {
 		editor.focus();
 	}, [editor]);
 	const insertionLabel = top ? "Insert page above" : "Insert page below";
-	const navigationLabel = atEnd ? insertionLabel : top ? "Previous page" : "Next page";
+	const navigationLabel = top ? "Previous page" : "Next page";
 	const shortcut = top ? "Alt+Up" : "Alt+Down";
 
 	return (
@@ -55,32 +54,26 @@ export const PageBar = scope(({ position, context }: PageBarProps) => {
 			aria-label={top ? "Previous page controls" : "Next page controls"}
 		>
 			<div className="page-bar-leading">
-				{!atEnd && (
-					<button
-						className="chrome-button"
-						title={`${insertionLabel} (${top ? "Ctrl+Alt+Enter" : "Ctrl+Shift+Enter"})`}
-						aria-label={insertionLabel}
-						disabled={persistenceState.locked}
-						onClick={insert}
-					>
-						<Plus size={14} aria-hidden />
-					</button>
-				)}
+				<button
+					className="chrome-button"
+					title={`${insertionLabel} (${top ? "Ctrl+Alt+Enter" : "Ctrl+Shift+Enter"})`}
+					aria-label={insertionLabel}
+					disabled={persistenceState.locked}
+					onClick={insert}
+				>
+					<Plus size={16} aria-hidden />
+				</button>
 			</div>
 			<button
-				className="page-nav-main"
+				className={cn("page-nav-main", atEnd && "page-nav-hidden")}
 				aria-label={navigationLabel}
-				title={`${navigationLabel} (${atEnd ? (top ? "Ctrl+Alt+Enter" : "Ctrl+Shift+Enter") : shortcut})`}
-				disabled={persistenceState.locked}
+				title={`${navigationLabel} (${shortcut})`}
+				aria-hidden={atEnd}
+				tabIndex={atEnd ? -1 : undefined}
+				disabled={atEnd || persistenceState.locked}
 				onClick={navigate}
 			>
-				{atEnd ? (
-					<Plus size={14} aria-hidden />
-				) : top ? (
-					<ChevronUp size={14} aria-hidden />
-				) : (
-					<ChevronDown size={14} aria-hidden />
-				)}
+				{top ? <ChevronUp size={16} aria-hidden /> : <ChevronDown size={16} aria-hidden />}
 			</button>
 			<div className="page-bar-trailing">
 				{!top && (
@@ -91,7 +84,7 @@ export const PageBar = scope(({ position, context }: PageBarProps) => {
 						disabled={persistenceState.locked}
 						onClick={remove}
 					>
-						<Trash2 size={13} aria-hidden />
+						<Trash2 size={15} aria-hidden />
 					</button>
 				)}
 				<button
@@ -101,7 +94,7 @@ export const PageBar = scope(({ position, context }: PageBarProps) => {
 					disabled={atEnd || persistenceState.locked}
 					onClick={boundary}
 				>
-					{top ? <ChevronsUp size={14} aria-hidden /> : <ChevronsDown size={14} aria-hidden />}
+					{top ? <ChevronsUp size={16} aria-hidden /> : <ChevronsDown size={16} aria-hidden />}
 				</button>
 			</div>
 			{!top && (
