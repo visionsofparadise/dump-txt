@@ -12,6 +12,7 @@ export const appStateSchema = z.object({
 		theme: z.enum(["system", "light", "dark"]),
 		font: z.string().min(1).max(100),
 		textSize: z.number().min(8).max(24),
+		showStatusBar: z.boolean().default(true),
 	}),
 	findPreferences: preferencesSchema,
 	occurrencePreferences: preferencesSchema,

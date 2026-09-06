@@ -44,7 +44,12 @@ export interface TextMatch {
 export interface SessionState {
 	view: ViewSnapshot;
 	find: FindOptions & { readonly replacement: string; readonly activeMatch: number; readonly open: boolean };
-	appearance: { readonly theme: "system" | "light" | "dark"; readonly font: string; readonly textSize: number };
+	appearance: {
+		readonly theme: "system" | "light" | "dark";
+		readonly font: string;
+		readonly textSize: number;
+		readonly showStatusBar?: boolean;
+	};
 	occurrencePreferences: { readonly matchCase: boolean; readonly allPages: boolean };
 	canUndo: boolean;
 	canRedo: boolean;
@@ -104,7 +109,7 @@ export function createSessionState(pages: ReadonlyArray<Page>): SessionState {
 			occurrence: null,
 		}),
 		find: { query: "", matchCase: false, allPages: false, replacement: "", activeMatch: -1, open: false },
-		appearance: { theme: "system", font: "Consolas", textSize: 11 },
+		appearance: { theme: "system", font: "Consolas", textSize: 11, showStatusBar: true },
 		occurrencePreferences: { matchCase: false, allPages: false },
 		canUndo: false,
 		canRedo: false,

@@ -16,6 +16,7 @@ interface EditorSurfaceProps {
 interface EditorStyle extends CSSProperties {
 	readonly "--editor-font": string;
 	readonly "--editor-size": string;
+	readonly "--status-bar-height": string;
 }
 
 export const EditorSurface = scope(({ context: dumpContext }: EditorSurfaceProps) => {
@@ -28,13 +29,14 @@ export const EditorSurface = scope(({ context: dumpContext }: EditorSurfaceProps
 	const dismissMenu = useCallback(() => {
 		context.chrome.menuOpen = false;
 	}, [context]);
-	const { font, textSize, theme } = session.appearance;
+	const { font, textSize, theme, showStatusBar = true } = session.appearance;
 	const appearance = useMemo<EditorStyle>(
 		() => ({
 			"--editor-font": `"${font}", ${/mono|consol|courier|cascadia/iu.test(font) ? "monospace" : /georgia|cambria|times|serif/iu.test(font) ? "serif" : "sans-serif"}`,
 			"--editor-size": `${textSize}pt`,
+			"--status-bar-height": showStatusBar ? "24px" : "0px",
 		}),
-		[font, textSize],
+		[font, textSize, showStatusBar],
 	);
 
 	useEffect(() => {
@@ -112,7 +114,7 @@ export const EditorSurface = scope(({ context: dumpContext }: EditorSurfaceProps
 			<PageBar position="top" context={context} />
 			<PageViewport context={context} />
 			<PageBar position="bottom" context={context} />
-			<StatusBar context={context} />
+			{showStatusBar && <StatusBar context={context} />}
 			<FontPicker context={context} />
 		</main>
 	);

@@ -1,4 +1,4 @@
-import { FolderOpen, Menu, Redo2, Save, Search, X, Undo2 } from "lucide-react";
+import { FolderOpen, Menu, PanelBottom, Redo2, Save, Search, X, Undo2 } from "lucide-react";
 import { scope } from "opshot";
 import { useCallback } from "react";
 import { AppearanceMenu } from "./AppearanceMenu";
@@ -55,6 +55,14 @@ export const AppMenu = scope(({ context }: AppMenuProps) => {
 	const close = useCallback(() => {
 		void persistence.close().catch(() => undefined);
 	}, [persistence]);
+	const toggleStatusBar = useCallback(() => {
+		if (persistence.state.locked) return;
+
+		session.appearance = {
+			...session.appearance,
+			showStatusBar: !(session.appearance.showStatusBar ?? true),
+		};
+	}, [persistence, session]);
 	const restoreFocus = useCallback(
 		(event: Event) => {
 			event.preventDefault();
@@ -107,6 +115,10 @@ export const AppMenu = scope(({ context }: AppMenuProps) => {
 				<TextSizeMenu context={context} />
 				<FontMenu context={context} />
 				<AppearanceMenu context={context} />
+				<DropdownMenuItem onSelect={toggleStatusBar} disabled={persistenceState.locked}>
+					<PanelBottom size={16} aria-hidden />
+					<span>{session.appearance.showStatusBar === false ? "Show status bar" : "Hide status bar"}</span>
+				</DropdownMenuItem>
 				<DropdownMenuSeparator />
 				<DropdownMenuItem onSelect={close} disabled={persistenceState.locked}>
 					<X size={16} aria-hidden />
