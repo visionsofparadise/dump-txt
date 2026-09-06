@@ -311,6 +311,30 @@ describe("scratchpad interface", () => {
 		expect(document.activeElement).toBe(editor().contentDOM);
 	});
 
+	it.each([
+		["MacIntel", "Command"],
+		["Win32", "Ctrl"],
+		["Linux x86_64", "Ctrl"],
+	])(
+		"shows the effective primary modifier on %s while retaining explicit Control bindings",
+		async (platform, modifier) => {
+			vi.spyOn(navigator, "platform", "get").mockReturnValue(platform);
+			const { user } = await fixture("base");
+			await user.click(screen.getByRole("button", { name: "App menu" }));
+			await user.click(await screen.findByRole("menuitem", { name: "Keybinds" }));
+			const dialog = await screen.findByRole("dialog", { name: "Keybinds" });
+			const keys = (label: string) => within(dialog).getByText(label).nextElementSibling?.textContent;
+			expect(keys("New page below")).toBe(`${modifier}+N`);
+			expect(keys("Open")).toBe(`${modifier}+O`);
+			expect(keys("Undo")).toBe(`${modifier}+Z`);
+			expect(keys("Redo")).toBe(`${modifier}+Y / ${modifier}+Shift+Z`);
+			expect(keys("Select next occurrence")).toBe(`${modifier}+D`);
+			expect(keys("Increase text size")).toBe(`${modifier}++`);
+			expect(keys("Change text size")).toBe("Ctrl+Scroll");
+			expect(keys("Unindent")).toBe("Ctrl+Tab");
+		},
+	);
+
 	it("previews fonts in the modal and keeps text size controls open", async () => {
 		Element.prototype.scrollIntoView = vi.fn();
 		const { user, container } = await fixture();

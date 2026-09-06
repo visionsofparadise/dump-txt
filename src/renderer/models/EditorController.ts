@@ -10,7 +10,7 @@ import { snapshotView, type SessionState, type TextMatch, type ViewSnapshot } fr
 import type { DocumentState, Page } from "./DocumentState";
 import type { EditCommand } from "./EditCommand";
 import type { History } from "./History";
-import type { TextContextMenuResponse, TextContextMenuState } from "../../shared/ipc/Menu/showTextContextMenu/Renderer";
+import type { TextContextMenuResponse, TextContextMenuState } from "../../shared/models/TextContextMenuState";
 
 interface EditorCallbacks {
 	readonly openFind?: () => void;

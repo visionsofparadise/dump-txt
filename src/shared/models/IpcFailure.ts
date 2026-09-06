@@ -7,9 +7,6 @@ export const ipcFailureSchema = z.object({
 
 export type IpcFailure = z.infer<typeof ipcFailureSchema>;
 
-export type IpcResult<Value> =
-	{ readonly ok: true; readonly value: Value } | { readonly ok: false; readonly error: IpcFailure };
-
 export class IpcError extends Error {
 	readonly code: IpcFailure["code"];
 	constructor(failure: IpcFailure) {

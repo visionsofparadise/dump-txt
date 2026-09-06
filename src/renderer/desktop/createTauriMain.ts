@@ -1,13 +1,13 @@
 import { EventEmitter } from "events";
 import { listen } from "@tauri-apps/api/event";
 import { z } from "zod";
-import { GetPathsRendererIpc } from "../../shared/ipc/App/getPaths/Renderer";
-import { dialogChoiceSchema } from "../../shared/ipc/Dialog/showOpenDialog/Renderer";
-import { fileReadSchema } from "../../shared/ipc/FileSystem/readFile/Renderer";
-import { WriteFileRendererIpc } from "../../shared/ipc/FileSystem/writeFile/Renderer";
-import { ShowTextContextMenuRendererIpc } from "../../shared/ipc/Menu/showTextContextMenu/Renderer";
+import { appPathsSchema } from "../../shared/models/AppPaths";
+import { dialogChoiceSchema } from "../../shared/models/FileDialogOptions";
+import { fileReadSchema } from "../../shared/models/FileRead";
 import { failureOf, IpcError } from "../../shared/models/IpcFailure";
-import { mainEventSchemas, type MainEventMap } from "../../shared/utils/emitToRenderer";
+import { mainEventSchemas, type MainEventMap } from "../../shared/models/MainEventMap";
+import { textContextMenuResponseSchema } from "../../shared/models/TextContextMenuState";
+import { writeResultSchema } from "../../shared/models/WriteRequest";
 import { invokeTauri, nativeVoid } from "./utils/invokeTauri";
 import type { Main } from "../models/Main";
 
@@ -15,8 +15,9 @@ const nativeFileRead = z
 	.object({ bytes: z.array(z.number().int().min(0).max(255)), hash: z.string() })
 	.transform(({ bytes, hash }) => ({ bytes: new Uint8Array(bytes), hash }))
 	.pipe(fileReadSchema);
-const paths = new GetPathsRendererIpc().response;
-const nativePaths = paths.extend({ startupSettings: nativeFileRead.nullable().optional() }).pipe(paths);
+const nativePaths = appPathsSchema
+	.extend({ startupSettings: nativeFileRead.nullable().optional() })
+	.pipe(appPathsSchema);
 
 export async function createTauriMain(): Promise<{ main: Main; dispose(): void }> {
 	const events = new EventEmitter<MainEventMap>();
@@ -64,19 +65,15 @@ export async function createTauriMain(): Promise<{ main: Main; dispose(): void }
 		getPaths: () => invokeTauri("get_paths", {}, nativePaths),
 		readFile: (path) => invokeTauri("read_file", { path }, nativeFileRead.nullable()),
 		writeFile: (request) =>
-			invokeTauri(
-				"write_file",
-				{ ...request, bytes: Array.from(request.bytes) },
-				new WriteFileRendererIpc().response,
-			),
-		showOpenDialog: (options) => invokeTauri("show_open_dialog", options ?? {}, dialogChoiceSchema),
-		showSaveDialog: (options) => invokeTauri("show_save_dialog", options ?? {}, dialogChoiceSchema),
+			invokeTauri("write_file", { ...request, bytes: Array.from(request.bytes) }, writeResultSchema),
+		showOpenDialog: (options) => invokeTauri("show_open_dialog", { ...options }, dialogChoiceSchema),
+		showSaveDialog: (options) => invokeTauri("show_save_dialog", { ...options }, dialogChoiceSchema),
 		minimize: () => invokeTauri("minimize", {}, nativeVoid),
 		toggleMaximize: () => invokeTauri("toggle_maximize", {}, nativeVoid),
 		setTitle: (title) => invokeTauri("set_title", { title }, nativeVoid),
 		finishClose: () => invokeTauri("finish_close", {}, nativeVoid),
 		showTextContextMenu: (state) =>
-			invokeTauri("show_text_context_menu", state, new ShowTextContextMenuRendererIpc().response),
+			invokeTauri("show_text_context_menu", { ...state }, textContextMenuResponseSchema),
 		getSystemFonts: async () => {
 			const fonts = await invokeTauri("get_system_fonts", {}, z.array(z.string().min(1)));
 

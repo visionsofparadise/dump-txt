@@ -10,7 +10,7 @@ import { serializePages } from "../utils/serializePages";
 import { MainEvents } from "./MainEvents";
 import { PersistenceController } from "./PersistenceController";
 import { snapshotView } from "./SessionState";
-import type { WriteRequest } from "../../shared/ipc/FileSystem/writeFile/Renderer";
+import type { WriteRequest } from "../../shared/models/WriteRequest";
 import type { AppState } from "./AppState";
 import type { Main } from "./Main";
 import type { RecoveryRecord } from "./RecoveryRecord";

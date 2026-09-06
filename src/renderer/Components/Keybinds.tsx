@@ -8,46 +8,46 @@ const groups = [
 	{
 		title: "Pages",
 		bindings: [
-			["New page below", "Ctrl+N"],
-			["New page above", "Ctrl+Shift+N"],
+			["New page below", "Mod+N"],
+			["New page above", "Mod+Shift+N"],
 			["Previous page", "Page Up / Alt+↑"],
 			["Next page", "Page Down / Alt+↓"],
-			["First page", "Ctrl+Home"],
-			["Last page", "Ctrl+End"],
-			["Delete page", "Ctrl+Delete"],
+			["First page", "Mod+Home"],
+			["Last page", "Mod+End"],
+			["Delete page", "Mod+Delete"],
 			["Scroll pages", "Shift+Scroll"],
 		],
 	},
 	{
 		title: "File",
 		bindings: [
-			["Open", "Ctrl+O"],
-			["Save As", "Ctrl+Shift+S"],
+			["Open", "Mod+O"],
+			["Save As", "Mod+Shift+S"],
 		],
 	},
 	{
 		title: "Editing",
 		bindings: [
-			["Undo", "Ctrl+Z"],
-			["Redo", "Ctrl+Y / Ctrl+Shift+Z"],
-			["Cut", "Ctrl+X"],
-			["Copy", "Ctrl+C"],
-			["Paste", "Ctrl+V"],
-			["Select all", "Ctrl+A"],
-			["Select next occurrence", "Ctrl+D"],
+			["Undo", "Mod+Z"],
+			["Redo", "Mod+Y / Mod+Shift+Z"],
+			["Cut", "Mod+X"],
+			["Copy", "Mod+C"],
+			["Paste", "Mod+V"],
+			["Select all", "Mod+A"],
+			["Select next occurrence", "Mod+D"],
 			["End occurrence selection", "Esc"],
 			["Indent", "Tab"],
 			["Unindent", "Ctrl+Tab"],
 			["Change text size", "Ctrl+Scroll"],
-			["Increase text size", "Ctrl++"],
-			["Decrease text size", "Ctrl+-"],
-			["Reset text size", "Ctrl+0"],
+			["Increase text size", "Mod++"],
+			["Decrease text size", "Mod+-"],
+			["Reset text size", "Mod+0"],
 		],
 	},
 	{
 		title: "Find and replace",
 		bindings: [
-			["Open find and replace", "Ctrl+F"],
+			["Open find and replace", "Mod+F"],
 			["Next result", "F3"],
 			["Previous result", "Shift+F3"],
 			["Next result (in find input)", "Enter"],
@@ -63,6 +63,7 @@ interface KeybindsProps {
 
 export const Keybinds = scope(({ context }: KeybindsProps) => {
 	const { chrome, editor } = context;
+	const primaryModifier = navigator.platform.includes("Mac") ? "Command" : "Ctrl";
 	const openChanged = useCallback(
 		(open: boolean) => {
 			chrome.keybindsOpen = open;
@@ -101,7 +102,7 @@ export const Keybinds = scope(({ context }: KeybindsProps) => {
 									<div className="keybind-row" key={label}>
 										<dt>{label}</dt>
 										<dd>
-											<kbd>{keys}</kbd>
+											<kbd>{keys.replaceAll("Mod+", `${primaryModifier}+`)}</kbd>
 										</dd>
 									</div>
 								))}

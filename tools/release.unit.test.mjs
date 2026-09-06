@@ -3,7 +3,6 @@ import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSy
 import { join, resolve } from "node:path";
 import { afterEach, test } from "node:test";
 import { artifactNamesOf, publishRelease, writeChecksums } from "./release.mjs";
-import { buildTarget } from "./buildTarget.mjs";
 import { normalizeTauriPackages } from "./normalizeTauriPackages.mjs";
 
 const directories = [];
@@ -141,7 +140,7 @@ test("rejects malformed versions without accessing files or running commands", (
 	assert.throws(() => publishRelease({ version: "../bad" }), /version/u);
 });
 
-test("matches the platform artifact names emitted by electron-builder", () => {
+test("retains the published platform artifact names", () => {
 	assert.deepEqual(artifactNamesOf("0.2.0"), [
 		"dump-txt-0.2.0-linux-amd64.deb",
 		"dump-txt-0.2.0-linux-x86_64.AppImage",
@@ -167,15 +166,4 @@ test("uploads and verifies every platform artifact", () => {
 		assert.ok(upload.includes(join(directory, name)));
 		assert.ok(download.includes(name));
 	}
-});
-
-test("resolves executable paths for every supported build", () => {
-	assert.equal(buildTarget("win32", "x64").executable, join("out", "dump.txt-win32-x64", "dump-txt.exe"));
-	assert.equal(buildTarget("linux", "x64").executable, join("out", "dump.txt-linux-x64", "dump-txt"));
-	for (const arch of ["arm64", "x64"])
-		assert.equal(
-			buildTarget("darwin", arch).executable,
-			join("out", `dump.txt-darwin-${arch}`, "dump.txt.app", "Contents", "MacOS", "dump-txt"),
-		);
-	assert.throws(() => buildTarget("linux", "arm64"), /Unsupported/u);
 });

@@ -164,6 +164,92 @@ describe("Tauri desktop boundary", () => {
 		desktop.dispose();
 	});
 
+	it.each([
+		["showOpenDialog", "show_open_dialog"],
+		["showSaveDialog", "show_save_dialog"],
+	] as const)("preserves native choices and cancellation for %s with optional hints", async (method, command) => {
+		const desktop = await createTauriMain();
+		const selected = { path: "/fixture/日本語.txt", hash: "observed-content-hash" };
+
+		native.invoke.mockResolvedValueOnce({ ok: true, value: selected });
+		await expect(desktop.main[method]()).resolves.toEqual(selected);
+		expect(native.invoke).toHaveBeenLastCalledWith(command, { request: {} });
+
+		const options = { title: "Choose text", defaultPath: "/fixture/suggested.txt" };
+		const newFile = { path: "/fixture/chosen.txt", hash: null };
+
+		native.invoke.mockResolvedValueOnce({ ok: true, value: newFile });
+		await expect(desktop.main[method](options)).resolves.toEqual(newFile);
+		expect(native.invoke).toHaveBeenLastCalledWith(command, { request: options });
+		native.invoke.mockResolvedValueOnce({ ok: true, value: null });
+		await expect(desktop.main[method]()).resolves.toBeNull();
+		expect(native.invoke).toHaveBeenCalledTimes(3);
+		desktop.dispose();
+	});
+
+	it.each(["showOpenDialog", "showSaveDialog"] as const)(
+		"rejects malformed choices and preserves native failures for %s",
+		async (method) => {
+			const desktop = await createTauriMain();
+
+			for (const choice of [
+				undefined,
+				{ path: "/fixture/missing-hash.txt" },
+				{ path: 42, hash: null },
+				{ path: "/fixture/file.txt", hash: 42 },
+			]) {
+				native.invoke.mockResolvedValueOnce({ ok: true, value: choice });
+				await expect(desktop.main[method]()).rejects.toMatchObject({ name: "IpcError", code: "invalid" });
+			}
+			native.invoke.mockResolvedValueOnce({
+				ok: false,
+				error: { code: "permission", message: "Selected file is unavailable" },
+			});
+			await expect(desktop.main[method]()).rejects.toMatchObject({
+				name: "IpcError",
+				code: "permission",
+				message: "Selected file is unavailable",
+			});
+			desktop.dispose();
+		},
+	);
+
+	it.each(["success", "failure"] as const)(
+		"waits for clipboard acknowledgement before reporting %s",
+		async (outcome) => {
+			const desktop = await createTauriMain();
+			let acknowledge!: (response: unknown) => void;
+			const pending = new Promise<unknown>((resolve) => {
+				acknowledge = resolve;
+			});
+
+			native.invoke.mockReturnValueOnce(pending);
+			const text = "中文 👩‍💻\r\n\f\nsecond";
+			const writing = desktop.main.writeClipboard(text);
+			let completed = false;
+			void writing.then(
+				() => {
+					completed = true;
+				},
+				() => {
+					completed = true;
+				},
+			);
+			await Promise.resolve();
+			expect(completed).toBe(false);
+			expect(native.invoke).toHaveBeenLastCalledWith("write_clipboard", { request: { text } });
+			if (outcome === "success") {
+				acknowledge({ ok: true, value: null });
+				await expect(writing).resolves.toBeUndefined();
+			} else {
+				acknowledge({ ok: false, error: { code: "io", message: "Clipboard busy" } });
+				await expect(writing).rejects.toMatchObject({ name: "IpcError", code: "io", message: "Clipboard busy" });
+			}
+			expect(completed).toBe(true);
+			desktop.dispose();
+		},
+	);
+
 	it("validates font families and clipboard transport while preserving native menu intents", async () => {
 		const desktop = await createTauriMain();
 		native.invoke.mockResolvedValueOnce({ ok: true, value: ["Consolas", "Arial", "Arial"] });

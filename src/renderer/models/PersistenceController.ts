@@ -14,8 +14,8 @@ import { createSessionState, snapshotView, type ViewSnapshot } from "./SessionSt
 import type { DumpContext } from "./DumpContext";
 import type { Main } from "./Main";
 import type { MainEvents } from "./MainEvents";
-import type { FileRead } from "../../shared/ipc/FileSystem/readFile/Renderer";
-import type { WindowBounds } from "../../shared/utils/emitToRenderer";
+import type { FileRead } from "../../shared/models/FileRead";
+import type { WindowBounds } from "../../shared/models/MainEventMap";
 
 interface PersistenceState {
 	path: string | null;
