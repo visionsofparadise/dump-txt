@@ -66,6 +66,9 @@ export class EditorController {
 	#wheelDirection = 0;
 	#wheelDistance = 0;
 	#wheelConsumed = false;
+	#pendingWheelDelta = 0;
+	#smoothWheelTarget: number | null = null;
+	#smoothWheelDirection = 0;
 	readonly #resize = () => this.#cancelTransition();
 
 	constructor(document: DocumentState, session: SessionState, history: History, callbacks: EditorCallbacks = {}) {
@@ -310,7 +313,10 @@ export class EditorController {
 	}
 
 	finishPageTransition(id: string): void {
-		if (this.#transition?.id === id) this.#cancelTransition();
+		if (this.#transition?.id !== id) return;
+
+		this.#cancelTransition();
+		this.#applyPendingWheel();
 	}
 
 	handleWheel(event: WheelEvent, source: "editor" | "bar"): void {
@@ -318,9 +324,10 @@ export class EditorController {
 
 		if (!view || event.deltaY === 0) return;
 
+		const lineHeight = Number.parseFloat(window.getComputedStyle(view.contentDOM).lineHeight) || view.defaultLineHeight;
 		const delta =
 			event.deltaY *
-			(event.deltaMode === 1 ? view.defaultLineHeight : event.deltaMode === 2 ? view.scrollDOM.clientHeight : 1);
+			(event.deltaMode === 1 ? lineHeight : event.deltaMode === 2 ? view.scrollDOM.clientHeight : 1);
 
 		if (source === "editor" && event.ctrlKey) {
 			event.preventDefault();
@@ -332,16 +339,29 @@ export class EditorController {
 
 		if (event.ctrlKey || this.#locked || this.#composition) return;
 
+		const wheelTicks =
+			"wheelDeltaY" in event && typeof event.wheelDeltaY === "number" && event.wheelDeltaY !== 0
+				? -event.wheelDeltaY / 120
+				: event.deltaMode === 1 ? event.deltaY / 3 : Math.sign(delta);
+		const scrollDelta = wheelTicks * 3 * lineHeight;
 		const now = performance.now();
 		const direction = delta > 0 ? 1 : -1;
 		const gap = now - this.#wheelAt;
+		const reversed = direction !== this.#wheelDirection;
 
-		if (gap >= 300) this.#wheelConsumed = false;
+		if (gap >= 300 || reversed) this.#wheelConsumed = false;
 
-		if (gap >= 250 || direction !== this.#wheelDirection) this.#wheelDistance = 0;
+		if (gap >= 250 || reversed) this.#wheelDistance = 0;
 
 		this.#wheelAt = now;
 		this.#wheelDirection = direction;
+
+		if (source === "editor" && (this.#restoring || this.#transition)) {
+			event.preventDefault();
+			this.#pendingWheelDelta += scrollDelta;
+
+			return;
+		}
 
 		const atEdge =
 			direction < 0
@@ -349,8 +369,11 @@ export class EditorController {
 				: view.scrollDOM.scrollTop + view.scrollDOM.clientHeight >= view.scrollDOM.scrollHeight - 1;
 
 		if (source === "editor" && !atEdge) {
+			event.preventDefault();
 			this.#wheelDistance = 0;
+			this.#wheelConsumed = false;
 			this.#cancelTransition();
+			this.#scrollWheel(scrollDelta);
 
 			return;
 		}
@@ -361,14 +384,19 @@ export class EditorController {
 
 		this.#wheelDistance += Math.abs(delta);
 
-		if (source === "editor" && this.#wheelDistance < 80) return;
-
-		this.#wheelConsumed = true;
+		if (source === "editor" && this.#wheelDistance < 400) return;
 
 		const index = this.#document.pages.findIndex((page) => page.id === this.#pageId);
 		const target = this.#document.pages[index + direction];
 
-		if (target) this.showPage(target.id, source === "bar" ? "restore" : direction > 0 ? "start" : "end");
+		if (!target) {
+			this.#wheelDistance = 0;
+
+			return;
+		}
+
+		this.#wheelConsumed = true;
+		this.showPage(target.id, source === "bar" ? "restore" : direction > 0 ? "start" : "end");
 	}
 
 	refresh(): void {
@@ -630,6 +658,8 @@ export class EditorController {
 		const snapshot = entry === "restore" && cached?.state.doc === view.state.doc ? cached.effect : null;
 
 		this.#restoring = true;
+		this.#pendingWheelDelta = 0;
+		this.#smoothWheelTarget = null;
 
 		if (snapshot) view.dispatch({ effects: snapshot });
 		else if (entry !== "restore")
@@ -676,6 +706,9 @@ export class EditorController {
 							if (measurement !== this.#measurement || view !== this.#view) return;
 
 							this.#restoring = false;
+
+							if (!this.#transition) this.#applyPendingWheel();
+
 							this.#rememberSelection();
 
 							if (this.#transition) {
@@ -686,6 +719,34 @@ export class EditorController {
 					});
 				});
 			},
+		});
+	}
+
+	#applyPendingWheel(): void {
+		if (!this.#view || this.#pendingWheelDelta === 0) return;
+
+		this.#scrollWheel(this.#pendingWheelDelta);
+		this.#pendingWheelDelta = 0;
+		this.#wheelConsumed = false;
+		this.#rememberSelection();
+	}
+
+	#scrollWheel(delta: number): void {
+		const view = this.#view;
+
+		if (!view) return;
+
+		const scroller = view.scrollDOM;
+		const lineHeight = Number.parseFloat(window.getComputedStyle(view.contentDOM).lineHeight) || view.defaultLineHeight;
+		const direction = Math.sign(delta);
+		const start = direction === this.#smoothWheelDirection ? (this.#smoothWheelTarget ?? scroller.scrollTop) : scroller.scrollTop;
+		const alignedTarget = (Math.round(start / lineHeight) + Math.round(delta / lineHeight)) * lineHeight;
+
+		this.#smoothWheelDirection = direction;
+		this.#smoothWheelTarget = Math.max(0, Math.min(scroller.scrollHeight - scroller.clientHeight, alignedTarget));
+		scroller.scrollTo({
+			top: this.#smoothWheelTarget,
+			behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth",
 		});
 	}
 
@@ -938,6 +999,7 @@ export class EditorController {
 						return true;
 					},
 					mousedown: (event) => {
+						this.#smoothWheelTarget = null;
 						this.#cancelTransition();
 
 						if (event.button === 2 && this.#callbacks.showTextContextMenu) {
