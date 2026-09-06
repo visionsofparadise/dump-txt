@@ -68,6 +68,7 @@ jobs:
            if: always()
            with:
               name: tauri-evidence-${{ matrix.artifact }}
+              include-hidden-files: true
               path: |
                  .scratch/tauri-test/
                  .scratch/tauri-build.json
