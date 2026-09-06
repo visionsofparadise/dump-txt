@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, type CSSProperties } from "react";
 import { AppMenu } from "./AppMenu";
 import { PageBar } from "./PageBar";
 import { PageViewport } from "./PageViewport";
+import { StatusBar } from "./StatusBar";
 import { TitleBar } from "./TitleBar";
 import type { ChromeContext } from "../models/ChromeContext";
 import type { ChromeState } from "../models/ChromeState";
@@ -109,6 +110,7 @@ export const EditorSurface = scope(({ context: dumpContext }: EditorSurfaceProps
 			<PageBar position="top" context={context} />
 			<PageViewport context={context} />
 			<PageBar position="bottom" context={context} />
+			<StatusBar context={context} />
 		</main>
 	);
 });

@@ -53,7 +53,7 @@ input:focus-visible {
 .dump-app {
 	display: grid;
 	height: 100%;
-	grid-template-rows: var(--spacing-bar) var(--spacing-bar) minmax(0, 1fr) var(--spacing-bar);
+	grid-template-rows: var(--spacing-bar) var(--spacing-bar) minmax(0, 1fr) var(--spacing-bar) 24px;
 	background: var(--color-surface);
 	overflow: hidden;
 }
@@ -151,17 +151,29 @@ input:focus-visible {
 .page-nav-hidden {
 	visibility: hidden;
 }
-.page-count {
-	font-family: Arial, sans-serif;
-	position: absolute;
-	left: 58px;
-	top: 0;
-	height: var(--spacing-bar);
-	display: flex;
+.status-bar {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
 	align-items: center;
+	gap: 8px;
+	padding: 0 10px;
+	background: var(--color-chrome);
+	color: var(--color-muted);
+	font-family: Consolas, monospace;
 	font-size: 11px;
+	line-height: 1;
 	font-variant-numeric: tabular-nums;
-	pointer-events: none;
+	user-select: none;
+}
+.status-counts,
+.status-position {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.page-count {
+	justify-self: end;
+	white-space: nowrap;
 }
 .page-viewport {
 	position: relative;

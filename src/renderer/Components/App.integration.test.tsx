@@ -80,6 +80,32 @@ afterEach(() => {
 });
 
 describe("scratchpad interface", () => {
+	it("updates status counts and positions for typing, selections, and page navigation", async () => {
+		const { container, editor, insert, user } = await fixture("one two\nthree\n\f\nnext");
+		const counts = () => container.querySelector(".status-counts")?.textContent;
+		const position = () => container.querySelector(".status-position")?.textContent;
+
+		expect(counts()).toBe("13 chars · 3 words · 2 lines");
+		expect(position()).toBe("Ln 1, Col 1");
+		await act(async () => {
+			editor().dispatch({
+				selection: EditorSelection.create([EditorSelection.range(0, 3), EditorSelection.range(8, 13)]),
+			});
+		});
+		await waitFor(() => expect(counts()).toBe("8 chars · 2 words · 2 lines"));
+		expect(position()).toBe("Ln 1, Col 1 – Ln 2, Col 6");
+		await act(async () => {
+			editor().dispatch({ selection: EditorSelection.cursor(0) });
+		});
+		await insert("a ");
+		await waitFor(() => expect(counts()).toBe("15 chars · 4 words · 2 lines"));
+		expect(position()).toBe("Ln 1, Col 3");
+		await user.click(screen.getByRole("button", { name: "Next page" }));
+		await waitFor(() => expect(counts()).toBe("4 chars · 1 words · 1 lines"));
+		expect(within(screen.getByLabelText("Editor status")).getByLabelText("Page 2 of 2")).toBeTruthy();
+		expect(container.querySelector(".page-bar-bottom .page-count")).toBeNull();
+	});
+
 	it("keeps insertion slots fixed and hides boundary navigation", async () => {
 		const { user } = await fixture();
 		const above = screen.getByRole("button", { name: "Insert page above" });

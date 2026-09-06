@@ -97,11 +97,6 @@ export const PageBar = scope(({ position, context }: PageBarProps) => {
 					{top ? <ChevronsUp size={16} aria-hidden /> : <ChevronsDown size={16} aria-hidden />}
 				</button>
 			</div>
-			{!top && (
-				<span className="page-count" role="status" aria-label={`Page ${index + 1} of ${document.pages.length}`}>
-					{index + 1} / {document.pages.length}
-				</span>
-			)}
 		</nav>
 	);
 });
