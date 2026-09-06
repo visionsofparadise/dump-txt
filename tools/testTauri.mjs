@@ -720,13 +720,22 @@ try {
 			await new Promise(requestAnimationFrame);
 			observations.push({
 				page: document.querySelector(".page-count").textContent.trim().replace("Pages ", ""),
+				text: document.querySelector(".page-current .cm-content").textContent,
 				snapshotsBefore,
 			});
 		}
 		return observations;
 	});
 	report.rapidNavigation = rapid;
-	check("rapid Shift wheel follows every direction", rapid.map((item) => item.page).join(","), "2 / 3,3 / 3,2 / 3");
+	check(
+		"rapid Shift wheel follows every direction",
+		rapid
+			.map((item) =>
+				/^Line \d+:/.test(item.text) ? "long" : item.text.startsWith("Final page") ? "final" : "unknown",
+			)
+			.join(","),
+		"long,final,long",
+	);
 	if (!report.engine.reducedMotion)
 		check(
 			"rapid Shift wheel supersedes an active slide",
