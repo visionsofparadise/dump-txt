@@ -3,6 +3,7 @@ import { ShowOpenDialogRendererIpc } from "./Dialog/showOpenDialog/Renderer";
 import { ShowSaveDialogRendererIpc } from "./Dialog/showSaveDialog/Renderer";
 import { ReadFileRendererIpc } from "./FileSystem/readFile/Renderer";
 import { WriteFileRendererIpc } from "./FileSystem/writeFile/Renderer";
+import { ShowTextContextMenuRendererIpc } from "./Menu/showTextContextMenu/Renderer";
 import { FinishCloseRendererIpc } from "./Window/finishClose/Renderer";
 import { MinimizeRendererIpc } from "./Window/minimize/Renderer";
 import { SetTitleRendererIpc } from "./Window/setTitle/Renderer";
@@ -14,6 +15,7 @@ export const ASYNC_RENDERER_IPCS = [
 	ShowSaveDialogRendererIpc,
 	ReadFileRendererIpc,
 	WriteFileRendererIpc,
+	ShowTextContextMenuRendererIpc,
 	FinishCloseRendererIpc,
 	MinimizeRendererIpc,
 	SetTitleRendererIpc,

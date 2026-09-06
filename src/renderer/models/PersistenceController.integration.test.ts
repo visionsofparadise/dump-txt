@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { setTimeout as waitForIo } from "node:timers/promises";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { EditorView } from "@codemirror/view";
 import { encodeText } from "../utils/encodeText";
 import { serializePages } from "../utils/serializePages";
 import { MainEvents } from "./MainEvents";
@@ -75,6 +76,7 @@ async function fixture(initial?: string) {
 		},
 		showOpenDialog: async () => openChoice,
 		showSaveDialog: async () => saveChoice,
+		showTextContextMenu: async () => null,
 		setTitle: async () => undefined,
 		minimize: async () => undefined,
 		toggleMaximize: async () => undefined,
@@ -149,6 +151,10 @@ async function until(predicate: () => boolean): Promise<void> {
 
 beforeEach(() => {
 	vi.stubGlobal("crypto", webcrypto);
+	Object.defineProperties(Range.prototype, {
+		getClientRects: { configurable: true, value: () => [] },
+		getBoundingClientRect: { configurable: true, value: () => new DOMRect() },
+	});
 });
 afterEach(async () => {
 	vi.useRealTimers();
@@ -157,6 +163,34 @@ afterEach(async () => {
 });
 
 describe("the current dump lifecycle", () => {
+	it("wires the native menu and rejects its old controller result after file replacement", async () => {
+		const { persistence, main, directory, chooseOpen, read } = await fixture("cat");
+		await persistence.initialize();
+		let complete!: (response: "delete") => void;
+		const menu = vi.spyOn(main, "showTextContextMenu").mockImplementation(
+			() =>
+				new Promise((resolve) => {
+					complete = resolve;
+				}),
+		);
+		const parent = document.createElement("div");
+		document.body.append(parent);
+		const original = persistence.context!;
+		original.editor.attach(parent);
+		const view = EditorView.findFromDOM(parent.querySelector(".cm-editor")!)!;
+		vi.spyOn(view, "posAtCoords").mockReturnValue(null);
+		view.contentDOM.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true }));
+		expect(menu).toHaveBeenCalledOnce();
+		const replacement = `${directory}/replacement.txt`;
+		await writeFile(replacement, "replacement");
+		chooseOpen({ path: replacement, hash: (await read(replacement))!.hash });
+		await persistence.open();
+		complete("delete");
+		await Promise.resolve();
+		expect(persistence.context?.document.pages[0]?.text).toBe("replacement");
+		expect(original.document.pages[0]?.text).toBe("cat");
+		parent.remove();
+	});
 	it("retries a failed adopted-file journal after the backing bytes are saved", async () => {
 		const test = await fixture("source");
 		await test.persistence.initialize();

@@ -33,6 +33,7 @@ async function fixture(text = "first\n\f\nsecond\n\f\nthird") {
 		showOpenDialog: vi.fn(async () => null),
 		showSaveDialog: vi.fn(async () => null),
 		setTitle: vi.fn(async () => undefined),
+		showTextContextMenu: vi.fn(async () => null),
 		minimize: vi.fn(async () => undefined),
 		toggleMaximize: vi.fn(async () => undefined),
 		finishClose: async () => {

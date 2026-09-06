@@ -592,6 +592,7 @@ export class PersistenceController {
 
 		const history = new History(document, session, () => this.changed());
 		const editor = new EditorController(document, session, history, {
+			showTextContextMenu: (state) => this.#main.showTextContextMenu(state),
 			...(this.#callbacks.openFind
 				? {
 						openFind: () => {

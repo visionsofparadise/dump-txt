@@ -16,7 +16,7 @@ beforeEach(() => {
 	});
 });
 
-function fixture() {
+function fixture(callbacks: ConstructorParameters<typeof EditorController>[3] = {}) {
 	const documentState = createDocumentState([
 		{ id: "first", text: "cat one" },
 		{ id: "second", text: "two cat" },
@@ -43,7 +43,7 @@ function fixture() {
 		},
 	};
 	const history = new History(documentState, session);
-	const controller = new EditorController(documentState, session, history);
+	const controller = new EditorController(documentState, session, history, callbacks);
 	controllers.push(controller);
 	const parent = document.createElement("div");
 	document.body.append(parent);
@@ -60,6 +60,74 @@ afterEach(() => {
 });
 
 describe("CodeMirror bridge", () => {
+	it("preserves right-clicked occurrence targets and deletes them through one global history entry", async () => {
+		const showTextContextMenu = vi.fn(async () => "delete" as const);
+		const { view, documentState, history, session } = fixture({ showTextContextMenu });
+		vi.spyOn(view, "posAtCoords").mockReturnValue(1);
+		view.contentDOM.dispatchEvent(new MouseEvent("mousedown", { button: 2, bubbles: true, cancelable: true }));
+		expect(session.view.occurrence?.targets).toHaveLength(2);
+		view.contentDOM.dispatchEvent(new MouseEvent("contextmenu", { button: 2, bubbles: true, cancelable: true }));
+		expect(showTextContextMenu).toHaveBeenCalledWith({
+			canUndo: false,
+			canRedo: false,
+			hasSelection: true,
+			locked: false,
+		});
+		await vi.waitFor(() => expect(documentState.pages.map((page) => page.text)).toEqual([" one", "two "]));
+		history.undo();
+		expect(documentState.pages.map((page) => page.text)).toEqual(["cat one", "two cat"]);
+		expect(history.canUndo).toBe(false);
+	});
+
+	it("moves an outside right-click to its caret and leaves cancellation without history", async () => {
+		const showTextContextMenu = vi.fn(async () => null);
+		const { view, history, session } = fixture({ showTextContextMenu });
+		vi.spyOn(view, "posAtCoords").mockReturnValue(5);
+		view.contentDOM.dispatchEvent(new MouseEvent("contextmenu", { button: 2, bubbles: true, cancelable: true }));
+		await Promise.resolve();
+		expect(view.state.selection.main.anchor).toBe(5);
+		expect(view.state.selection.main.empty).toBe(true);
+		expect(session.view.occurrence).toBeNull();
+		expect(showTextContextMenu).toHaveBeenCalledWith({
+			canUndo: false,
+			canRedo: false,
+			hasSelection: false,
+			locked: false,
+		});
+		expect(history.canUndo).toBe(false);
+	});
+
+	it.each(["undo", "redo"] as const)("routes native %s through Opshot", async (response) => {
+		const { view, controller, history, documentState } = fixture({ showTextContextMenu: async () => response });
+		controller.apply({ type: "insert", text: "dog" });
+		if (response === "redo") history.undo();
+		vi.spyOn(view, "posAtCoords").mockReturnValue(null);
+		view.contentDOM.dispatchEvent(new MouseEvent("contextmenu", { button: 2, bubbles: true, cancelable: true }));
+		await vi.waitFor(() => expect(documentState.pages[0]?.text).toBe(response === "undo" ? "cat one" : "dog one"));
+	});
+
+	it.each(["lock", "detach", "selection", "page"] as const)(
+		"rejects pending native menu results after %s changes",
+		async (change) => {
+			let complete!: (response: "delete") => void;
+			const showTextContextMenu = () =>
+				new Promise<"delete">((resolve) => {
+					complete = resolve;
+				});
+			const { view, controller, documentState } = fixture({ showTextContextMenu });
+			vi.spyOn(view, "posAtCoords").mockReturnValue(1);
+			view.contentDOM.dispatchEvent(new MouseEvent("contextmenu", { button: 2, bubbles: true, cancelable: true }));
+			if (change === "lock") {
+				controller.setLocked(true);
+				controller.setLocked(false);
+			} else if (change === "detach") controller.detach();
+			else if (change === "selection") view.dispatch({ selection: EditorSelection.cursor(5) });
+			else controller.showPage("second");
+			complete("delete");
+			await Promise.resolve();
+			expect(documentState.pages.map((page) => page.text)).toEqual(["cat one", "two cat"]);
+		},
+	);
 	it.each(["😀", "a", "😀a", "  ", "a\nb"])("previews literal %j only above one Unicode code point", (seed) => {
 		const { controller, view, documentState, history } = fixture();
 		controller.closeOccurrence();

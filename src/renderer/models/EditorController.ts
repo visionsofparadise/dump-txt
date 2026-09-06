@@ -10,11 +10,13 @@ import { snapshotView, type SessionState, type TextMatch, type ViewSnapshot } fr
 import type { DocumentState, Page } from "./DocumentState";
 import type { EditCommand } from "./EditCommand";
 import type { History } from "./History";
+import type { TextContextMenuResponse, TextContextMenuState } from "../../shared/ipc/Menu/showTextContextMenu/Renderer";
 
 interface EditorCallbacks {
 	readonly openFind?: () => void;
 	readonly selectNextOccurrence?: () => void;
 	readonly changed?: () => void;
+	readonly showTextContextMenu?: (state: TextContextMenuState) => Promise<TextContextMenuResponse>;
 }
 
 interface Composition {
@@ -55,6 +57,7 @@ export class EditorController {
 	#updating = false;
 	#locked = false;
 	#composition: Composition | null = null;
+	#menuGeneration = 0;
 	#transition: PageTransition | null = null;
 	#restoring = false;
 	#measurement = 0;
@@ -89,6 +92,7 @@ export class EditorController {
 	}
 
 	detach(): void {
+		this.#menuGeneration++;
 		this.finishComposition();
 		this.#cancelTransition();
 		this.#measurement++;
@@ -270,6 +274,8 @@ export class EditorController {
 	}
 
 	setLocked(locked: boolean): void {
+		this.#menuGeneration++;
+
 		if (locked) this.finishComposition();
 
 		this.#locked = locked;
@@ -282,6 +288,8 @@ export class EditorController {
 		if (this.#locked || !this.#document.pages.some((page) => page.id === pageId)) return;
 
 		if (pageId === this.#pageId) return;
+
+		this.#menuGeneration++;
 
 		this.finishComposition();
 		this.#rememberSelection();
@@ -920,8 +928,25 @@ export class EditorController {
 
 						return false;
 					},
-					mousedown: () => {
+					contextmenu: (event) => {
+						if (!this.#callbacks.showTextContextMenu) return false;
+
+						event.preventDefault();
+						this.#selectContextPosition(event);
+						void this.#showTextContextMenu();
+
+						return true;
+					},
+					mousedown: (event) => {
 						this.#cancelTransition();
+
+						if (event.button === 2 && this.#callbacks.showTextContextMenu) {
+							event.preventDefault();
+							this.#selectContextPosition(event);
+
+							return true;
+						}
+
 						this.#endOccurrence(false);
 
 						return false;
@@ -1061,6 +1086,64 @@ export class EditorController {
 		}
 
 		return true;
+	}
+
+	#selectContextPosition(event: MouseEvent): void {
+		const view = this.#view;
+
+		if (!view) return;
+
+		this.#cancelTransition();
+		this.finishComposition();
+
+		const position = view.posAtCoords({ x: event.clientX, y: event.clientY });
+
+		if (
+			position !== null &&
+			!view.state.selection.ranges.some((range) => !range.empty && position >= range.from && position <= range.to)
+		) {
+			this.#endOccurrence(false);
+			view.dispatch({ selection: EditorSelection.cursor(position) });
+		}
+
+		view.focus();
+	}
+
+	async #showTextContextMenu(): Promise<void> {
+		const view = this.#view;
+		const show = this.#callbacks.showTextContextMenu;
+
+		if (!view || !show) return;
+
+		const generation = ++this.#menuGeneration;
+		const state = view.state;
+		let response: TextContextMenuResponse;
+
+		try {
+			response = await show({
+				canUndo: this.#history.canUndo,
+				canRedo: this.#history.canRedo,
+				hasSelection: state.selection.ranges.some((range) => !range.empty),
+				locked: this.#locked,
+			});
+		} catch {
+			return;
+		}
+
+		if (
+			!response ||
+			generation !== this.#menuGeneration ||
+			this.#locked ||
+			this.#view !== view ||
+			view.state.doc !== state.doc ||
+			!view.state.selection.eq(state.selection)
+		)
+			return;
+
+		if (response === "delete") this.apply({ type: "insert", text: "" });
+		else this.#replay(response);
+
+		this.focus();
 	}
 
 	#clipboard(event: ClipboardEvent, cut: boolean): boolean {

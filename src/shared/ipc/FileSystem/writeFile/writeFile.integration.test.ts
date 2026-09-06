@@ -147,6 +147,7 @@ describe("native byte capabilities", () => {
 			writeFile: async () => ({ hash: "" }),
 			showOpenDialog: async () => null,
 			showSaveDialog: async () => null,
+			showTextContextMenu: async () => null,
 			setTitle: async () => undefined,
 			minimize: async () => undefined,
 			toggleMaximize: async () => undefined,

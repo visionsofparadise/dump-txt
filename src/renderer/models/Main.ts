@@ -3,6 +3,7 @@ import { ShowOpenDialogRendererIpc } from "../../shared/ipc/Dialog/showOpenDialo
 import { ShowSaveDialogRendererIpc } from "../../shared/ipc/Dialog/showSaveDialog/Renderer";
 import { ReadFileRendererIpc } from "../../shared/ipc/FileSystem/readFile/Renderer";
 import { WriteFileRendererIpc } from "../../shared/ipc/FileSystem/writeFile/Renderer";
+import { ShowTextContextMenuRendererIpc } from "../../shared/ipc/Menu/showTextContextMenu/Renderer";
 import { FinishCloseRendererIpc } from "../../shared/ipc/Window/finishClose/Renderer";
 import { MinimizeRendererIpc } from "../../shared/ipc/Window/minimize/Renderer";
 import { SetTitleRendererIpc } from "../../shared/ipc/Window/setTitle/Renderer";
@@ -30,6 +31,7 @@ export function createMain(bridge: MainBridge): Main {
 		showSaveDialog: new ShowSaveDialogRendererIpc().connect(bridge.showSaveDialog),
 		readFile: new ReadFileRendererIpc().connect(bridge.readFile),
 		writeFile: new WriteFileRendererIpc().connect(bridge.writeFile),
+		showTextContextMenu: new ShowTextContextMenuRendererIpc().connect(bridge.showTextContextMenu),
 		finishClose: new FinishCloseRendererIpc().connect(bridge.finishClose),
 		setTitle: new SetTitleRendererIpc().connect(bridge.setTitle),
 		minimize: new MinimizeRendererIpc().connect(bridge.minimize),
