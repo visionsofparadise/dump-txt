@@ -7,6 +7,7 @@ import { sameFilePath } from "../utils/sameFilePath";
 import { serializePages } from "../utils/serializePages";
 import { appStateSchema, type AppState } from "./AppState";
 import { createDocumentState, freezePages, type Page } from "./DocumentState";
+import { PageNavigation } from "./PageNavigation";
 import { EditorController } from "./EditorController";
 import { History } from "./History";
 import { recoveryRecordSchema, type RecoveryRecord } from "./RecoveryRecord";
@@ -588,7 +589,8 @@ export class PersistenceController {
 		}
 
 		const history = new History(document, session, () => this.changed());
-		const editor = new EditorController(document, session, history, {
+		const navigation = new PageNavigation(document, session);
+		const editor = new EditorController(document, session, history, navigation, {
 			showTextContextMenu: (state) => this.#main.showTextContextMenu(state),
 			readClipboard: () => this.#main.readClipboard(),
 			writeClipboard: (text) => this.#main.writeClipboard(text),
@@ -617,6 +619,7 @@ export class PersistenceController {
 			session,
 			history,
 			editor,
+			navigation,
 		};
 		this.state.path = revision.path;
 		this.state.format = revision.format;

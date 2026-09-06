@@ -10,6 +10,7 @@ import { snapshotView, type SessionState, type TextMatch, type ViewSnapshot } fr
 import type { DocumentState, Page } from "./DocumentState";
 import type { EditCommand } from "./EditCommand";
 import type { History } from "./History";
+import type { PageNavigation } from "./PageNavigation";
 import type { TextContextMenuResponse, TextContextMenuState } from "../../shared/models/TextContextMenuState";
 
 interface EditorCallbacks {
@@ -45,6 +46,7 @@ export class EditorController {
 	readonly #document: DocumentState;
 	readonly #session: SessionState;
 	readonly #history: History;
+	readonly #navigation: PageNavigation;
 	readonly #callbacks: EditorCallbacks;
 	readonly #states = new Map<string, EditorState>();
 	readonly #scrollSnapshots = new Map<
@@ -72,15 +74,33 @@ export class EditorController {
 	#pendingWheelDelta = 0;
 	#smoothWheelTarget: number | null = null;
 	#smoothWheelDirection = 0;
-	readonly #resize = () => this.#cancelTransition();
+	#wheelFrame: number | null = null;
+	readonly #resize = () => {
+		this.#cancelWheelScroll();
+		this.#cancelTransition();
+	};
 
-	constructor(document: DocumentState, session: SessionState, history: History, callbacks: EditorCallbacks = {}) {
+	constructor(
+		document: DocumentState,
+		session: SessionState,
+		history: History,
+		navigation: PageNavigation,
+		callbacks: EditorCallbacks = {},
+	) {
 		this.#document = document;
 		this.#session = session;
 		this.#history = history;
+		this.#navigation = navigation;
 		this.#callbacks = callbacks;
 		this.#pageId = session.view.activePageId;
 		this.#unsubscribers = [
+			navigation.subscribeBeforeChange((entry) => {
+				this.#menuGeneration++;
+				this.finishComposition();
+				this.#rememberSelection();
+				this.#history.closeGroup();
+				this.#entry = entry;
+			}),
 			subscribe(document, () => {
 				this.#menuGeneration++;
 				this.refresh();
@@ -105,6 +125,7 @@ export class EditorController {
 
 	detach(): void {
 		this.#menuGeneration++;
+		this.#cancelWheelScroll();
 		this.finishComposition();
 		this.#cancelTransition();
 		this.#measurement++;
@@ -288,28 +309,20 @@ export class EditorController {
 	setLocked(locked: boolean): void {
 		this.#menuGeneration++;
 
-		if (locked) this.finishComposition();
+		if (locked) {
+			this.#cancelWheelScroll();
+			this.finishComposition();
+		}
 
 		this.#locked = locked;
+		this.#navigation.setLocked(locked);
 		this.#view?.dispatch({
 			effects: this.#editable.reconfigure([EditorState.readOnly.of(locked), EditorView.editable.of(!locked)]),
 		});
 	}
 
 	showPage(pageId: string, entry: "restore" | "start" | "end" = "restore"): void {
-		if (this.#locked || !this.#document.pages.some((page) => page.id === pageId)) return;
-
-		if (pageId === this.#pageId) return;
-
-		this.#menuGeneration++;
-
-		this.finishComposition();
-		this.#rememberSelection();
-		this.#history.closeGroup();
-		this.#entry = entry;
-		this.#session.view = snapshotView({ ...this.#session.view, activePageId: pageId });
-		flush(this.#session);
-		this.refresh();
+		this.#navigation.show(pageId, entry);
 		this.focus();
 	}
 
@@ -328,7 +341,7 @@ export class EditorController {
 		this.#applyPendingWheel();
 	}
 
-	handleWheel(event: WheelEvent, source: "editor" | "bar"): void {
+	handleWheel(event: WheelEvent): void {
 		const view = this.#view;
 		const wheelDelta = event.shiftKey && event.deltaY === 0 ? event.deltaX : event.deltaY;
 
@@ -339,7 +352,7 @@ export class EditorController {
 		const delta =
 			wheelDelta * (event.deltaMode === 1 ? lineHeight : event.deltaMode === 2 ? view.scrollDOM.clientHeight : 1);
 
-		if (source === "editor" && event.ctrlKey) {
+		if (event.ctrlKey) {
 			event.preventDefault();
 
 			if (!this.#locked && !this.#composition) this.#resizeText(delta < 0 ? 1 : -1, event);
@@ -368,19 +381,7 @@ export class EditorController {
 		this.#wheelAt = now;
 		this.#wheelDirection = direction;
 
-		if (event.shiftKey) {
-			event.preventDefault();
-
-			if (this.#wheelConsumed || this.#restoring || this.#transition) return;
-
-			this.#wheelConsumed = true;
-			this.#wheelDistance = 0;
-			this.#navigatePage(direction);
-
-			return;
-		}
-
-		if (source === "editor" && (this.#restoring || this.#transition)) {
+		if (this.#restoring || this.#transition) {
 			event.preventDefault();
 			this.#pendingWheelDelta += scrollDelta;
 
@@ -392,7 +393,7 @@ export class EditorController {
 				? view.scrollDOM.scrollTop <= 1
 				: view.scrollDOM.scrollTop + view.scrollDOM.clientHeight >= view.scrollDOM.scrollHeight - 1;
 
-		if (source === "editor" && !atEdge) {
+		if (!atEdge) {
 			event.preventDefault();
 			this.#wheelDistance = 0;
 			this.#wheelConsumed = false;
@@ -408,7 +409,7 @@ export class EditorController {
 
 		this.#wheelDistance += Math.abs(delta);
 
-		if (source === "editor" && this.#wheelDistance < 400) return;
+		if (this.#wheelDistance < 400) return;
 
 		const index = this.#document.pages.findIndex((page) => page.id === this.#pageId);
 		const target = this.#document.pages[index + direction];
@@ -420,7 +421,7 @@ export class EditorController {
 		}
 
 		this.#wheelConsumed = true;
-		this.showPage(target.id, source === "bar" ? "restore" : direction > 0 ? "start" : "end");
+		this.showPage(target.id, direction > 0 ? "start" : "end");
 	}
 
 	refresh(): void {
@@ -497,6 +498,7 @@ export class EditorController {
 
 		if (transactions.some((transaction) => transaction.docChanged || transaction.selection)) {
 			this.#menuGeneration++;
+			this.#cancelWheelScroll();
 			this.#cancelTransition();
 			this.#measurement++;
 			this.#restoring = false;
@@ -689,7 +691,7 @@ export class EditorController {
 
 		this.#restoring = true;
 		this.#pendingWheelDelta = 0;
-		this.#smoothWheelTarget = null;
+		this.#cancelWheelScroll();
 
 		if (snapshot) view.dispatch({ effects: snapshot });
 		else if (entry !== "restore")
@@ -775,13 +777,42 @@ export class EditorController {
 				? (this.#smoothWheelTarget ?? scroller.scrollTop)
 				: scroller.scrollTop;
 		const alignedTarget = (Math.round(start / lineHeight) + Math.round(delta / lineHeight)) * lineHeight;
+		const target = Math.max(0, Math.min(scroller.scrollHeight - scroller.clientHeight, alignedTarget));
+		const from = scroller.scrollTop;
+		const startedAt = performance.now();
 
+		this.#cancelWheelScroll();
 		this.#smoothWheelDirection = direction;
-		this.#smoothWheelTarget = Math.max(0, Math.min(scroller.scrollHeight - scroller.clientHeight, alignedTarget));
-		scroller.scrollTo({
-			top: this.#smoothWheelTarget,
-			behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth",
-		});
+
+		if (window.matchMedia("(prefers-reduced-motion: reduce)").matches || target === from) {
+			scroller.scrollTop = target;
+
+			return;
+		}
+
+		this.#smoothWheelTarget = target;
+
+		const step = (now: number) => {
+			const progress = Math.min(1, Math.max(0, (now - startedAt) / 200));
+			const eased = 1 - (1 - progress) ** 2;
+
+			scroller.scrollTop = from + (target - from) * eased;
+
+			if (progress < 1) this.#wheelFrame = requestAnimationFrame(step);
+			else {
+				this.#wheelFrame = null;
+				this.#smoothWheelTarget = null;
+			}
+		};
+
+		this.#wheelFrame = requestAnimationFrame(step);
+	}
+
+	#cancelWheelScroll(): void {
+		if (this.#wheelFrame !== null) cancelAnimationFrame(this.#wheelFrame);
+
+		this.#wheelFrame = null;
+		this.#smoothWheelTarget = null;
 	}
 
 	#resizeText(direction: -1 | 1, event: WheelEvent): void {
@@ -790,6 +821,7 @@ export class EditorController {
 
 		if (!view || textSize === this.#session.appearance.textSize) return;
 
+		this.#cancelWheelScroll();
 		this.#cancelTransition();
 
 		const position = view.posAtCoords({ x: event.clientX, y: event.clientY });
@@ -1044,7 +1076,7 @@ export class EditorController {
 						return true;
 					},
 					mousedown: (event) => {
-						this.#smoothWheelTarget = null;
+						this.#cancelWheelScroll();
 						this.#cancelTransition();
 
 						if (event.button === 2 && this.#callbacks.showTextContextMenu) {
@@ -1059,6 +1091,9 @@ export class EditorController {
 						return false;
 					},
 					keydown: (event) => {
+						if (["Shift", "Control", "Alt", "Meta", "AltGraph"].includes(event.key)) return false;
+
+						this.#cancelWheelScroll();
 						this.#cancelTransition();
 
 						if (
@@ -1136,14 +1171,7 @@ export class EditorController {
 	}
 
 	#navigatePage(direction: -1 | 1 | "first" | "last"): boolean {
-		const pages = this.#document.pages;
-		const current = pages.findIndex((page) => page.id === this.#session.view.activePageId);
-		const index = direction === "first" ? 0 : direction === "last" ? pages.length - 1 : current + direction;
-		const page = pages[index];
-
-		if (page) this.showPage(page.id);
-
-		return true;
+		return this.#navigation.navigate(direction);
 	}
 
 	#endOccurrence(collapse: boolean): void {

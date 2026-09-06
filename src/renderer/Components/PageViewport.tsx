@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { FindPanel } from "./FindPanel";
 import { OccurrencePanel } from "./OccurrencePanel";
@@ -13,10 +13,25 @@ interface PageViewportProps {
 }
 
 export function PageViewport({ context }: PageViewportProps) {
-	const { editor } = context;
+	const { editor, navigation } = context;
+	const current = useRef<HTMLDivElement>(null);
 	const [transition, setTransition] = useState<PageTransition | null>(null);
 	const incoming = useRef<HTMLDivElement>(null);
 	const outgoing = useRef<HTMLDivElement>(null);
+
+	useEffect(() => {
+		const element = current.current;
+		const wheel = (event: WheelEvent) => {
+			if (!event.shiftKey || event.ctrlKey) return;
+
+			navigation.handleWheel(event);
+			event.stopPropagation();
+		};
+
+		element?.addEventListener("wheel", wheel, { passive: false, capture: true });
+
+		return () => element?.removeEventListener("wheel", wheel, true);
+	}, [navigation]);
 
 	useLayoutEffect(() => editor.subscribePageTransition((next) => flushSync(() => setTransition(next))), [editor]);
 	useLayoutEffect(() => {
@@ -52,7 +67,7 @@ export function PageViewport({ context }: PageViewportProps) {
 
 	return (
 		<section className="page-viewport" aria-label="Current page">
-			<div className="page-current">
+			<div className="page-current" ref={current}>
 				<PageEditor editor={editor} />
 			</div>
 			{transition && <PageSnapshot ref={outgoing} snapshot={transition.outgoing} />}

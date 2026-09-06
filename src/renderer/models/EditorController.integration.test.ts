@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as occurrenceMatches from "../utils/occurrenceMatchesOf";
 import { createDocumentState } from "./DocumentState";
 import { EditorController } from "./EditorController";
+import { PageNavigation } from "./PageNavigation";
 import { History } from "./History";
 import { createSessionState } from "./SessionState";
 
@@ -21,7 +22,7 @@ beforeEach(() => {
 	});
 });
 
-function fixture(callbacks: ConstructorParameters<typeof EditorController>[3] = {}) {
+function fixture(callbacks: ConstructorParameters<typeof EditorController>[4] = {}) {
 	const documentState = createDocumentState([
 		{ id: "first", text: "cat one" },
 		{ id: "second", text: "two cat" },
@@ -48,14 +49,15 @@ function fixture(callbacks: ConstructorParameters<typeof EditorController>[3] = 
 		},
 	};
 	const history = new History(documentState, session);
-	const controller = new EditorController(documentState, session, history, callbacks);
+	const navigation = new PageNavigation(documentState, session);
+	const controller = new EditorController(documentState, session, history, navigation, callbacks);
 	controllers.push(controller);
 	const parent = document.createElement("div");
 	document.body.append(parent);
 	controller.attach(parent);
 	const editor = parent.querySelector<HTMLElement>(".cm-editor")!;
 	const view = EditorView.findFromDOM(editor)!;
-	return { documentState, session, history, controller, view };
+	return { documentState, session, history, controller, navigation, view };
 }
 
 afterEach(() => {
@@ -436,8 +438,60 @@ describe("CodeMirror bridge", () => {
 		await vi.waitFor(() => expect(view.scrollDOM.scrollTop).toBe(321));
 	});
 
-	it("requires excess editor scrolling and rearms bar navigation after an idle gap", async () => {
-		const { controller, view, session } = fixture();
+	it("keeps rapid page navigation independent of restoration and stale animation completion", async () => {
+		const { controller, view, session, documentState, navigation } = fixture();
+		controller.closeOccurrence();
+		documentState.pages = [...documentState.pages, { id: "third", text: "last page" }];
+		flush(documentState);
+		const transitions: Array<string> = [];
+		let incoming: string | null = null;
+		controller.subscribePageTransition((transition) => {
+			if (transition) transitions.push(transition.id);
+			incoming = transition?.incoming ? transition.id : null;
+		});
+
+		navigation.handleWheel(new WheelEvent("wheel", { shiftKey: true, deltaY: 120 }));
+		const superseded = transitions.at(-1)!;
+		expect(session.view.activePageId).toBe("second");
+		navigation.handleWheel(new WheelEvent("wheel", { shiftKey: true, deltaY: 120 }));
+		expect(session.view.activePageId).toBe("third");
+		expect(view.state.doc.toString()).toBe("last page");
+		const latest = transitions.at(-1)!;
+		controller.finishPageTransition(superseded);
+		await vi.waitFor(() => expect(incoming).toBe(latest));
+		navigation.handleWheel(new WheelEvent("wheel", { deltaY: -120 }));
+		expect(session.view.activePageId).toBe("second");
+		expect(view.state.doc.toString()).toBe("two cat");
+		const reversed = transitions.at(-1)!;
+		controller.finishPageTransition(latest);
+		await vi.waitFor(() => expect(incoming).toBe(reversed));
+		expect(session.view.activePageId).toBe("second");
+	});
+
+	it("keeps the incoming slide when modifier keys are pressed, but cancels for editing input", async () => {
+		const { controller, view, navigation } = fixture();
+		controller.closeOccurrence();
+		let active: string | null = null;
+		let ready = false;
+		controller.subscribePageTransition((transition) => {
+			active = transition?.id ?? null;
+			ready = transition?.incoming !== null && transition?.incoming !== undefined;
+		});
+		navigation.navigate(1);
+		const transition = active;
+		expect(transition).not.toBeNull();
+		view.contentDOM.dispatchEvent(new KeyboardEvent("keydown", { key: "Shift", shiftKey: true, bubbles: true }));
+		expect(active).toBe(transition);
+		await vi.waitFor(() => expect(ready).toBe(true));
+		for (const key of ["Shift", "Control", "Alt", "Meta", "AltGraph"])
+			view.contentDOM.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true }));
+		expect(active).toBe(transition);
+		view.contentDOM.dispatchEvent(new KeyboardEvent("keydown", { key: "a", bubbles: true }));
+		expect(active).toBeNull();
+	});
+
+	it("requires excess editor scrolling and keeps bar navigation independent", async () => {
+		const { controller, view, session, navigation } = fixture();
 		controller.closeOccurrence();
 		view.dispatch({ selection: EditorSelection.cursor(0) });
 		let now = 1000;
@@ -449,20 +503,20 @@ describe("CodeMirror bridge", () => {
 		});
 		view.scrollDOM.scrollTop = 100;
 		const ordinary = new WheelEvent("wheel", { deltaY: 300, cancelable: true });
-		controller.handleWheel(ordinary, "editor");
+		controller.handleWheel(ordinary);
 		expect(ordinary.defaultPrevented).toBe(true);
 		view.scrollDOM.scrollTop = 400;
-		controller.handleWheel(new WheelEvent("wheel", { deltaY: 200 }), "editor");
+		controller.handleWheel(new WheelEvent("wheel", { deltaY: 200 }));
 		expect(session.view.activePageId).toBe("first");
-		controller.handleWheel(new WheelEvent("wheel", { deltaY: 200 }), "editor");
+		controller.handleWheel(new WheelEvent("wheel", { deltaY: 200 }));
 		expect(session.view.activePageId).toBe("second");
 		await vi.waitFor(() => expect(view.scrollDOM.scrollTop).toBe(0));
 		await new Promise((resolve) => setTimeout(resolve, 100));
-		controller.handleWheel(new WheelEvent("wheel", { deltaY: 100 }), "bar");
+		navigation.handleWheel(new WheelEvent("wheel", { deltaY: 100 }));
 		expect(session.view.activePageId).toBe("second");
 		view.dispatch({ selection: EditorSelection.cursor(0) });
 		now += 301;
-		controller.handleWheel(new WheelEvent("wheel", { deltaY: -1, deltaMode: 1 }), "bar");
+		navigation.handleWheel(new WheelEvent("wheel", { deltaY: -1, deltaMode: 1 }));
 		expect(session.view.activePageId).toBe("first");
 	});
 
@@ -470,21 +524,21 @@ describe("CodeMirror bridge", () => {
 		const { controller, session, view } = fixture();
 		session.appearance = { ...session.appearance, textSize: 23 };
 		const wheel = new WheelEvent("wheel", { ctrlKey: true, deltaY: -120, cancelable: true });
-		controller.handleWheel(wheel, "editor");
+		controller.handleWheel(wheel);
 		expect(wheel.defaultPrevented).toBe(true);
 		expect(session.appearance.textSize).toBe(24);
-		controller.handleWheel(wheel, "editor");
+		controller.handleWheel(wheel);
 		expect(session.appearance.textSize).toBe(24);
 		expect(session.view.activePageId).toBe("first");
 		controller.setLocked(true);
-		controller.handleWheel(new WheelEvent("wheel", { ctrlKey: true, deltaY: 1 }), "editor");
+		controller.handleWheel(new WheelEvent("wheel", { ctrlKey: true, deltaY: 1 }));
 		expect(session.appearance.textSize).toBe(24);
 		controller.setLocked(false);
 		session.appearance = { ...session.appearance, textSize: 8 };
-		controller.handleWheel(new WheelEvent("wheel", { ctrlKey: true, deltaY: 1 }), "editor");
+		controller.handleWheel(new WheelEvent("wheel", { ctrlKey: true, deltaY: 1 }));
 		expect(session.appearance.textSize).toBe(8);
 		view.contentDOM.dispatchEvent(new CompositionEvent("compositionstart", { bubbles: true }));
-		controller.handleWheel(wheel, "editor");
+		controller.handleWheel(wheel);
 		expect(session.appearance.textSize).toBe(8);
 	});
 	it("reconciles current-page find after navigation and replaces from the visible cursor", () => {

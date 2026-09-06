@@ -10,17 +10,17 @@ interface PageBarProps {
 }
 
 export const PageBar = scope(({ position, context }: PageBarProps) => {
-	const { document, session, editor, persistenceState } = context;
+	const { document, session, editor, navigation, persistenceState } = context;
 	const bar = useRef<HTMLElement>(null);
 
 	useEffect(() => {
 		const element = bar.current;
-		const wheel = (event: WheelEvent) => editor.handleWheel(event, "bar");
+		const wheel = (event: WheelEvent) => navigation.handleWheel(event);
 
 		element?.addEventListener("wheel", wheel, { passive: false });
 
 		return () => element?.removeEventListener("wheel", wheel);
-	}, [editor]);
+	}, [navigation]);
 
 	const index = document.pages.findIndex((page) => page.id === session.view.activePageId);
 	const top = position === "top";
@@ -30,15 +30,13 @@ export const PageBar = scope(({ position, context }: PageBarProps) => {
 		editor.focus();
 	}, [editor, top]);
 	const navigate = useCallback(() => {
-		const page = document.pages[index + (top ? -1 : 1)];
-
-		if (page) editor.showPage(page.id);
-	}, [document, editor, index, top]);
+		navigation.navigate(top ? -1 : 1);
+		editor.focus();
+	}, [editor, navigation, top]);
 	const boundary = useCallback(() => {
-		const page = top ? document.pages[0] : document.pages.at(-1);
-
-		if (page) editor.showPage(page.id);
-	}, [document, editor, top]);
+		navigation.navigate(top ? "first" : "last");
+		editor.focus();
+	}, [editor, navigation, top]);
 	const remove = useCallback(() => {
 		editor.apply({ type: "deletePage" });
 		editor.focus();

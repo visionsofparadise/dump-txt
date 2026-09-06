@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { createDocumentState } from "../models/DocumentState";
 import { EditorController } from "../models/EditorController";
+import { PageNavigation } from "../models/PageNavigation";
 import { History } from "../models/History";
 import { createSessionState, snapshotView } from "../models/SessionState";
 import { rebuildOccurrence, selectNextOccurrence } from "./selectNextOccurrence";
@@ -10,7 +11,7 @@ function fixture(texts = ["cat + cat", "before CAT", "cat"]) {
 	const document = createDocumentState(texts.map((text, index) => ({ id: String(index), text })));
 	const session = createSessionState(document.pages);
 	const history = new History(document, session);
-	const editor = new EditorController(document, session, history);
+	const editor = new EditorController(document, session, history, new PageNavigation(document, session));
 	disposers.push(() => {
 		editor.dispose();
 		history.dispose();

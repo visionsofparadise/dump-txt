@@ -10,7 +10,7 @@ export function PageEditor({ editor }: PageEditorProps) {
 
 	useEffect(() => {
 		const element = parent.current;
-		const wheel = (event: WheelEvent) => editor.handleWheel(event, "editor");
+		const wheel = (event: WheelEvent) => editor.handleWheel(event);
 
 		if (element) {
 			editor.attach(element);
