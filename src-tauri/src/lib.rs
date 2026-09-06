@@ -1,44 +1,10 @@
+mod clipboard;
 mod error;
+mod fonts;
+mod menu;
 mod window;
 
-use error::IpcResult;
 use tauri::{webview::NewWindowResponse, Manager, Theme, WebviewWindowBuilder};
-
-#[tauri::command]
-fn get_system_fonts(request: serde_json::Value) -> IpcResult<Vec<String>> {
-    let _ = request;
-    IpcResult::failure(
-        "io",
-        "Native font enumeration is not available in this base build.",
-    )
-}
-
-#[tauri::command]
-fn read_clipboard(request: serde_json::Value) -> IpcResult<String> {
-    let _ = request;
-    IpcResult::failure(
-        "io",
-        "Native clipboard access is not available in this base build.",
-    )
-}
-
-#[tauri::command]
-fn write_clipboard(request: serde_json::Value) -> IpcResult<()> {
-    let _ = request;
-    IpcResult::failure(
-        "io",
-        "Native clipboard access is not available in this base build.",
-    )
-}
-
-#[tauri::command]
-fn show_text_context_menu(request: serde_json::Value) -> IpcResult<Option<String>> {
-    let _ = request;
-    IpcResult::failure(
-        "io",
-        "The native editing menu is not available in this base build.",
-    )
-}
 
 fn navigation_allowed(url: &tauri::Url, development_origin: Option<&tauri::Url>) -> bool {
     if let Some(origin) = development_origin {
@@ -54,13 +20,24 @@ fn navigation_allowed(url: &tauri::Url, development_origin: Option<&tauri::Url>)
 }
 
 pub fn run() {
-    tauri::Builder::default()
+    let builder = tauri::Builder::default()
         .enable_macos_default_menu(false)
         .plugin(tauri_plugin_single_instance::init(|app, _, _| {
             window::restore_existing(app);
-        }))
+        }));
+    #[cfg(feature = "automation")]
+    let builder = builder.plugin(tauri_plugin_wdio::init());
+    #[cfg(all(feature = "automation", target_os = "macos"))]
+    let builder = builder.plugin(tauri_plugin_wdio_webdriver::init());
+    builder
+        .plugin(tauri_plugin_clipboard_manager::init())
         .manage(window::WindowState::default())
-        .on_window_event(window::handle_window_event)
+        .manage(menu::MenuState::default())
+        .on_menu_event(menu::handle_menu_event)
+        .on_window_event(|window, event| {
+            window::handle_window_event(window, event);
+            menu::handle_window_event(window, event);
+        })
         .setup(|app| {
             let configuration = app.config();
             if cfg!(feature = "probe")
@@ -98,10 +75,10 @@ pub fn run() {
             window::finish_close,
             window::renderer_ready,
             window::open_inspector,
-            get_system_fonts,
-            read_clipboard,
-            write_clipboard,
-            show_text_context_menu
+            fonts::get_system_fonts,
+            clipboard::read_clipboard,
+            clipboard::write_clipboard,
+            menu::show_text_context_menu
         ])
         .build(tauri::generate_context!())
         .expect("The dump.txt desktop shell could not start")

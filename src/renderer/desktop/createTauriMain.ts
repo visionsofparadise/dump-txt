@@ -77,7 +77,11 @@ export async function createTauriMain(): Promise<{ main: Main; dispose(): void }
 		finishClose: () => invokeTauri("finish_close", {}, nativeVoid),
 		showTextContextMenu: (state) =>
 			invokeTauri("show_text_context_menu", state, new ShowTextContextMenuRendererIpc().response),
-		getSystemFonts: () => invokeTauri("get_system_fonts", {}, z.array(z.string().min(1))),
+		getSystemFonts: async () => {
+			const fonts = await invokeTauri("get_system_fonts", {}, z.array(z.string().min(1)));
+
+			return [...new Set(fonts)].sort((left, right) => left.localeCompare(right));
+		},
 		readClipboard: () => invokeTauri("read_clipboard", {}, z.string()),
 		writeClipboard: (text) => invokeTauri("write_clipboard", { text }, nativeVoid),
 		events: {

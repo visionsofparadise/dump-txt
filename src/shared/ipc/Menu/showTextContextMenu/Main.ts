@@ -30,12 +30,12 @@ export class ShowTextContextMenuMainIpc extends AsyncMainIpc<[state: TextContext
 				{ label: "Undo", enabled: state.canUndo && !state.locked, click: () => finish("undo") },
 				{ label: "Redo", enabled: state.canRedo && !state.locked, click: () => finish("redo") },
 				{ type: "separator" },
-				{ role: "cut", enabled: state.hasSelection && !state.locked },
-				{ role: "copy", enabled: state.hasSelection },
-				{ role: "paste", enabled: !state.locked },
+				{ label: "Cut", enabled: state.hasSelection && !state.locked, click: () => finish("cut") },
+				{ label: "Copy", enabled: state.hasSelection, click: () => finish("copy") },
+				{ label: "Paste", enabled: !state.locked, click: () => finish("paste") },
 				{ label: "Delete", enabled: state.hasSelection && !state.locked, click: () => finish("delete") },
 				{ type: "separator" },
-				{ role: "selectAll" },
+				{ label: "Select All", click: () => finish("selectAll") },
 			]);
 
 			browserWindow.once("closed", close);

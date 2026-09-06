@@ -1,4 +1,6 @@
 import { GetPathsRendererIpc } from "../../shared/ipc/App/getPaths/Renderer";
+import { ReadClipboardRendererIpc } from "../../shared/ipc/Clipboard/readText/Renderer";
+import { WriteClipboardRendererIpc } from "../../shared/ipc/Clipboard/writeText/Renderer";
 import { ShowOpenDialogRendererIpc } from "../../shared/ipc/Dialog/showOpenDialog/Renderer";
 import { ShowSaveDialogRendererIpc } from "../../shared/ipc/Dialog/showSaveDialog/Renderer";
 import { ReadFileRendererIpc } from "../../shared/ipc/FileSystem/readFile/Renderer";
@@ -8,14 +10,9 @@ import { FinishCloseRendererIpc } from "../../shared/ipc/Window/finishClose/Rend
 import { MinimizeRendererIpc } from "../../shared/ipc/Window/minimize/Renderer";
 import { SetTitleRendererIpc } from "../../shared/ipc/Window/setTitle/Renderer";
 import { ToggleMaximizeRendererIpc } from "../../shared/ipc/Window/toggleMaximize/Renderer";
-import { IpcError } from "../../shared/models/IpcFailure";
+import { failureOf, IpcError } from "../../shared/models/IpcFailure";
+import { systemFontsOf } from "../utils/systemFontsOf";
 import type { Main } from "../models/Main";
-
-function unavailable(): Promise<never> {
-	return Promise.reject(
-		new IpcError({ code: "io", message: "This desktop service is unavailable in the migration base." }),
-	);
-}
 
 export function createElectronMain(): Main {
 	const bridge = window.main;
@@ -31,9 +28,15 @@ export function createElectronMain(): Main {
 		setTitle: new SetTitleRendererIpc().connect(bridge.setTitle),
 		minimize: new MinimizeRendererIpc().connect(bridge.minimize),
 		toggleMaximize: new ToggleMaximizeRendererIpc().connect(bridge.toggleMaximize),
-		getSystemFonts: unavailable,
-		readClipboard: unavailable,
-		writeClipboard: unavailable,
+		getSystemFonts: async () => {
+			try {
+				return await systemFontsOf();
+			} catch (error) {
+				throw new IpcError(failureOf(error));
+			}
+		},
+		readClipboard: new ReadClipboardRendererIpc().connect(bridge.readClipboard),
+		writeClipboard: new WriteClipboardRendererIpc().connect(bridge.writeClipboard),
 		events: bridge.events,
 	};
 }

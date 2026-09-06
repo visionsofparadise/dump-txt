@@ -1,5 +1,6 @@
 import { EditorSelection, Transaction } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
+import { flush } from "opshot";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as occurrenceMatches from "../utils/occurrenceMatchesOf";
 import { createDocumentState } from "./DocumentState";
@@ -65,6 +66,168 @@ afterEach(() => {
 });
 
 describe("CodeMirror bridge", () => {
+	it.each(["cut", "paste", "delete", "undo", "redo"] as const)("rejects native %s while locked", async (intent) => {
+		const readClipboard = vi.fn(async () => "replacement");
+		const writeClipboard = vi.fn(async () => undefined);
+		const { view, controller, documentState, history } = fixture({
+			showTextContextMenu: async () => intent,
+			readClipboard,
+			writeClipboard,
+		});
+		controller.setLocked(true);
+		vi.spyOn(view, "posAtCoords").mockReturnValue(1);
+		view.contentDOM.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true }));
+		await Promise.resolve();
+		expect(readClipboard).not.toHaveBeenCalled();
+		expect(writeClipboard).not.toHaveBeenCalled();
+		expect(documentState.pages.map((page) => page.text)).toEqual(["cat one", "two cat"]);
+		expect(history.canUndo).toBe(false);
+	});
+
+	it.each([false, true])("copies cross-page text in document order with locked=%s", async (locked) => {
+		const writeClipboard = vi.fn(async () => undefined);
+		const { view, controller, history, documentState } = fixture({
+			showTextContextMenu: async () => "copy",
+			writeClipboard,
+		});
+		controller.setLocked(locked);
+		vi.spyOn(view, "posAtCoords").mockReturnValue(1);
+		view.contentDOM.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true }));
+		await vi.waitFor(() => expect(writeClipboard).toHaveBeenCalledWith("cat\ncat"));
+		expect(documentState.pages.map((page) => page.text)).toEqual(["cat one", "two cat"]);
+		expect(history.canUndo).toBe(false);
+	});
+
+	it("cuts cross-page selections only after writing and records one reversible edit", async () => {
+		let complete!: () => void;
+		const writeClipboard = vi.fn(
+			() =>
+				new Promise<void>((resolve) => {
+					complete = resolve;
+				}),
+		);
+		const { view, documentState, history } = fixture({ showTextContextMenu: async () => "cut", writeClipboard });
+		vi.spyOn(view, "posAtCoords").mockReturnValue(1);
+		view.contentDOM.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true }));
+		await vi.waitFor(() => expect(writeClipboard).toHaveBeenCalledWith("cat\ncat"));
+		expect(documentState.pages.map((page) => page.text)).toEqual(["cat one", "two cat"]);
+		complete();
+		await vi.waitFor(() => expect(documentState.pages.map((page) => page.text)).toEqual([" one", "two "]));
+		history.undo();
+		expect(documentState.pages.map((page) => page.text)).toEqual(["cat one", "two cat"]);
+		expect(history.canUndo).toBe(false);
+	});
+
+	it("pastes native Unicode clipboard text through the existing cross-page edit", async () => {
+		const { view, documentState, history } = fixture({
+			showTextContextMenu: async () => "paste",
+			readClipboard: async () => "中文 👩‍💻",
+		});
+		vi.spyOn(view, "posAtCoords").mockReturnValue(1);
+		view.contentDOM.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true }));
+		await vi.waitFor(() =>
+			expect(documentState.pages.map((page) => page.text)).toEqual(["中文 👩‍💻 one", "two 中文 👩‍💻"]),
+		);
+		history.undo();
+		expect(documentState.pages.map((page) => page.text)).toEqual(["cat one", "two cat"]);
+		expect(history.canUndo).toBe(false);
+	});
+
+	it.each(["cut", "paste"] as const)(
+		"preserves text and history when native %s clipboard access fails",
+		async (intent) => {
+			const failure = () => Promise.reject(new Error("Clipboard busy"));
+			const { view, documentState, history } = fixture({
+				showTextContextMenu: async () => intent,
+				readClipboard: failure,
+				writeClipboard: failure,
+			});
+			vi.spyOn(view, "posAtCoords").mockReturnValue(1);
+			view.contentDOM.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true }));
+			await Promise.resolve();
+			await Promise.resolve();
+			expect(documentState.pages.map((page) => page.text)).toEqual(["cat one", "two cat"]);
+			expect(history.canUndo).toBe(false);
+		},
+	);
+
+	it.each([false, true])("selects the active page and ends occurrence mode with locked=%s", async (locked) => {
+		const { view, controller, session, history } = fixture({ showTextContextMenu: async () => "selectAll" });
+		controller.setLocked(locked);
+		vi.spyOn(view, "posAtCoords").mockReturnValue(1);
+		view.contentDOM.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true }));
+		await vi.waitFor(() => expect(view.state.selection.main.to).toBe(7));
+		expect(view.state.selection.main.from).toBe(0);
+		expect(session.view.occurrence).toBeNull();
+		expect(history.canUndo).toBe(false);
+	});
+
+	for (const intent of ["cut", "paste"] as const) {
+		it.each([
+			"lock",
+			"detach",
+			"selection",
+			"selectionRestored",
+			"page",
+			"scope",
+			"offPage",
+			"editUndo",
+			"composition",
+			"newMenu",
+		] as const)(`rejects pending native ${intent} after %s changes`, async (change) => {
+			let complete!: () => void;
+			const pending = new Promise<void>((resolve) => {
+				complete = resolve;
+			});
+			const writeClipboard = vi.fn(() => pending);
+			const readClipboard = vi.fn(async () => {
+				await pending;
+				return "replacement";
+			});
+			const showTextContextMenu = vi
+				.fn<() => Promise<typeof intent | null>>()
+				.mockResolvedValueOnce(intent)
+				.mockResolvedValue(null);
+			const { view, controller, documentState, session, history } = fixture({
+				showTextContextMenu,
+				writeClipboard,
+				readClipboard,
+			});
+			vi.spyOn(view, "posAtCoords").mockReturnValue(1);
+			const open = () =>
+				view.contentDOM.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true }));
+			open();
+			await vi.waitFor(() => expect(intent === "cut" ? writeClipboard : readClipboard).toHaveBeenCalledOnce());
+			if (change === "lock") {
+				controller.setLocked(true);
+				controller.setLocked(false);
+			} else if (change === "detach") controller.detach();
+			else if (change === "selection" || change === "selectionRestored") {
+				const selection = view.state.selection;
+				view.dispatch({ selection: EditorSelection.cursor(5) });
+				if (change === "selectionRestored") view.dispatch({ selection });
+			} else if (change === "page") controller.showPage("second");
+			else if (change === "scope") controller.updateOccurrenceOptions({ allPages: false });
+			else if (change === "offPage")
+				documentState.pages = [documentState.pages[0]!, { id: "second", text: "changed" }];
+			else if (change === "editUndo") {
+				controller.apply({ type: "insert", text: "dog" });
+				history.undo();
+				controller.refresh();
+			} else if (change === "composition")
+				view.contentDOM.dispatchEvent(new CompositionEvent("compositionstart", { bubbles: true }));
+			else open();
+			flush(documentState);
+			flush(session);
+			const expected = documentState.pages.map((page) => page.text);
+			complete();
+			await pending;
+			await Promise.resolve();
+			await Promise.resolve();
+			expect(documentState.pages.map((page) => page.text)).toEqual(expected);
+		});
+	}
+
 	it("preserves right-clicked occurrence targets and deletes them through one global history entry", async () => {
 		const showTextContextMenu = vi.fn(async () => "delete" as const);
 		const { view, documentState, history, session } = fixture({ showTextContextMenu });

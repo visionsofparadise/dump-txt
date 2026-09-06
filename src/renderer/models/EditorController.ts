@@ -17,6 +17,8 @@ interface EditorCallbacks {
 	readonly selectNextOccurrence?: () => void;
 	readonly changed?: () => void;
 	readonly showTextContextMenu?: (state: TextContextMenuState) => Promise<TextContextMenuResponse>;
+	readonly readClipboard?: () => Promise<string>;
+	readonly writeClipboard?: (text: string) => Promise<void>;
 }
 
 interface Composition {
@@ -58,6 +60,7 @@ export class EditorController {
 	#locked = false;
 	#composition: Composition | null = null;
 	#menuGeneration = 0;
+	#menuSelection: string | null = null;
 	#transition: PageTransition | null = null;
 	#restoring = false;
 	#measurement = 0;
@@ -77,7 +80,13 @@ export class EditorController {
 		this.#history = history;
 		this.#callbacks = callbacks;
 		this.#pageId = session.view.activePageId;
-		this.#unsubscribers = [subscribe(document, () => this.refresh()), subscribe(session, () => this.refresh())];
+		this.#unsubscribers = [
+			subscribe(document, () => {
+				this.#menuGeneration++;
+				this.refresh();
+			}),
+			subscribe(session, () => this.refresh()),
+		];
 	}
 
 	attach(parent: HTMLElement): void {
@@ -415,6 +424,11 @@ export class EditorController {
 	}
 
 	refresh(): void {
+		if (this.#menuSelection !== null && this.#menuSelection !== this.#selectionOfMenu()) {
+			this.#menuGeneration++;
+			this.#menuSelection = null;
+		}
+
 		if (this.#updating || this.#composition) return;
 
 		this.#synchronizeFind();
@@ -482,6 +496,7 @@ export class EditorController {
 		}
 
 		if (transactions.some((transaction) => transaction.docChanged || transaction.selection)) {
+			this.#menuGeneration++;
 			this.#cancelTransition();
 			this.#measurement++;
 			this.#restoring = false;
@@ -998,6 +1013,7 @@ export class EditorController {
 				}),
 				EditorView.domEventHandlers({
 					compositionstart: () => {
+						this.#menuGeneration++;
 						this.#cancelTransition();
 
 						if (!this.#locked && this.#view) {
@@ -1206,51 +1222,92 @@ export class EditorController {
 
 		if (!view || !show) return;
 
+		flush(this.#document);
+		flush(this.#session);
+
 		const generation = ++this.#menuGeneration;
 		const state = view.state;
-		let response: TextContextMenuResponse;
+		const pages = this.#document.pages;
+		const selection = this.#selectionOfMenu();
+		const current = () =>
+			generation === this.#menuGeneration &&
+			this.#view === view &&
+			!this.#composition &&
+			this.#document.pages === pages &&
+			this.#selectionOfMenu() === selection &&
+			view.state.doc === state.doc &&
+			view.state.selection.eq(state.selection);
+
+		this.#menuSelection = selection;
 
 		try {
-			response = await show({
+			const response = await show({
 				canUndo: this.#history.canUndo,
 				canRedo: this.#history.canRedo,
-				hasSelection: state.selection.ranges.some((range) => !range.empty),
+				hasSelection: [...participatingRanges(this.#document, this.#session.view).values()].some((ranges) =>
+					ranges.some((range) => range.anchor !== range.head),
+				),
 				locked: this.#locked,
 			});
+
+			if (!response || !current() || (this.#locked && response !== "copy" && response !== "selectAll")) return;
+
+			if (response === "copy" || response === "cut") {
+				if (!this.#callbacks.writeClipboard) return;
+
+				await this.#callbacks.writeClipboard(this.#selectedText());
+
+				if (!current()) return;
+
+				if (response === "cut" && !this.#locked) this.apply({ type: "insert", text: "" });
+			} else if (response === "paste") {
+				if (!this.#callbacks.readClipboard) return;
+
+				const text = await this.#callbacks.readClipboard();
+
+				if (!current() || this.#locked) return;
+
+				this.apply({ type: "paste", text });
+			} else if (response === "delete") this.apply({ type: "insert", text: "" });
+			else if (response === "undo" || response === "redo") this.#replay(response);
+			else {
+				this.#endOccurrence(false);
+				view.dispatch({ selection: EditorSelection.single(0, view.state.doc.length) });
+			}
+
+			this.focus();
 		} catch {
 			return;
+		} finally {
+			if (generation === this.#menuGeneration) this.#menuSelection = null;
 		}
-
-		if (
-			!response ||
-			generation !== this.#menuGeneration ||
-			this.#locked ||
-			this.#view !== view ||
-			view.state.doc !== state.doc ||
-			!view.state.selection.eq(state.selection)
-		)
-			return;
-
-		if (response === "delete") this.apply({ type: "insert", text: "" });
-		else if (response === "undo" || response === "redo") this.#replay(response);
-
-		this.focus();
 	}
 
-	#clipboard(event: ClipboardEvent, cut: boolean): boolean {
-		if (!event.clipboardData || !this.#session.view.occurrence || (cut && this.#locked)) return false;
+	#selectionOfMenu(): string {
+		return JSON.stringify({
+			activePageId: this.#session.view.activePageId,
+			occurrence: this.#session.view.occurrence,
+			ranges: [...participatingRanges(this.#document, this.#session.view)],
+		});
+	}
 
+	#selectedText(): string {
 		const targets = participatingRanges(this.#document, this.#session.view);
-		const text = this.#document.pages
+
+		return this.#document.pages
 			.flatMap((page) =>
 				(targets.get(page.id) ?? []).map((range) =>
 					page.text.slice(Math.min(range.anchor, range.head), Math.max(range.anchor, range.head)),
 				),
 			)
 			.join("\n");
+	}
+
+	#clipboard(event: ClipboardEvent, cut: boolean): boolean {
+		if (!event.clipboardData || !this.#session.view.occurrence || (cut && this.#locked)) return false;
 
 		event.preventDefault();
-		event.clipboardData.setData("text/plain", text);
+		event.clipboardData.setData("text/plain", this.#selectedText());
 
 		if (cut) this.apply({ type: "insert", text: "" });
 

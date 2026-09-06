@@ -1,0 +1,331 @@
+use crate::error::{parse_request, IpcResult};
+use serde::{Deserialize, Serialize};
+use std::sync::{
+    atomic::{AtomicU64, Ordering},
+    mpsc::{sync_channel, Receiver, SyncSender},
+    Mutex,
+};
+use tauri::{
+    menu::{Menu, MenuEvent, MenuItem, PredefinedMenuItem},
+    AppHandle, Manager, WebviewWindow, WindowEvent,
+};
+
+#[derive(Clone, Copy, Debug, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum MenuAction {
+    Undo,
+    Redo,
+    Cut,
+    Copy,
+    Paste,
+    Delete,
+    SelectAll,
+}
+
+const ACTIONS: [MenuAction; 7] = [
+    MenuAction::Undo,
+    MenuAction::Redo,
+    MenuAction::Cut,
+    MenuAction::Copy,
+    MenuAction::Paste,
+    MenuAction::Delete,
+    MenuAction::SelectAll,
+];
+
+impl MenuAction {
+    fn label(self) -> &'static str {
+        match self {
+            Self::Undo => "Undo",
+            Self::Redo => "Redo",
+            Self::Cut => "Cut",
+            Self::Copy => "Copy",
+            Self::Paste => "Paste",
+            Self::Delete => "Delete",
+            Self::SelectAll => "Select All",
+        }
+    }
+
+    fn identifier(self, invocation: u64) -> String {
+        format!("editing-{invocation}-{}", self.label())
+    }
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct MenuRequest {
+    can_undo: bool,
+    can_redo: bool,
+    has_selection: bool,
+    locked: bool,
+}
+
+impl MenuRequest {
+    fn enabled(&self, action: MenuAction) -> bool {
+        match action {
+            MenuAction::Undo => self.can_undo && !self.locked,
+            MenuAction::Redo => self.can_redo && !self.locked,
+            MenuAction::Cut | MenuAction::Delete => self.has_selection && !self.locked,
+            MenuAction::Copy => self.has_selection,
+            MenuAction::Paste => !self.locked,
+            MenuAction::SelectAll => true,
+        }
+    }
+}
+
+struct Invocation {
+    identifier: u64,
+    request: MenuRequest,
+    selection: Option<MenuAction>,
+    response: SyncSender<IpcResult<Option<MenuAction>>>,
+}
+
+#[derive(Default)]
+pub struct MenuState {
+    next_identifier: AtomicU64,
+    invocation: Mutex<Option<Invocation>>,
+}
+
+impl MenuState {
+    fn begin(
+        &self,
+        request: MenuRequest,
+    ) -> Option<(u64, Receiver<IpcResult<Option<MenuAction>>>)> {
+        let mut active = self
+            .invocation
+            .lock()
+            .unwrap_or_else(|error| error.into_inner());
+        if active.is_some() {
+            return None;
+        }
+        let identifier = self.next_identifier.fetch_add(1, Ordering::Relaxed);
+        let (response, receiver) = sync_channel(1);
+        *active = Some(Invocation {
+            identifier,
+            request,
+            selection: None,
+            response,
+        });
+        Some((identifier, receiver))
+    }
+
+    fn select(&self, menu_identifier: &str) {
+        let mut active = self
+            .invocation
+            .lock()
+            .unwrap_or_else(|error| error.into_inner());
+        if let Some(invocation) = active.as_mut() {
+            if invocation.selection.is_some() {
+                return;
+            }
+            invocation.selection = ACTIONS.into_iter().find(|action| {
+                invocation.request.enabled(*action)
+                    && action.identifier(invocation.identifier) == menu_identifier
+            });
+        }
+    }
+
+    fn finish(&self, identifier: Option<u64>, failure: Option<String>, cancel: bool) {
+        let mut active = self
+            .invocation
+            .lock()
+            .unwrap_or_else(|error| error.into_inner());
+        if !active.as_ref().is_some_and(|invocation| {
+            identifier.is_none_or(|identifier| identifier == invocation.identifier)
+        }) {
+            return;
+        }
+        if let Some(invocation) = active.take() {
+            let result = match failure {
+                Some(message) => IpcResult::failure("io", message),
+                None => IpcResult::Success {
+                    ok: true,
+                    value: if cancel { None } else { invocation.selection },
+                },
+            };
+            let _ = invocation.response.try_send(result);
+        }
+    }
+}
+
+pub fn handle_menu_event(app: &AppHandle, event: MenuEvent) {
+    app.state::<MenuState>().select(event.id.as_ref());
+}
+
+pub fn handle_window_event(window: &tauri::Window, event: &WindowEvent) {
+    if matches!(event, WindowEvent::Destroyed) {
+        window.state::<MenuState>().finish(None, None, true);
+    }
+}
+
+fn create_menu(app: &AppHandle, identifier: u64) -> tauri::Result<Menu<tauri::Wry>> {
+    let menu = Menu::new(app)?;
+    let state = app.state::<MenuState>();
+    let enabled: Vec<bool> = {
+        let active = state
+            .invocation
+            .lock()
+            .unwrap_or_else(|error| error.into_inner());
+        ACTIONS
+            .iter()
+            .map(|action| {
+                active.as_ref().is_some_and(|invocation| {
+                    invocation.identifier == identifier && invocation.request.enabled(*action)
+                })
+            })
+            .collect()
+    };
+    for (action, enabled) in ACTIONS.into_iter().zip(enabled) {
+        if matches!(action, MenuAction::Cut | MenuAction::SelectAll) {
+            menu.append(&PredefinedMenuItem::separator(app)?)?;
+        }
+        menu.append(&MenuItem::with_id(
+            app,
+            action.identifier(identifier),
+            action.label(),
+            enabled,
+            None::<&str>,
+        )?)?;
+    }
+    Ok(menu)
+}
+
+#[tauri::command]
+pub async fn show_text_context_menu(
+    window: WebviewWindow,
+    request: serde_json::Value,
+) -> IpcResult<Option<MenuAction>> {
+    let request = match parse_request::<MenuRequest>(request) {
+        Ok(request) => request,
+        Err(error) => return IpcResult::Failure { ok: false, error },
+    };
+    let app = window.app_handle().clone();
+    let Some((identifier, receiver)) = app.state::<MenuState>().begin(request) else {
+        return IpcResult::Success {
+            ok: true,
+            value: None,
+        };
+    };
+    let failed_app = app.clone();
+    match tauri::async_runtime::spawn_blocking(move || {
+        let shown = create_menu(&app, identifier).and_then(|menu| window.popup_menu(&menu));
+        let completed_app = app.clone();
+        let queued = app.run_on_main_thread(move || {
+            completed_app.state::<MenuState>().finish(
+                Some(identifier),
+                shown.err().map(|error| error.to_string()),
+                false,
+            );
+        });
+        if let Err(error) = queued {
+            app.state::<MenuState>()
+                .finish(Some(identifier), Some(error.to_string()), false);
+        }
+        receiver.recv().unwrap_or_else(|_| {
+            IpcResult::failure("io", "The editing menu closed without a response.")
+        })
+    })
+    .await
+    {
+        Ok(result) => result,
+        Err(error) => {
+            let message = error.to_string();
+            failed_app
+                .state::<MenuState>()
+                .finish(Some(identifier), Some(message.clone()), false);
+            IpcResult::failure("io", message)
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn request(locked: bool) -> MenuRequest {
+        MenuRequest {
+            can_undo: true,
+            can_redo: true,
+            has_selection: true,
+            locked,
+        }
+    }
+
+    fn value(receiver: Receiver<IpcResult<Option<MenuAction>>>) -> serde_json::Value {
+        serde_json::to_value(receiver.recv().unwrap()).unwrap()
+    }
+
+    #[test]
+    fn a_selection_wins_over_later_completion_and_duplicate_events() {
+        let state = MenuState::default();
+        let (identifier, receiver) = state.begin(request(false)).unwrap();
+        state.select(&MenuAction::Copy.identifier(identifier));
+        state.select(&MenuAction::Cut.identifier(identifier));
+        state.finish(Some(identifier), None, false);
+        state.finish(Some(identifier), None, false);
+        assert_eq!(
+            value(receiver),
+            serde_json::json!({"ok": true, "value": "copy"})
+        );
+        assert!(state.begin(request(false)).is_some());
+    }
+
+    #[test]
+    fn cancellation_cleans_up_and_stale_events_cannot_choose_the_next_menu() {
+        let state = MenuState::default();
+        let (previous, receiver) = state.begin(request(false)).unwrap();
+        state.finish(None, None, true);
+        assert_eq!(
+            value(receiver),
+            serde_json::json!({"ok": true, "value": null})
+        );
+        let (current, receiver) = state.begin(request(false)).unwrap();
+        state.select(&MenuAction::Paste.identifier(previous));
+        state.finish(Some(previous), None, false);
+        state.finish(Some(current), None, false);
+        assert_eq!(
+            value(receiver),
+            serde_json::json!({"ok": true, "value": null})
+        );
+    }
+
+    #[test]
+    fn locked_menus_accept_copy_and_select_all_while_rejecting_mutation() {
+        let state = MenuState::default();
+        let (identifier, receiver) = state.begin(request(true)).unwrap();
+        for action in [
+            MenuAction::Cut,
+            MenuAction::Paste,
+            MenuAction::Delete,
+            MenuAction::Undo,
+            MenuAction::Redo,
+        ] {
+            state.select(&action.identifier(identifier));
+        }
+        state.select(&MenuAction::SelectAll.identifier(identifier));
+        state.finish(Some(identifier), None, false);
+        assert_eq!(
+            value(receiver),
+            serde_json::json!({"ok": true, "value": "selectAll"})
+        );
+        let (identifier, receiver) = state.begin(request(true)).unwrap();
+        state.select(&MenuAction::Copy.identifier(identifier));
+        state.finish(Some(identifier), None, false);
+        assert_eq!(
+            value(receiver),
+            serde_json::json!({"ok": true, "value": "copy"})
+        );
+    }
+
+    #[test]
+    fn popup_failure_settles_once_and_allows_retry() {
+        let state = MenuState::default();
+        let (identifier, receiver) = state.begin(request(false)).unwrap();
+        assert!(state.begin(request(false)).is_none());
+        state.finish(Some(identifier), Some("Popup failed".into()), false);
+        assert_eq!(
+            value(receiver),
+            serde_json::json!({"ok": false, "error": {"code": "io", "message": "Popup failed"}})
+        );
+        assert!(state.begin(request(false)).is_some());
+    }
+}

@@ -32,7 +32,7 @@ describe("native text menu", () => {
 		expect(Menu.buildFromTemplate).not.toHaveBeenCalled();
 	});
 
-	it("uses clipboard roles and resolves a history intent once before menu close", async () => {
+	it("uses explicit editing intents and resolves history once before menu close", async () => {
 		const { handler, dependencies, window } = fixture();
 		const result = handler.execute([state], dependencies);
 		const template = vi.mocked(Menu.buildFromTemplate).mock.calls[0]![0];
@@ -40,12 +40,12 @@ describe("native text menu", () => {
 			"Undo",
 			"Redo",
 			"separator",
-			"cut",
-			"copy",
-			"paste",
+			"Cut",
+			"Copy",
+			"Paste",
 			"Delete",
 			"separator",
-			"selectAll",
+			"Select All",
 		]);
 		expect(template[0]?.enabled).toBe(true);
 		expect(template[1]?.enabled).toBe(false);
@@ -53,6 +53,26 @@ describe("native text menu", () => {
 		Reflect.apply(undo.click!, undefined, []);
 		native.popup.mock.calls[0]![0].callback();
 		expect(await result).toEqual({ ok: true, value: "undo" });
+		expect(window.listenerCount("closed")).toBe(0);
+	});
+
+	it.each([
+		[3, "cut"],
+		[4, "copy"],
+		[5, "paste"],
+		[6, "delete"],
+		[8, "selectAll"],
+	] as const)("returns menu item %s as %s without native editing roles", async (index, intent) => {
+		const { handler, dependencies, window } = fixture();
+		const result = handler.execute([state], dependencies);
+		const template = vi.mocked(Menu.buildFromTemplate).mock.calls[0]![0];
+		const item = template[index]!;
+
+		expect(item.role).toBeUndefined();
+		Reflect.apply(item.click!, undefined, []);
+		native.popup.mock.calls[0]![0].callback();
+		window.emit("closed");
+		expect(await result).toEqual({ ok: true, value: intent });
 		expect(window.listenerCount("closed")).toBe(0);
 	});
 

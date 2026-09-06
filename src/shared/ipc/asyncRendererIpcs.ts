@@ -1,4 +1,6 @@
 import { GetPathsRendererIpc } from "./App/getPaths/Renderer";
+import { ReadClipboardRendererIpc } from "./Clipboard/readText/Renderer";
+import { WriteClipboardRendererIpc } from "./Clipboard/writeText/Renderer";
 import { ShowOpenDialogRendererIpc } from "./Dialog/showOpenDialog/Renderer";
 import { ShowSaveDialogRendererIpc } from "./Dialog/showSaveDialog/Renderer";
 import { ReadFileRendererIpc } from "./FileSystem/readFile/Renderer";
@@ -11,6 +13,8 @@ import { ToggleMaximizeRendererIpc } from "./Window/toggleMaximize/Renderer";
 
 export const ASYNC_RENDERER_IPCS = [
 	GetPathsRendererIpc,
+	ReadClipboardRendererIpc,
+	WriteClipboardRendererIpc,
 	ShowOpenDialogRendererIpc,
 	ShowSaveDialogRendererIpc,
 	ReadFileRendererIpc,

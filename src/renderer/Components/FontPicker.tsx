@@ -1,7 +1,6 @@
 import { CaseSensitive, Check, Search, X } from "lucide-react";
 import { scope } from "opshot";
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type KeyboardEvent } from "react";
-import { systemFontsOf } from "../utils/systemFontsOf";
 import { FontMenuItem } from "./FontMenuItem";
 import { Dialog, DialogContent, DialogTitle } from "./UI/Dialog";
 import type { ChromeContext } from "../models/ChromeContext";
@@ -11,7 +10,7 @@ interface FontPickerProps {
 }
 
 export const FontPicker = scope(({ context }: FontPickerProps) => {
-	const { chrome, session, history, editor, persistenceState } = context;
+	const { chrome, session, history, editor, persistenceState, main } = context;
 	const open = chrome.fontPickerOpen;
 	const currentFont = session.appearance.font;
 	const search = useRef<HTMLInputElement>(null);
@@ -35,7 +34,7 @@ export const FontPicker = scope(({ context }: FontPickerProps) => {
 		setError(null);
 
 		try {
-			const installed = await systemFontsOf();
+			const installed = await main.getSystemFonts();
 
 			if (generation === request.current) setFonts(installed);
 		} catch (failure) {
@@ -44,7 +43,7 @@ export const FontPicker = scope(({ context }: FontPickerProps) => {
 		} finally {
 			if (generation === request.current) setLoading(false);
 		}
-	}, []);
+	}, [main]);
 	const dismiss = useCallback(() => {
 		if (!chrome.fontPickerOpen) return;
 

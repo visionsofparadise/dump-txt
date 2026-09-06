@@ -33,7 +33,7 @@ async function fixture(text = "first\n\f\nsecond\n\f\nthird") {
 		showSaveDialog: vi.fn(async () => null),
 		setTitle: vi.fn(async () => undefined),
 		showTextContextMenu: vi.fn(async () => null),
-		getSystemFonts: vi.fn(async () => []),
+		getSystemFonts: vi.fn(async () => ["Arial", "Consolas"]),
 		readClipboard: vi.fn(async () => ""),
 		writeClipboard: vi.fn(async () => undefined),
 		minimize: vi.fn(async () => undefined),
@@ -288,10 +288,6 @@ describe("scratchpad interface", () => {
 	});
 
 	it("previews fonts in the modal and keeps text size controls open", async () => {
-		vi.stubGlobal(
-			"queryLocalFonts",
-			vi.fn(async () => [{ family: "Consolas" }, { family: "Arial" }]),
-		);
 		Element.prototype.scrollIntoView = vi.fn();
 		const { user, container } = await fixture();
 		await user.click(screen.getByRole("button", { name: "App menu" }));
@@ -314,5 +310,54 @@ describe("scratchpad interface", () => {
 				"14pt",
 			),
 		);
+	});
+
+	it("retries native font failures and cancels a live font change", async () => {
+		const { user, container } = await fixture();
+		vi.mocked(main.getSystemFonts).mockRejectedValueOnce(new Error("Font service busy"));
+		await user.click(screen.getByRole("button", { name: "App menu" }));
+		await user.click(await screen.findByRole("menuitem", { name: /Font/u }));
+		await screen.findByRole("alert");
+		expect(screen.getByRole("button", { name: "Apply" }).hasAttribute("disabled")).toBe(true);
+		await user.click(screen.getByRole("button", { name: "Retry" }));
+		await user.click(await screen.findByRole("option", { name: "Arial" }));
+		await waitFor(() =>
+			expect(container.querySelector<HTMLElement>(".dump-app")?.style.getPropertyValue("--editor-font")).toBe(
+				'"Arial", sans-serif',
+			),
+		);
+		await user.click(screen.getByRole("button", { name: "Cancel" }));
+		await waitFor(() =>
+			expect(container.querySelector<HTMLElement>(".dump-app")?.style.getPropertyValue("--editor-font")).toBe(
+				'"Consolas", monospace',
+			),
+		);
+		expect(main.getSystemFonts).toHaveBeenCalledTimes(2);
+	});
+
+	it("ignores a font response from a dismissed modal after reopening", async () => {
+		const { user } = await fixture();
+		let complete!: (fonts: ReadonlyArray<string>) => void;
+		vi.mocked(main.getSystemFonts).mockImplementationOnce(
+			() =>
+				new Promise((resolve) => {
+					complete = resolve;
+				}),
+		);
+		const open = async () => {
+			await user.click(screen.getByRole("button", { name: "App menu" }));
+			await user.click(await screen.findByRole("menuitem", { name: /Font/u }));
+			await screen.findByRole("dialog", { name: "Font" });
+		};
+		await open();
+		await user.keyboard("{Escape}");
+		await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+		await open();
+		await screen.findByRole("option", { name: "Arial" });
+		await act(async () => {
+			complete(["Stale family"]);
+		});
+		expect(screen.queryByRole("option", { name: "Stale family" })).toBeNull();
+		expect(screen.getByRole("option", { name: "Arial" })).toBeTruthy();
 	});
 });

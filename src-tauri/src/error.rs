@@ -24,7 +24,7 @@ impl<T> IpcResult<T> {
         }
     }
 
-    pub fn from_result(result: Result<T, tauri::Error>) -> Self {
+    pub fn from_result<E: std::fmt::Display>(result: Result<T, E>) -> Self {
         match result {
             Ok(value) => Self::Success { ok: true, value },
             Err(error) => Self::failure("io", error.to_string()),

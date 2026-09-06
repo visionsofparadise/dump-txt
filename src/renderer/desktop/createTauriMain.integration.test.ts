@@ -163,4 +163,25 @@ describe("Tauri desktop boundary", () => {
 		await expect(desktop.main.getSystemFonts()).rejects.toMatchObject({ code: "io" });
 		desktop.dispose();
 	});
+
+	it("validates font families and clipboard transport while preserving native menu intents", async () => {
+		const desktop = await createTauriMain();
+		native.invoke.mockResolvedValueOnce({ ok: true, value: ["Consolas", "Arial", "Arial"] });
+		await expect(desktop.main.getSystemFonts()).resolves.toEqual(["Arial", "Consolas"]);
+		expect(native.invoke).toHaveBeenLastCalledWith("get_system_fonts", { request: {} });
+		native.invoke.mockResolvedValueOnce({ ok: true, value: "中文\n\f\n👩‍💻" });
+		await expect(desktop.main.readClipboard()).resolves.toBe("中文\n\f\n👩‍💻");
+		native.invoke.mockResolvedValueOnce({ ok: true, value: null });
+		await expect(desktop.main.writeClipboard("")).resolves.toBeUndefined();
+		expect(native.invoke).toHaveBeenLastCalledWith("write_clipboard", { request: { text: "" } });
+		for (const intent of ["cut", "copy", "paste", "selectAll", null]) {
+			native.invoke.mockResolvedValueOnce({ ok: true, value: intent });
+			await expect(
+				desktop.main.showTextContextMenu({ canUndo: false, canRedo: false, hasSelection: true, locked: false }),
+			).resolves.toBe(intent);
+		}
+		native.invoke.mockResolvedValueOnce({ ok: true, value: ["Arial", ""] });
+		await expect(desktop.main.getSystemFonts()).rejects.toMatchObject({ code: "invalid" });
+		desktop.dispose();
+	});
 });
