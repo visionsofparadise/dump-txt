@@ -1,6 +1,7 @@
 import { createMutableState, scope } from "opshot";
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
 import { AppMenu } from "./AppMenu";
+import { FontPicker } from "./FontPicker";
 import { PageBar } from "./PageBar";
 import { PageViewport } from "./PageViewport";
 import { StatusBar } from "./StatusBar";
@@ -19,7 +20,7 @@ interface EditorStyle extends CSSProperties {
 
 export const EditorSurface = scope(({ context: dumpContext }: EditorSurfaceProps) => {
 	const { session, editor, persistence } = dumpContext;
-	const [chrome] = useState(() => createMutableState<ChromeState>({ menuOpen: false }));
+	const [chrome] = useState(() => createMutableState<ChromeState>({ menuOpen: false, fontPickerOpen: false }));
 	const context = useMemo<ChromeContext>(
 		() => ({ ...dumpContext, chrome }),
 		[chrome, dumpContext],
@@ -41,7 +42,7 @@ export const EditorSurface = scope(({ context: dumpContext }: EditorSurfaceProps
 	}, [theme]);
 	useEffect(() => {
 		const keydown = (event: KeyboardEvent) => {
-			if (event.defaultPrevented || event.isComposing) return;
+			if (event.defaultPrevented || event.isComposing || chrome.fontPickerOpen) return;
 
 			const dump = persistence.context;
 
@@ -101,7 +102,7 @@ export const EditorSurface = scope(({ context: dumpContext }: EditorSurfaceProps
 		window.addEventListener("keydown", keydown);
 
 		return () => window.removeEventListener("keydown", keydown);
-	}, [editor, persistence]);
+	}, [chrome, editor, persistence]);
 
 	return (
 		<main className="dump-app" style={appearance}>
@@ -112,6 +113,7 @@ export const EditorSurface = scope(({ context: dumpContext }: EditorSurfaceProps
 			<PageViewport context={context} />
 			<PageBar position="bottom" context={context} />
 			<StatusBar context={context} />
+			<FontPicker context={context} />
 		</main>
 	);
 });

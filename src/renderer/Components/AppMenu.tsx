@@ -59,9 +59,9 @@ export const AppMenu = scope(({ context }: AppMenuProps) => {
 		(event: Event) => {
 			event.preventDefault();
 
-			if (!session.find.open) editor.focus();
+			if (!session.find.open && !chrome.fontPickerOpen) editor.focus();
 		},
-		[editor, session],
+		[chrome, editor, session],
 	);
 
 	return (
