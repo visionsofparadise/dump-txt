@@ -161,7 +161,7 @@ jobs:
 
    publish:
       needs: build
-      if: ${{ false }}
+      if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
       runs-on: ubuntu-latest
       permissions:
          contents: write
