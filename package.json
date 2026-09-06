@@ -26,7 +26,7 @@
 		"make:tauri": "node tools/tauri.mjs build",
 		"check:native": "node tools/tauri.mjs check",
 		"unit:native": "node tools/tauri.mjs test-native",
-		"tauri-test": "\\"
+		"tauri-test": "node tools/testTauri.mjs"
 	},
 	"dependencies": {
 		"@codemirror/commands": "6.11.0",

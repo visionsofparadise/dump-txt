@@ -131,16 +131,16 @@ try {
 			(delta, attributes) => {
 				const element = document.querySelector(attributes.bar ? ".page-bar" : ".page-current .cm-scroller");
 				const rectangle = element.getBoundingClientRect();
-				element.dispatchEvent(
-					new WheelEvent("wheel", {
-						bubbles: true,
-						cancelable: true,
-						deltaY: delta,
-						clientX: rectangle.left + 80,
-						clientY: rectangle.top + 80,
-						...attributes,
-					}),
-				);
+				const event = new WheelEvent("wheel", {
+					bubbles: true,
+					cancelable: true,
+					deltaY: delta,
+					clientX: rectangle.left + 80,
+					clientY: rectangle.top + 80,
+					...attributes,
+				});
+				if (attributes.notch) Object.defineProperty(event, "wheelDeltaY", { value: -120 * Math.sign(delta) });
+				element.dispatchEvent(event);
 			},
 			deltaY,
 			options,
@@ -324,7 +324,58 @@ try {
 	await settled();
 	check("400px boundary intent navigates", await count(), "1 / 3", 0, "Synthetic DOM wheel");
 	await delay(350);
-	await wheel(100, { bar: true });
+	if (!report.engine.reducedMotion) {
+		const overlap = await evaluate(async () => {
+			document
+				.querySelector(".page-bar")
+				.dispatchEvent(new WheelEvent("wheel", { deltaY: 100, bubbles: true, cancelable: true }));
+			const startedAt = performance.now();
+			while (performance.now() - startedAt < 1000) {
+				await new Promise(requestAnimationFrame);
+				const snapshots = document.querySelectorAll(".page-snapshot").length;
+				const scroller = document.querySelector(".page-current .cm-scroller");
+				if (!snapshots || !scroller.textContent.startsWith("Line 1:")) continue;
+				const before = scroller.scrollTop;
+				const event = new WheelEvent("wheel", { deltaY: 120, bubbles: true, cancelable: true });
+				Object.defineProperty(event, "wheelDeltaY", { value: -120 });
+				scroller.dispatchEvent(event);
+				return {
+					snapshots,
+					before,
+					page: document.querySelector(".page-count").textContent.trim().replace("Pages ", ""),
+				};
+			}
+			throw new Error("Could not inject notch during long-page entry transition");
+		});
+		report.queuedWheel = overlap;
+		check(
+			"queued notch overlaps destination slide",
+			overlap.snapshots > 0 && overlap.page === "2 / 3",
+			true,
+			0,
+			"Synthetic DOM wheel with active snapshot evidence",
+		);
+		await settled();
+		check(
+			"queued notch scrolls newly entered long page",
+			await evaluate(() => document.querySelector(".page-current .cm-scroller").scrollTop),
+			lineHeight * 3,
+			2,
+			"Synthetic DOM notch; actual rendered geometry",
+		);
+		await wheel(120, { notch: true });
+		await delay(350);
+		check(
+			"continued notch scrolls after entry settles",
+			await evaluate(() => document.querySelector(".page-current .cm-scroller").scrollTop),
+			lineHeight * 6,
+			2,
+			"Synthetic DOM notch; actual rendered geometry",
+		);
+	} else {
+		report.pendingObservations.push("Queued wheel during animated entry: host prefers reduced motion");
+		await wheel(100, { bar: true });
+	}
 	await settled();
 	check("bar wheel navigates", await count(), "2 / 3", 0, "Synthetic DOM wheel");
 	await navigate(1);
@@ -490,6 +541,39 @@ try {
 		await evaluate(() => getComputedStyle(document.querySelector(".cm-content")).fontFamily),
 		originalFont,
 	);
+	await navigate(-1);
+	await browser.$('[aria-label="Insert page below"]').click();
+	await settled();
+	check("reversal fixture has both neighbors", await count(), "2 / 4");
+	const reversal = await evaluate(async () => {
+		const pages = [];
+		for (const deltaY of [300, -100, 100, 300]) {
+			const event = new WheelEvent("wheel", { deltaY, bubbles: true, cancelable: true });
+			document.querySelector(".page-current .cm-scroller").dispatchEvent(event);
+			await new Promise(requestAnimationFrame);
+			pages.push(document.querySelector(".page-count").textContent.trim().replace("Pages ", ""));
+		}
+		return pages;
+	});
+	report.reversal = reversal;
+	check(
+		"reversal discards accumulated boundary intent",
+		reversal.slice(0, 3).join(","),
+		"2 / 4,2 / 4,2 / 4",
+		0,
+		"Synthetic DOM wheel sequence +300,-100,+100 on short middle page",
+	);
+	await settled();
+	check(
+		"new-direction 400px intent navigates",
+		await count(),
+		"3 / 4",
+		0,
+		"Synthetic DOM wheel final +300 after direction reset",
+	);
+	await chord(modifier, "z");
+	await settled();
+	check("temporary reversal fixture removed by undo", await count(), "1 / 3");
 	report.events = await evaluate(() => window.tauriTestEvents);
 	check("renderer errors", (await evaluate(() => window.tauriTestErrors)).join("\n"), "");
 	await screenshot("final");
