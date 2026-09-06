@@ -321,12 +321,13 @@ export class EditorController {
 
 	handleWheel(event: WheelEvent, source: "editor" | "bar"): void {
 		const view = this.#view;
+		const wheelDelta = event.shiftKey && event.deltaY === 0 ? event.deltaX : event.deltaY;
 
-		if (!view || event.deltaY === 0) return;
+		if (!view || wheelDelta === 0) return;
 
 		const lineHeight = Number.parseFloat(window.getComputedStyle(view.contentDOM).lineHeight) || view.defaultLineHeight;
 		const delta =
-			event.deltaY *
+			wheelDelta *
 			(event.deltaMode === 1 ? lineHeight : event.deltaMode === 2 ? view.scrollDOM.clientHeight : 1);
 
 		if (source === "editor" && event.ctrlKey) {
@@ -355,6 +356,18 @@ export class EditorController {
 
 		this.#wheelAt = now;
 		this.#wheelDirection = direction;
+
+		if (event.shiftKey) {
+			event.preventDefault();
+
+			if (this.#wheelConsumed || this.#restoring || this.#transition) return;
+
+			this.#wheelConsumed = true;
+			this.#wheelDistance = 0;
+			this.#navigatePage(direction);
+
+			return;
+		}
 
 		if (source === "editor" && (this.#restoring || this.#transition)) {
 			event.preventDefault();
@@ -886,10 +899,17 @@ export class EditorController {
 					"&.cm-focused": { outline: "none" },
 				}),
 				keymap.of([
+					{ key: "PageUp", run: () => this.#navigatePage(-1) },
+					{ key: "PageDown", run: () => this.#navigatePage(1) },
 					{ key: "Alt-ArrowUp", run: () => this.#navigatePage(-1) },
 					{ key: "Alt-ArrowDown", run: () => this.#navigatePage(1) },
-					{ key: "Alt-Home", run: () => this.#navigatePage("first") },
-					{ key: "Alt-End", run: () => this.#navigatePage("last") },
+					{ key: "Mod-Home", run: () => this.#navigatePage("first") },
+					{ key: "Mod-End", run: () => this.#navigatePage("last") },
+					{ key: "Mod-Delete", run: () => {
+						this.apply({ type: "deletePage" });
+
+						return true;
+					} },
 					{ key: "Mod-z", run: () => this.#replay("undo") },
 					{ key: "Mod-y", run: () => this.#replay("redo") },
 					{ key: "Mod-Shift-z", run: () => this.#replay("redo") },

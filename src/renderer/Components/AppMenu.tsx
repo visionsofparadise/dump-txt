@@ -1,4 +1,4 @@
-import { FolderOpen, Menu, PanelBottom, Redo2, Save, Search, X, Undo2 } from "lucide-react";
+import { FolderOpen, Keyboard, Menu, PanelBottom, Redo2, Save, Search, X, Undo2 } from "lucide-react";
 import { scope } from "opshot";
 import { useCallback } from "react";
 import { AppearanceMenu } from "./AppearanceMenu";
@@ -55,6 +55,9 @@ export const AppMenu = scope(({ context }: AppMenuProps) => {
 	const close = useCallback(() => {
 		void persistence.close().catch(() => undefined);
 	}, [persistence]);
+	const openKeybinds = useCallback(() => {
+		chrome.keybindsOpen = true;
+	}, [chrome]);
 	const toggleStatusBar = useCallback(() => {
 		if (persistence.state.locked) return;
 
@@ -67,7 +70,7 @@ export const AppMenu = scope(({ context }: AppMenuProps) => {
 		(event: Event) => {
 			event.preventDefault();
 
-			if (!session.find.open && !chrome.fontPickerOpen) editor.focus();
+			if (!session.find.open && !chrome.fontPickerOpen && !chrome.keybindsOpen) editor.focus();
 		},
 		[chrome, editor, session],
 	);
@@ -119,11 +122,14 @@ export const AppMenu = scope(({ context }: AppMenuProps) => {
 					<PanelBottom size={16} aria-hidden />
 					<span>{session.appearance.showStatusBar === false ? "Show status bar" : "Hide status bar"}</span>
 				</DropdownMenuItem>
+				<DropdownMenuItem onSelect={openKeybinds} disabled={persistenceState.locked}>
+					<Keyboard size={16} aria-hidden />
+					<span>Keybinds</span>
+				</DropdownMenuItem>
 				<DropdownMenuSeparator />
 				<DropdownMenuItem onSelect={close} disabled={persistenceState.locked}>
 					<X size={16} aria-hidden />
 					<span>Close</span>
-					<span className="menu-shortcut">Ctrl+W</span>
 				</DropdownMenuItem>
 			</DropdownMenuContent>
 		</DropdownMenu>

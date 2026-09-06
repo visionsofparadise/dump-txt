@@ -77,7 +77,7 @@ export const TitleBar = scope(({ children, chrome, onDismissMenu, context }: Tit
 				<button
 					className="chrome-button window-close"
 					aria-label="Close window"
-					title="Close window (Ctrl+W)"
+					title="Close window"
 					onClick={close}
 				>
 					<X size={14} aria-hidden />

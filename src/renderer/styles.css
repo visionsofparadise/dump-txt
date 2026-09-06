@@ -526,6 +526,49 @@ input:focus-visible {
 	font-size: 14px;
 	font-weight: 500;
 }
+.keybinds-modal {
+	display: grid;
+	grid-template-rows: var(--spacing-bar) minmax(0, 1fr);
+	width: min(520px, calc(100vw - 48px));
+	max-height: calc(100vh - 48px);
+	overflow: hidden;
+	background: var(--color-bar);
+	color: var(--color-ink);
+	font: 13px var(--font-interface);
+}
+.keybinds-list {
+	overflow-y: auto;
+	padding: 0;
+}
+.keybinds-list h2 {
+	margin: 0;
+	padding: 12px;
+	background: light-dark(#dedede, #383838);
+	font-size: 12px;
+	font-weight: 600;
+}
+.keybinds-list dl {
+	margin: 0;
+}
+.keybind-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 16px;
+	min-height: 32px;
+	padding: 0 12px;
+}
+.keybind-row:hover {
+	background: var(--color-hover);
+}
+.keybind-row dd {
+	margin: 0;
+	text-align: right;
+}
+.keybind-row kbd {
+	font: 12px Consolas, monospace;
+	white-space: nowrap;
+}
 .font-picker {
 	display: grid;
 	grid-template-rows: var(--spacing-bar) 52px minmax(80px, 1fr) var(--spacing-bar);
@@ -631,23 +674,28 @@ input:focus-visible {
 }
 
 .page-editor .cm-scroller::-webkit-scrollbar,
+.keybinds-list::-webkit-scrollbar,
 .font-list::-webkit-scrollbar {
 	width: 12px;
 	height: 12px;
 }
 .page-editor .cm-scroller::-webkit-scrollbar-track,
 .page-editor .cm-scroller::-webkit-scrollbar-corner,
+.keybinds-list::-webkit-scrollbar-track,
+.keybinds-list::-webkit-scrollbar-corner,
 .font-list::-webkit-scrollbar-track,
 .font-list::-webkit-scrollbar-corner {
 	background: var(--color-bar);
 }
 .page-editor .cm-scroller::-webkit-scrollbar-thumb,
+.keybinds-list::-webkit-scrollbar-thumb,
 .font-list::-webkit-scrollbar-thumb {
 	background: light-dark(#b8b8b8, #686868);
 	border: 3px solid var(--color-bar);
 	border-radius: 6px;
 }
 .page-editor .cm-scroller::-webkit-scrollbar-button,
+.keybinds-list::-webkit-scrollbar-button,
 .font-list::-webkit-scrollbar-button {
 	display: none;
 	width: 0;

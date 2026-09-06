@@ -56,7 +56,7 @@ export const PageBar = scope(({ position, context }: PageBarProps) => {
 			<div className="page-bar-leading">
 				<button
 					className="chrome-button"
-					title={`${insertionLabel} (${top ? "Ctrl+Alt+Enter" : "Ctrl+Shift+Enter"})`}
+					title={`${insertionLabel} (${top ? "Ctrl+Shift+N" : "Ctrl+N"})`}
 					aria-label={insertionLabel}
 					disabled={persistenceState.locked}
 					onClick={insert}
@@ -80,7 +80,7 @@ export const PageBar = scope(({ position, context }: PageBarProps) => {
 					<button
 						className="chrome-button"
 						aria-label="Delete page"
-						title="Delete page (Ctrl+Shift+Delete)"
+						title="Delete page (Ctrl+Delete)"
 						disabled={persistenceState.locked}
 						onClick={remove}
 					>
@@ -90,7 +90,7 @@ export const PageBar = scope(({ position, context }: PageBarProps) => {
 				<button
 					className="chrome-button"
 					aria-label={top ? "First page" : "Last page"}
-					title={top ? "First page (Alt+Home)" : "Last page (Alt+End)"}
+					title={top ? "First page (Ctrl+Home)" : "Last page (Ctrl+End)"}
 					disabled={atEnd || persistenceState.locked}
 					onClick={boundary}
 				>

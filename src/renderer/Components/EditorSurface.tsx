@@ -2,6 +2,7 @@ import { createMutableState, scope } from "opshot";
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
 import { AppMenu } from "./AppMenu";
 import { FontPicker } from "./FontPicker";
+import { Keybinds } from "./Keybinds";
 import { PageBar } from "./PageBar";
 import { PageViewport } from "./PageViewport";
 import { StatusBar } from "./StatusBar";
@@ -21,7 +22,7 @@ interface EditorStyle extends CSSProperties {
 
 export const EditorSurface = scope(({ context: dumpContext }: EditorSurfaceProps) => {
 	const { session, editor, persistence } = dumpContext;
-	const [chrome] = useState(() => createMutableState<ChromeState>({ menuOpen: false, fontPickerOpen: false }));
+	const [chrome] = useState(() => createMutableState<ChromeState>({ menuOpen: false, fontPickerOpen: false, keybindsOpen: false }));
 	const context = useMemo<ChromeContext>(
 		() => ({ ...dumpContext, chrome }),
 		[chrome, dumpContext],
@@ -44,7 +45,7 @@ export const EditorSurface = scope(({ context: dumpContext }: EditorSurfaceProps
 	}, [theme]);
 	useEffect(() => {
 		const keydown = (event: KeyboardEvent) => {
-			if (event.defaultPrevented || event.isComposing || chrome.fontPickerOpen) return;
+			if (event.defaultPrevented || event.isComposing || chrome.fontPickerOpen || chrome.keybindsOpen) return;
 
 			const dump = persistence.context;
 
@@ -59,32 +60,37 @@ export const EditorSurface = scope(({ context: dumpContext }: EditorSurfaceProps
 					command = () => {
 						void persistence.open().catch(() => undefined);
 					};
-				else if (key === "s")
+				else if (key === "n")
+					command = () => editor.apply({ type: "insertPage", position: event.shiftKey ? "above" : "below" });
+				else if (key === "s" && event.shiftKey)
 					command = () => {
-						void (event.shiftKey ? persistence.saveAs() : persistence.flush()).catch(() => undefined);
+						void persistence.saveAs().catch(() => undefined);
 					};
-				else if (key === "w" && !event.shiftKey)
+				else if (["+", "=", "-", "0"].includes(key))
 					command = () => {
-						void persistence.close().catch(() => undefined);
+						dump.session.appearance = {
+							...dump.session.appearance,
+							textSize: key === "0" ? 11 : Math.max(8, Math.min(24, dump.session.appearance.textSize + (key === "-" ? -1 : 1))),
+						};
 					};
 				else if (key === "f" && !event.shiftKey) command = () => editor.openFind();
-				else if (key === "enter" && event.shiftKey)
-					command = () => editor.apply({ type: "insertPage", position: "below" });
-				else if (key === "delete" && event.shiftKey) command = () => editor.apply({ type: "deletePage" });
-			} else if (control && event.altKey && key === "enter")
-				command = () => editor.apply({ type: "insertPage", position: "above" });
-			else if (event.altKey && !control && !event.shiftKey) {
+				else if (key === "delete" && !event.shiftKey) command = () => editor.apply({ type: "deletePage" });
+				else if ((key === "home" || key === "end") && !event.shiftKey)
+					command = () => {
+						const page = key === "home" ? dump.document.pages[0] : dump.document.pages.at(-1);
+
+						if (page) editor.showPage(page.id);
+					};
+			} else if (key === "f3" && !control && !event.altKey)
+				command = () => editor.nextFind(event.shiftKey ? -1 : 1);
+			else if (!control && !event.shiftKey && (event.altKey || key === "pageup" || key === "pagedown")) {
 				const index = dump.document.pages.findIndex((page) => page.id === dump.session.view.activePageId);
 				const target =
-					key === "arrowup"
+					key === "arrowup" || key === "pageup"
 						? index - 1
-						: key === "arrowdown"
+						: key === "arrowdown" || key === "pagedown"
 							? index + 1
-							: key === "home"
-								? 0
-								: key === "end"
-									? dump.document.pages.length - 1
-									: null;
+							: null;
 
 				if (target !== null)
 					command = () => {
@@ -116,6 +122,7 @@ export const EditorSurface = scope(({ context: dumpContext }: EditorSurfaceProps
 			<PageBar position="bottom" context={context} />
 			{showStatusBar && <StatusBar context={context} />}
 			<FontPicker context={context} />
+			<Keybinds context={context} />
 		</main>
 	);
 });
