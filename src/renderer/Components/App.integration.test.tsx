@@ -145,6 +145,30 @@ describe("scratchpad interface", () => {
 		expect(new TextDecoder().decode(files.get("/app/dump.txt"))).toBe("saved from menu");
 	});
 
+	it("keeps menu dismissal out of the title drag gesture while retaining window controls", async () => {
+		const { user, container } = await fixture();
+		const title = container.querySelector<HTMLElement>(".app-name")!;
+		const pointerDown = vi.fn<(event: Event) => void>();
+		const mouseDown = vi.fn();
+
+		title.addEventListener("pointerdown", pointerDown);
+		title.addEventListener("mousedown", mouseDown);
+		await user.click(screen.getByRole("button", { name: "App menu" }));
+		expect(title.hasAttribute("data-tauri-drag-region")).toBe(false);
+		await user.click(title);
+		await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
+		expect(pointerDown.mock.calls[0]![0].defaultPrevented).toBe(true);
+		expect(mouseDown).not.toHaveBeenCalled();
+		expect(title.getAttribute("data-tauri-drag-region")).toBe("");
+		await user.click(title);
+		expect(pointerDown.mock.calls[1]![0].defaultPrevented).toBe(false);
+		expect(mouseDown).toHaveBeenCalledOnce();
+		await user.click(screen.getByRole("button", { name: "App menu" }));
+		await user.click(screen.getByRole("button", { name: "Minimize" }));
+		expect(main.minimize).toHaveBeenCalledOnce();
+		await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
+	});
+
 	it("follows successful filenames while cancelled Save As retains the title", async () => {
 		const { container, editor, files } = await fixture("original");
 		await waitFor(() => expect(main.setTitle).toHaveBeenLastCalledWith("dump.txt"));

@@ -23,8 +23,10 @@ export const TitleBar = scope(({ children, chrome, onDismissMenu, context }: Tit
 				event.target instanceof Node &&
 				event.currentTarget.contains(event.target) &&
 				!(event.target instanceof Element && event.target.closest(".title-menu"))
-			)
+			) {
+				event.preventDefault();
 				onDismissMenu?.();
+			}
 		},
 		[onDismissMenu],
 	);
