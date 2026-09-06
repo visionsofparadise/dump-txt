@@ -164,7 +164,7 @@ async function closeAndVerify(documentPath, expectedBytes, name) {
 		} catch (error) {
 			const message = String(error);
 			if (
-				!/invalid session|no such window|disconnected|ECONNREFUSED|ECONNRESET|socket hang up|fetch failed|Failed to fetch/iu.test(
+				!/invalid session|no such window|disconnected|ECONNREFUSED|ECONNRESET|socket hang up|fetch failed|Failed to fetch|Session terminated without a reply/iu.test(
 					message,
 				)
 			)
