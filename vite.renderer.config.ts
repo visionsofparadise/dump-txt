@@ -5,6 +5,7 @@ import { defineConfig } from "vite";
 export default defineConfig(({ command }) => {
 	const nonce = command === "serve" ? randomBytes(24).toString("base64") : undefined;
 	return {
+		server: { watch: { ignored: ["**/.scratch/**"] } },
 		html: { cspNonce: nonce },
 		plugins: [
 			react(),

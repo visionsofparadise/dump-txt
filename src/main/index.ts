@@ -1,3 +1,4 @@
+import { mkdirSync } from "node:fs";
 import { mkdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { app, BrowserWindow, screen } from "electron";
@@ -9,6 +10,13 @@ import { wireWindow } from "./wireWindow";
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string | undefined;
 
 declare const MAIN_WINDOW_VITE_NAME: string;
+
+if (MAIN_WINDOW_VITE_DEV_SERVER_URL && !app.commandLine.hasSwitch("user-data-dir")) {
+	const developmentProfile = path.resolve(__dirname, "../../.scratch/dev-profile");
+
+	mkdirSync(developmentProfile, { recursive: true });
+	app.setPath("userData", developmentProfile);
+}
 
 let browserWindow: BrowserWindow | null = null;
 
@@ -61,6 +69,21 @@ async function createWindow(): Promise<void> {
 		webPreferences: { preload: path.join(__dirname, "preload.cjs"), contextIsolation: true, nodeIntegration: false },
 	});
 	browserWindow.setMenu(null);
+
+	if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
+		const contents = browserWindow.webContents;
+
+		contents.on("before-input-event", (event, input) => {
+			if (
+				input.type === "keyDown" &&
+				(input.key === "F12" || ((input.control || input.meta) && input.shift && input.key.toLowerCase() === "i"))
+			) {
+				event.preventDefault();
+				contents.toggleDevTools();
+			}
+		});
+	}
+
 	wireWindow(browserWindow, { userData, restoredFilePath, grants });
 
 	if (MAIN_WINDOW_VITE_DEV_SERVER_URL) void browserWindow.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
