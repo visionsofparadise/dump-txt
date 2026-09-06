@@ -1,0 +1,19 @@
+appId: com.visionsofparadise.dump-txt
+productName: dump.txt
+directories:
+   buildResources: assets
+   output: out/make/nsis
+win:
+   executableName: dump-txt
+   icon: assets/icon.ico
+   target:
+      - target: nsis
+        arch: x64
+nsis:
+   artifactName: dump-txt-Setup-${version}.exe
+   oneClick: false
+   perMachine: false
+   allowElevation: false
+   allowToChangeInstallationDirectory: false
+   runAfterFinish: true
+   include: assets/installer.nsh

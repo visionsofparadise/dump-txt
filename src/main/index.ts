@@ -1,7 +1,6 @@
 import { mkdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { app, BrowserWindow, screen } from "electron";
-import squirrelStartup from "electron-squirrel-startup";
 import { z } from "zod";
 import { windowBoundsSchema } from "../shared/utils/emitToRenderer";
 import { grantPath } from "./authorizePath";
@@ -10,8 +9,6 @@ import { wireWindow } from "./wireWindow";
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string | undefined;
 
 declare const MAIN_WINDOW_VITE_NAME: string;
-
-if (squirrelStartup) app.quit();
 
 let browserWindow: BrowserWindow | null = null;
 
