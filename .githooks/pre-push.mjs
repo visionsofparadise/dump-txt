@@ -41,6 +41,12 @@ if (!existsSync(trivyConfig)) {
 	process.exit(1);
 }
 
+const trivyIgnore = path.join(repoRoot, ".trivyignore.yaml");
+if (!existsSync(trivyIgnore)) {
+	console.error(`missing .trivyignore.yaml at ${trivyIgnore}`);
+	process.exit(1);
+}
+
 const toolsMjs = path.join(repoRoot, "tools.mjs");
 if (!existsSync(toolsMjs)) {
 	console.error(`missing tools.mjs at ${toolsMjs}`);
@@ -50,7 +56,7 @@ if (!existsSync(toolsMjs)) {
 function runTrivy(scanDir) {
 	const result = spawnSync(
 		process.execPath,
-		[toolsMjs, "run", "trivy", "fs", "--config", trivyConfig, "--exit-code", "1", "."],
+		[toolsMjs, "run", "trivy", "fs", "--config", trivyConfig, "--ignorefile", trivyIgnore, "--exit-code", "1", "."],
 		{
 			cwd: scanDir,
 			encoding: "utf8",

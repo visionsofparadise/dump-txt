@@ -1,0 +1,6 @@
+vulnerabilities:
+   - id: GHSA-wrw7-89jp-8q8g
+     purls:
+        - pkg:cargo/glib@0.18.5
+     expired_at: 2026-09-20
+     statement: Matt accepted this Linux-only Tauri GTK3 dependency finding on 2026-09-06 pending Tauri's GTK4 migration. Source inspection found no callers of array_iter_str or VariantStrIter in application or downloaded dependency consumers; this is a source assessment, not a binary reachability proof. Tauri also suppresses RUSTSEC-2024-0429 in https://github.com/tauri-apps/tauri/blob/dev/.cargo/audit.toml. Review at expiry, when the dependency graph changes, or before Linux release. Migration publication remains disabled.

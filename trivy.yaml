@@ -1,3 +1,4 @@
+ignorefile: .trivyignore.yaml
 scan:
    scanners:
       - vuln
