@@ -32,6 +32,8 @@ Select text longer than one character to preview other matching occurrences. Ctr
 
 Use Windows x64, Node.js 24, and npm 12.
 
+Git preserves LF line endings on Windows so fresh checkouts match the formatting checks.
+
 ```sh
 npm install -g npm@12
 git clone https://github.com/visionsofparadise/dump-txt.git
