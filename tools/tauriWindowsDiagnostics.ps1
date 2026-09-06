@@ -48,7 +48,6 @@ if ($Mode -eq 'Collect') {
 
 $env:TAURI_TEST_OWNER_PID = "$PID"
 $env:TAURI_TEST_WEBVIEW_DATA_FOLDER = $profileDirectory
-$env:WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS = "--enable-logging --log-file=`"$(Join-Path $evidenceDirectory 'webview2.log')`""
 $env:RUST_BACKTRACE = '1'
 $monitorProcess = Start-Process -FilePath (Get-Process -Id $PID).Path -WindowStyle Hidden -PassThru -ArgumentList @(
     '-NoProfile', '-File', "`"$PSCommandPath`"", '-Mode', 'Monitor'

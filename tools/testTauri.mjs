@@ -87,6 +87,12 @@ try {
 	if (process.platform === "win32" && process.env.TAURI_TEST_WEBVIEW_DATA_FOLDER)
 		capabilities["tauri:options"].webviewOptions = {
 			userDataFolder: process.env.TAURI_TEST_WEBVIEW_DATA_FOLDER,
+			additionalBrowserArguments: [
+				"remote-debugging-port=0",
+				"remote-debugging-address=127.0.0.1",
+				"enable-logging",
+				`log-file=${path.join(folder, "webview2.log")}`,
+			],
 		};
 	Object.assign(capabilities["wdio:tauriServiceOptions"], {
 		logDir: folder,
