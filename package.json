@@ -13,9 +13,9 @@
 		"build": "electron-forge package",
 		"package": "electron-forge package",
 		"make": "electron-forge package --platform=win32 --arch=x64 && electron-builder --config electron-builder.yml --win nsis --x64 --prepackaged out/dump.txt-win32-x64 --publish never",
-		"check": "concurrently --group \"prettier --check .\" \"eslint . --no-cache -f unix\" \"tsc --noEmit --pretty false\" \"stylelint \\\"**/*.css\\\" -f unix --allow-empty-input --cache\" \"markdownlint-cli2 \\\"**/*.md\\\"\" \"textlint -f compact \\\"**/*.md\\\"\" \"knip --no-progress\" \"jscpd .\" \"tsc --noEmit --pretty false -p tsconfig.node.json\"",
+		"check": "concurrently --group \"prettier --check .\" \"eslint . --no-cache -f unix\" \"tsc --noEmit --pretty false\" \"stylelint \\\"**/*.css\\\" -f unix --allow-empty-input --cache\" \"markdownlint-cli2 \\\"**/*.md\\\"\" \"textlint -f compact \\\"**/*.md\\\"\" \"knip --no-progress\" \"jscpd .\" \"tsc --noEmit --pretty false -p tsconfig.node.json\" \"node tools.mjs run actionlint\"",
 		"fix": "concurrently -m 1 --group \"prettier --write .\" \"eslint . --fix --cache\" \"stylelint \\\"**/*.css\\\" --fix --allow-empty-input --cache\" \"markdownlint-cli2 --fix \\\"**/*.md\\\"\" \"textlint --fix \\\"**/*.md\\\"\"",
-		"unit": "vitest run unit",
+		"unit": "vitest run unit && node --test tools/release.unit.test.mjs",
 		"integration": "vitest run integration",
 		"electron-test": "node tools/testElectron.mjs",
 		"prepare": "node -e \"const c=require('node:child_process');if(c.spawnSync('git',['rev-parse','--is-inside-work-tree'],{stdio:'ignore'}).status===0)c.execFileSync('git',['config','core.hooksPath','.githooks'])\" && node tools.mjs install"
