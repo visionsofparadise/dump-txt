@@ -513,9 +513,11 @@ describe("CodeMirror bridge", () => {
 		await vi.waitFor(() => expect(view.scrollDOM.scrollTop).toBe(0));
 		await new Promise((resolve) => setTimeout(resolve, 100));
 		navigation.handleWheel(new WheelEvent("wheel", { deltaY: 100 }));
-		expect(session.view.activePageId).toBe("second");
+		expect(session.view.activePageId).not.toBe("second");
 		view.dispatch({ selection: EditorSelection.cursor(0) });
 		now += 301;
+		navigation.handleWheel(new WheelEvent("wheel", { deltaY: -1, deltaMode: 1 }));
+		expect(session.view.activePageId).toBe("second");
 		navigation.handleWheel(new WheelEvent("wheel", { deltaY: -1, deltaMode: 1 }));
 		expect(session.view.activePageId).toBe("first");
 	});

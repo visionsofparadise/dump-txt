@@ -4,6 +4,7 @@ import type { ViewSnapshot } from "./SessionState";
 export interface Page {
 	readonly id: string;
 	readonly text: string;
+	readonly temporary?: true;
 }
 
 export interface DocumentState {
@@ -28,7 +29,7 @@ export function freezePages(pages: ReadonlyArray<Page>): ReadonlyArray<Page> {
 
 		identifiers.add(page.id);
 
-		return Object.isFrozen(page) ? page : Object.freeze({ id: page.id, text: page.text });
+		return Object.isFrozen(page) ? page : Object.freeze({ ...page });
 	});
 
 	return Object.isFrozen(pages) && frozen.every((page, index) => page === pages[index])

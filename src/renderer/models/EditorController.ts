@@ -411,17 +411,8 @@ export class EditorController {
 
 		if (this.#wheelDistance < 400) return;
 
-		const index = this.#document.pages.findIndex((page) => page.id === this.#pageId);
-		const target = this.#document.pages[index + direction];
-
-		if (!target) {
-			this.#wheelDistance = 0;
-
-			return;
-		}
-
 		this.#wheelConsumed = true;
-		this.showPage(target.id, direction > 0 ? "start" : "end");
+		this.#navigation.navigate(direction, direction > 0 ? "start" : "end");
 	}
 
 	refresh(): void {
@@ -473,6 +464,8 @@ export class EditorController {
 		} finally {
 			this.#updating = false;
 		}
+
+		this.#navigation.scheduleCleanup();
 	}
 
 	apply(command: EditCommand): void {

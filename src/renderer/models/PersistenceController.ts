@@ -3,6 +3,7 @@ import { contentHashOf } from "../utils/contentHashOf";
 import { decodeText, type TextFormat } from "../utils/decodeText";
 import { encodeText } from "../utils/encodeText";
 import { parsePages } from "../utils/parsePages";
+import { persistedPagesOf } from "../utils/persistedPagesOf";
 import { sameFilePath } from "../utils/sameFilePath";
 import { serializePages } from "../utils/serializePages";
 import { appStateSchema, type AppState } from "./AppState";
@@ -642,13 +643,15 @@ export class PersistenceController {
 
 		if (!context || !path) throw new Error("The dump is still loading.");
 
+		const persisted = persistedPagesOf(context.document.pages, context.session.view);
+
 		return Object.freeze({
 			path,
 			revision: this.state.revision,
-			text: serializePages(context.document.pages),
+			text: serializePages(persisted.pages),
 			format: Object.freeze({ ...this.state.format }),
-			pages: context.document.pages,
-			view: snapshotView(context.session.view),
+			pages: persisted.pages,
+			view: snapshotView(persisted.view),
 		});
 	}
 
