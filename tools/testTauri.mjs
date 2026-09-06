@@ -38,7 +38,7 @@ const report = {
 	fixture: { bytes: fixture.bytes, sha256: fixture.sha256 },
 	method:
 		driverProvider === "embedded"
-			? "Actual system webview; embedded WebDriver synthesizes DOM input"
+			? "Actual system webview; explicit synthetic DOM pointer/keyboard events and execCommand text insertion"
 			: "Actual system webview; external native WebDriver, with explicitly labelled synthetic DOM tests",
 	pendingObservations,
 	observations,
@@ -84,6 +84,10 @@ try {
 		startTimeout: 120000,
 		commandTimeout: 30000,
 	});
+	if (process.platform === "win32" && process.env.TAURI_TEST_WEBVIEW_DATA_FOLDER)
+		capabilities["tauri:options"].webviewOptions = {
+			userDataFolder: process.env.TAURI_TEST_WEBVIEW_DATA_FOLDER,
+		};
 	Object.assign(capabilities["wdio:tauriServiceOptions"], {
 		logDir: folder,
 		captureBackendLogs: true,
@@ -93,6 +97,11 @@ try {
 	browser = await startWdioSession(capabilities, {
 		rootDir: root,
 		...(process.env.MS_EDGE_DRIVER ? { nativeDriverPath: process.env.MS_EDGE_DRIVER } : {}),
+	});
+	await browser.waitUntil(async () => new URL(await browser.getUrl()).pathname === "/probe.html", {
+		timeout: 15000,
+		interval: 50,
+		timeoutMsg: "Startup navigation did not reach the isolated probe entry",
 	});
 	assert.equal(
 		new URL(await browser.getUrl()).pathname,
@@ -104,7 +113,80 @@ try {
 		browser.waitUntil(() => evaluate(script), { timeout: 15000, interval: 50, timeoutMsg: `Timed out: ${script}` });
 	const screenshot = (name) => browser.saveScreenshot(path.join(folder, `${name}.png`));
 	const modifier = process.platform === "darwin" ? Key.Command : Key.Control;
-	const chord = (...keys) => browser.keys(keys);
+	const chord = async (...keys) => {
+		if (driverProvider !== "embedded") return browser.keys(keys);
+		const names = new Map([
+			[Key.Command, "Meta"],
+			[Key.Control, "Control"],
+			[Key.Alt, "Alt"],
+			[Key.Shift, "Shift"],
+			[Key.ArrowDown, "ArrowDown"],
+			[Key.ArrowUp, "ArrowUp"],
+			[Key.Escape, "Escape"],
+		]);
+		return evaluate(
+			(values) => {
+				const pressed = new Set();
+				const dispatch = (type, key) => {
+					const code = /^[a-z]$/iu.test(key) ? `Key${key.toUpperCase()}` : key;
+					(document.activeElement ?? document.body).dispatchEvent(
+						new KeyboardEvent(type, {
+							key,
+							code,
+							bubbles: true,
+							cancelable: true,
+							composed: true,
+							altKey: pressed.has("Alt"),
+							ctrlKey: pressed.has("Control"),
+							metaKey: pressed.has("Meta"),
+							shiftKey: pressed.has("Shift"),
+						}),
+					);
+				};
+				for (const key of values) {
+					pressed.add(key);
+					dispatch("keydown", key);
+				}
+				for (const key of [...values].reverse()) {
+					pressed.delete(key);
+					dispatch("keyup", key);
+				}
+			},
+			keys.map((key) => names.get(key) ?? key),
+		);
+	};
+	const click = async (selector) => {
+		const element = await browser.$(selector);
+		if (driverProvider !== "embedded") return element.click();
+		return evaluate((target) => {
+			target.scrollIntoView({ block: "center", inline: "center" });
+			const rectangle = target.getBoundingClientRect();
+			const options = {
+				bubbles: true,
+				cancelable: true,
+				composed: true,
+				clientX: rectangle.left + rectangle.width / 2,
+				clientY: rectangle.top + rectangle.height / 2,
+				button: 0,
+				pointerId: 1,
+				pointerType: "mouse",
+				isPrimary: true,
+			};
+			const down = target.dispatchEvent(new PointerEvent("pointerdown", { ...options, buttons: 1 }));
+			if (down && target.dispatchEvent(new MouseEvent("mousedown", { ...options, buttons: 1 }))) target.focus();
+			target.dispatchEvent(new PointerEvent("pointerup", { ...options, buttons: 0 }));
+			if (down) target.dispatchEvent(new MouseEvent("mouseup", { ...options, buttons: 0 }));
+			target.dispatchEvent(new MouseEvent("click", { ...options, buttons: 0 }));
+		}, element);
+	};
+	const typeText = async (text) => {
+		if (driverProvider !== "embedded") return browser.keys(text);
+		return evaluate((value) => {
+			const content = document.querySelector(".page-current .cm-content");
+			if (document.activeElement !== content) throw new Error("Text insertion requires the focused editor");
+			if (!document.execCommand("insertText", false, value)) throw new Error("Engine text insertion failed");
+		}, text);
+	};
 	const count = () => evaluate(() => document.querySelector(".page-count").textContent.trim().replace("Pages ", ""));
 	const settled = async () => {
 		await delay(80);
@@ -146,9 +228,19 @@ try {
 			options,
 		);
 	const selectText = async (text) => {
-		await evaluate((needle) => {
+		await evaluate(() => {
 			const content = document.querySelector(".page-current .cm-content");
 			content.focus();
+			window.tauriTestSelections.push({
+				phase: "focus",
+				hasFocus: document.hasFocus(),
+				activeElement: document.activeElement?.className,
+				selection: window.getSelection().toString(),
+			});
+		});
+		await delay(250);
+		await evaluate((needle) => {
+			const content = document.querySelector(".page-current .cm-content");
 			const walker = document.createTreeWalker(content, NodeFilter.SHOW_TEXT);
 			let node;
 			while ((node = walker.nextNode())) {
@@ -161,6 +253,17 @@ try {
 			throw new Error(`Selection text missing: ${needle}`);
 		}, text);
 		await delay(200);
+		const selected = await evaluate(() => {
+			const snapshot = {
+				phase: "range settled",
+				hasFocus: document.hasFocus(),
+				activeElement: document.activeElement?.className,
+				selection: window.getSelection().toString(),
+			};
+			window.tauriTestSelections.push(snapshot);
+			return snapshot.selection;
+		});
+		assert.equal(selected, text, "DOM selection must survive editor focus and measurement");
 	};
 	await waitFor(
 		() =>
@@ -177,6 +280,7 @@ try {
 	report.capabilities = browser.capabilities;
 	await evaluate(() => {
 		window.tauriTestEvents = [];
+		window.tauriTestSelections = [];
 		window.tauriTestErrors = [];
 		for (const type of [
 			"keydown",
@@ -190,7 +294,21 @@ try {
 			document.addEventListener(
 				type,
 				(event) =>
-					window.tauriTestEvents.push({ type, trusted: event.isTrusted, inputType: event.inputType ?? null }),
+					window.tauriTestEvents.push({
+						type,
+						trusted: event.isTrusted,
+						inputType: event.inputType ?? null,
+						data: event.data ?? null,
+						key: event.key ?? null,
+						code: event.code ?? null,
+						altKey: event.altKey ?? null,
+						ctrlKey: event.ctrlKey ?? null,
+						metaKey: event.metaKey ?? null,
+						shiftKey: event.shiftKey ?? null,
+						hasFocus: document.hasFocus(),
+						activeElement: document.activeElement?.className,
+						selection: window.getSelection().toString(),
+					}),
 				true,
 			);
 		window.addEventListener("error", (event) => window.tauriTestErrors.push(String(event.error ?? event.message)));
@@ -207,7 +325,7 @@ try {
 		true,
 	);
 	await screenshot("initial");
-	await browser.$('[aria-label="App menu"]').click();
+	await click('[aria-label="App menu"]');
 	await waitFor(() => !!document.querySelector(".menu-content"));
 	check(
 		"menu flush left",
@@ -215,9 +333,9 @@ try {
 		0,
 		1,
 	);
-	await browser.$(".app-name").click();
+	await click(".app-name");
 	await waitFor(() => !document.querySelector(".menu-content"));
-	await browser.$(".cm-content").click();
+	await click(".cm-content");
 	await navigate(1);
 	check("long page entry", await count(), "2 / 3");
 	const leading = await evaluate(() => {
@@ -334,7 +452,8 @@ try {
 				await new Promise(requestAnimationFrame);
 				const snapshots = document.querySelectorAll(".page-snapshot").length;
 				const scroller = document.querySelector(".page-current .cm-scroller");
-				if (!snapshots || !scroller.textContent.startsWith("Line 1:")) continue;
+				const page = document.querySelector(".page-count").textContent.trim().replace("Pages ", "");
+				if (!snapshots || page !== "2 / 3" || !scroller.textContent.startsWith("Line 1:")) continue;
 				const before = scroller.scrollTop;
 				const event = new WheelEvent("wheel", { deltaY: 120, bubbles: true, cancelable: true });
 				Object.defineProperty(event, "wheelDeltaY", { value: -120 });
@@ -342,7 +461,7 @@ try {
 				return {
 					snapshots,
 					before,
-					page: document.querySelector(".page-count").textContent.trim().replace("Pages ", ""),
+					page,
 				};
 			}
 			throw new Error("Could not inject notch during long-page entry transition");
@@ -410,7 +529,7 @@ try {
 		check(`${theme} selection background`, colors.background, "rgb(0, 120, 215)");
 		await screenshot(`selection-${theme}`);
 	}
-	await browser.keys("dog");
+	await typeText("dog");
 	await delay(200);
 	check(
 		"multi-selection editing",
@@ -424,9 +543,9 @@ try {
 		await evaluate(() => document.querySelector(".cm-content").textContent.includes("cat cat")),
 		true,
 	);
-	await browser.keys(Key.Escape);
+	await chord(Key.Escape);
 	await selectText("Final");
-	await browser.keys("Updated");
+	await typeText("Updated");
 	await delay(150);
 	check(
 		"ordinary typing",
@@ -466,15 +585,19 @@ try {
 	const nativeServices = await evaluate(async () => {
 		const invoke = (command, request = {}) => window.__TAURI_INTERNALS__.invoke(command, { request });
 		const fonts = await invoke("get_system_fonts");
-		if (!fonts.ok) throw new Error(`Font enumeration failed: ${fonts.error.code}`);
+		if (!fonts.ok) throw new Error(`Font enumeration failed: ${fonts.error.code}: ${fonts.error.message}`);
 		const original = await invoke("read_clipboard");
-		if (!original.ok) throw new Error(`Clipboard snapshot failed: ${original.error.code}`);
-		const result = { fontCount: fonts.value.length, roundtrip: false, restored: false };
+		const result = { fontCount: fonts.value.length, roundtrip: false, restored: false, errors: [] };
+		if (!original.ok) {
+			result.errors.push(`Clipboard snapshot failed: ${original.error.code}: ${original.error.message}`);
+			return result;
+		}
 		let operationError = null;
 		try {
 			const written = await invoke("write_clipboard", { text: "dump.txt fixture 中文 👩‍💻\nclipboard" });
-			if (!written.ok) throw new Error(`Clipboard write failed: ${written.error.code}`);
+			if (!written.ok) throw new Error(`Clipboard write failed: ${written.error.code}: ${written.error.message}`);
 			const read = await invoke("read_clipboard");
+			if (!read.ok) throw new Error(`Clipboard read failed: ${read.error.code}: ${read.error.message}`);
 			result.roundtrip = read.ok && read.value === "dump.txt fixture 中文 👩‍💻\nclipboard";
 		} catch (error) {
 			operationError = error;
@@ -483,10 +606,12 @@ try {
 			const current = await invoke("read_clipboard");
 			result.restored = restored.ok && current.ok && current.value === original.value;
 		}
-		if (!result.restored) throw new Error("Original clipboard text restoration failed");
-		if (operationError) throw operationError;
+		if (!result.restored) result.errors.push("Original clipboard text restoration failed");
+		if (operationError) result.errors.push(String(operationError));
 		return result;
 	});
+	report.nativeServices = nativeServices;
+	for (const error of nativeServices.errors) failures.push({ name: "native clipboard", error });
 	check("native font enumeration", nativeServices.fontCount > 0, true, 0, "Real native font command");
 	check(
 		"native Unicode clipboard roundtrip",
@@ -503,9 +628,9 @@ try {
 		"Real native clipboard command readback",
 	);
 	const originalFont = await evaluate(() => getComputedStyle(document.querySelector(".cm-content")).fontFamily);
-	await browser.$('[aria-label="App menu"]').click();
+	await click('[aria-label="App menu"]');
 	await waitFor(() => !!document.querySelector(".menu-content"));
-	await browser.$('//*[contains(@role,"menuitem")][span[text()="Font…"]]').click();
+	await click('//*[contains(@role,"menuitem")][span[text()="Font…"]]');
 	await waitFor(() => !!document.querySelector(".font-option"));
 	const chosenFont = await evaluate(() => {
 		const content = document.querySelector(".cm-content");
@@ -522,7 +647,7 @@ try {
 		}
 		throw new Error("No installed font with distinct metrics available for live font test");
 	});
-	await browser.$('[data-tauri-test-font="true"]').click();
+	await click('[data-tauri-test-font="true"]');
 	await delay(250);
 	check(
 		"native family previews in editor",
@@ -532,9 +657,11 @@ try {
 		),
 		true,
 		0,
-		"Native font list and WebDriver font-picker selection",
+		driverProvider === "embedded"
+			? "Native font list and synthetic DOM pointer font-picker selection"
+			: "Native font list and native WebDriver font-picker selection",
 	);
-	await browser.$(".font-picker-actions button").click();
+	await click(".font-picker-actions button");
 	await waitFor(() => !document.querySelector(".font-picker"));
 	check(
 		"font cancel restores original",
@@ -542,7 +669,7 @@ try {
 		originalFont,
 	);
 	await navigate(-1);
-	await browser.$('[aria-label="Insert page below"]').click();
+	await click('[aria-label="Insert page below"]');
 	await settled();
 	check("reversal fixture has both neighbors", await count(), "2 / 4");
 	const reversal = await evaluate(async () => {
@@ -575,6 +702,7 @@ try {
 	await settled();
 	check("temporary reversal fixture removed by undo", await count(), "1 / 3");
 	report.events = await evaluate(() => window.tauriTestEvents);
+	report.selections = await evaluate(() => window.tauriTestSelections);
 	check("renderer errors", (await evaluate(() => window.tauriTestErrors)).join("\n"), "");
 	await screenshot("final");
 } catch (error) {
@@ -582,6 +710,14 @@ try {
 	if (browser) await browser.saveScreenshot(path.join(folder, "failure.png")).catch(() => undefined);
 } finally {
 	if (browser) {
+		await browser
+			.execute(() => ({
+				events: window.tauriTestEvents,
+				selections: window.tauriTestSelections,
+				rendererErrors: window.tauriTestErrors,
+			}))
+			.then((diagnostics) => Object.assign(report, diagnostics))
+			.catch(() => undefined);
 		try {
 			await cleanupWdioSession(browser);
 		} catch (error) {

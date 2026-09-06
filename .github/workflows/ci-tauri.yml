@@ -59,8 +59,15 @@ jobs:
          - run: npm run unit:native
          - run: npm run make:tauri:probe -- --automation
          - name: Test native probe
-           if: runner.os != 'Linux'
+           if: runner.os == 'macOS'
            run: npm run tauri-test -- --probe
+         - name: Test native probe on Windows
+           if: runner.os == 'Windows'
+           timeout-minutes: 5
+           run: ./tools/tauriWindowsDiagnostics.ps1 -Mode Test
+         - name: Collect Windows startup diagnostics
+           if: always() && runner.os == 'Windows'
+           run: ./tools/tauriWindowsDiagnostics.ps1 -Mode Collect
          - name: Test native probe on Linux
            if: runner.os == 'Linux'
            run: xvfb-run -a npm run tauri-test -- --probe
