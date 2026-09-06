@@ -1,0 +1,76 @@
+name: Tauri feasibility
+
+on:
+   push:
+      branches: [main]
+   pull_request:
+   workflow_dispatch:
+
+permissions:
+   contents: read
+
+concurrency:
+   group: ci-tauri-${{ github.ref }}
+   cancel-in-progress: false
+
+jobs:
+   probe:
+      strategy:
+         fail-fast: false
+         matrix:
+            include:
+               - os: windows-latest
+                 artifact: windows-x64
+               - os: ubuntu-24.04
+                 artifact: linux-x64
+               - os: macos-15
+                 artifact: mac-arm64
+               - os: macos-15-intel
+                 artifact: mac-x64
+      runs-on: ${{ matrix.os }}
+      timeout-minutes: 60
+      steps:
+         - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+           with:
+              persist-credentials: false
+         - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+           with:
+              node-version: 24
+              cache: npm
+         - name: Pin npm 12
+           run: npm install -g npm@12
+         - name: Enforce install-script allowlist
+           run: npm config set strict-allow-scripts=true --location=project
+         - run: npm ci
+         - name: Install pinned Rust toolchain
+           run: rustup show
+         - name: Install Linux native and driver dependencies
+           if: runner.os == 'Linux'
+           run: |
+              sudo apt-get update
+              sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev libfontconfig1-dev libfreetype6-dev webkit2gtk-driver xvfb fonts-dejavu
+         - name: Install native WebDriver
+           if: runner.os != 'macOS'
+           run: cargo install tauri-driver --version 2.0.6 --locked
+         - run: npm run check
+         - run: npm run unit
+         - run: npm run integration
+         - run: npm run check:native
+         - run: npm run unit:native
+         - run: npm run make:tauri:probe -- --automation
+         - name: Test native probe
+           if: runner.os != 'Linux'
+           run: npm run tauri-test -- --probe
+         - name: Test native probe on Linux
+           if: runner.os == 'Linux'
+           run: xvfb-run -a npm run tauri-test -- --probe
+         - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+           if: always()
+           with:
+              name: tauri-evidence-${{ matrix.artifact }}
+              path: |
+                 .scratch/tauri-test/
+                 .scratch/tauri-build.json
+                 src-tauri/target/release/dump-txt
+                 src-tauri/target/release/dump-txt.exe
+              if-no-files-found: warn

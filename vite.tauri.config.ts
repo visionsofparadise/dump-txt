@@ -7,7 +7,10 @@ export default defineConfig(({ mode }) => ({
 	root: fileURLToPath(new URL(".", import.meta.url)),
 	clearScreen: false,
 	cacheDir: "node_modules/.vite-tauri",
-	define: { "import.meta.env.VITE_DESKTOP": JSON.stringify("tauri") },
+	define: {
+		"import.meta.env.VITE_DESKTOP": JSON.stringify("tauri"),
+		"import.meta.env.VITE_TEST_AUTOMATION": JSON.stringify(process.env.TAURI_TEST_AUTOMATION === "true"),
+	},
 	plugins: [
 		react(),
 		tailwindcss(),

@@ -333,6 +333,11 @@ export default tseslint.config(
 	},
 
 	{
+		files: ["tools/testTauri.mjs"],
+		languageOptions: { globals: globals.browser },
+	},
+
+	{
 		files: ["**/main/**/*.ts"],
 		rules: {
 			"no-console": "off",

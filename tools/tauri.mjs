@@ -1,5 +1,6 @@
-import { spawn, spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
+import { execFileSync, spawn, spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { homedir } from "node:os";
 import { delimiter, join } from "node:path";
@@ -9,10 +10,15 @@ const require = createRequire(import.meta.url);
 const directory = fileURLToPath(new URL("../", import.meta.url));
 const [command, ...arguments_] = process.argv.slice(2);
 const probe = arguments_.includes("--probe");
+const automation = arguments_.includes("--automation");
 const supported = new Set(["dev", "build", "check", "test-native"]);
 
-if (!supported.has(command) || arguments_.some((argument) => argument !== "--probe")) {
-	throw new Error("Use dev [--probe], build [--probe], check or test-native");
+if (
+	!supported.has(command) ||
+	arguments_.some((argument) => !["--probe", "--automation"].includes(argument)) ||
+	(automation && !probe)
+) {
+	throw new Error("Use dev [--probe [--automation]], build [--probe [--automation]], check or test-native");
 }
 
 const environment = { ...process.env };
@@ -24,6 +30,7 @@ if (existsSync(cargoDirectory)) {
 }
 
 const options = { cwd: directory, env: environment, stdio: "inherit", windowsHide: true };
+environment.TAURI_TEST_AUTOMATION = automation ? "true" : "false";
 const cargoManifest = join(directory, "src-tauri", "Cargo.toml");
 
 function run(executable, arguments_) {
@@ -40,7 +47,7 @@ if (command === "check") {
 		cargoManifest,
 		"--all-targets",
 		"--features",
-		"probe",
+		"automation",
 		"--",
 		"-D",
 		"warnings",
@@ -51,14 +58,50 @@ if (command === "check") {
 	const vite = join(directory, "node_modules", "vite", "bin", "vite.js");
 	const frontendArguments = ["--config", "vite.tauri.config.ts", "--mode", probe ? "probe" : "production"];
 	const nativeArguments = [command];
-	if (probe) nativeArguments.push("--config", "src-tauri/tauri.probe.conf.json", "--features", "probe");
+	if (probe)
+		nativeArguments.push(
+			"--config",
+			"src-tauri/tauri.probe.conf.json",
+			"--features",
+			automation ? "automation" : "probe",
+		);
 	else if (command === "dev")
 		nativeArguments.push("--config", JSON.stringify({ identifier: "com.visionsofparadise.dump-txt.dev" }));
+	if (automation) nativeArguments.push("--config", "src-tauri/tauri.automation.conf.json");
 	if (command === "build") {
+		const source = {
+			commit: execFileSync("git", ["rev-parse", "HEAD"], { cwd: directory, encoding: "utf8" }).trim(),
+			dirty: execFileSync("git", ["status", "--porcelain"], { cwd: directory, encoding: "utf8" }).trim(),
+		};
 		run(process.execPath, [vite, "build", ...frontendArguments]);
 		nativeArguments.push("--ci");
 		if (probe) nativeArguments.push("--no-bundle");
 		run(process.execPath, [require.resolve("@tauri-apps/cli/tauri.js"), ...nativeArguments]);
+		const executable = join(
+			directory,
+			"src-tauri",
+			"target",
+			"release",
+			process.platform === "win32" ? "dump-txt.exe" : "dump-txt",
+		);
+		const bytes = readFileSync(executable);
+		mkdirSync(join(directory, ".scratch"), { recursive: true });
+		writeFileSync(
+			join(directory, ".scratch", "tauri-build.json"),
+			JSON.stringify(
+				{
+					...source,
+					probe,
+					automation,
+					executable,
+					bytes: bytes.length,
+					sha256: createHash("sha256").update(bytes).digest("hex"),
+					builtAt: new Date().toISOString(),
+				},
+				null,
+				2,
+			),
+		);
 	} else {
 		const frontend = spawn(process.execPath, [vite, ...frontendArguments], options);
 		const native = spawn(
