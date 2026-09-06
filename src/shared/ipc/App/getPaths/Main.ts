@@ -7,6 +7,10 @@ export class GetPathsMainIpc extends AsyncMainIpc<GetPathsParameters, AppPaths> 
 	readonly action = GET_PATHS_ACTION;
 	readonly parameters = z.tuple([]);
 	handler(dependencies: IpcHandlerDependencies): Promise<AppPaths> {
-		return Promise.resolve({ userData: dependencies.userData, restoredFilePath: dependencies.restoredFilePath });
+		return Promise.resolve({
+			userData: dependencies.userData,
+			restoredFilePath: dependencies.restoredFilePath,
+			startupSettings: dependencies.takeStartupSettings?.(),
+		});
 	}
 }

@@ -15,6 +15,7 @@ export function PageEditor({ editor }: PageEditorProps) {
 		if (element) {
 			editor.attach(element);
 			editor.focus();
+			performance.mark("dump:editor-ready");
 			element.addEventListener("wheel", wheel, { passive: false });
 		}
 

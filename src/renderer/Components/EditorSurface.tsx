@@ -1,8 +1,6 @@
 import { createMutableState, scope } from "opshot";
-import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
 import { AppMenu } from "./AppMenu";
-import { FontPicker } from "./FontPicker";
-import { Keybinds } from "./Keybinds";
 import { PageBar } from "./PageBar";
 import { PageViewport } from "./PageViewport";
 import { StatusBar } from "./StatusBar";
@@ -10,6 +8,9 @@ import { TitleBar } from "./TitleBar";
 import type { ChromeContext } from "../models/ChromeContext";
 import type { ChromeState } from "../models/ChromeState";
 import type { DumpContext } from "../models/DumpContext";
+
+const FontPicker = lazy(() => import("./FontPicker").then((module) => ({ default: module.FontPicker })));
+const Keybinds = lazy(() => import("./Keybinds").then((module) => ({ default: module.Keybinds })));
 
 interface EditorSurfaceProps {
 	readonly context: DumpContext;
@@ -121,8 +122,10 @@ export const EditorSurface = scope(({ context: dumpContext }: EditorSurfaceProps
 			<PageViewport context={context} />
 			<PageBar position="bottom" context={context} />
 			{showStatusBar && <StatusBar context={context} />}
-			<FontPicker context={context} />
-			<Keybinds context={context} />
+			<Suspense fallback={null}>
+				{chrome.fontPickerOpen && <FontPicker context={context} />}
+				{chrome.keybindsOpen && <Keybinds context={context} />}
+			</Suspense>
 		</main>
 	);
 });

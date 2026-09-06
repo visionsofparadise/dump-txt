@@ -8,7 +8,7 @@ export interface FileRead {
 export type ReadFileParameters = [path: string];
 export const READ_FILE_ACTION = "readFile" as const;
 
-const fileReadSchema = z.object({ bytes: z.instanceof(Uint8Array), hash: z.string() });
+export const fileReadSchema = z.object({ bytes: z.instanceof(Uint8Array), hash: z.string() });
 
 export class ReadFileRendererIpc extends AsyncRendererIpc<
 	typeof READ_FILE_ACTION,

@@ -368,7 +368,7 @@ export class PersistenceController {
 		this.#statePath = `${paths.userData}/app-state.json`;
 		this.#journalPath = `${paths.userData}/recovery.json`;
 
-		const stateFile = await this.#main.readFile(this.#statePath);
+		const stateFile = paths.startupSettings === undefined ? await this.#main.readFile(this.#statePath) : paths.startupSettings;
 
 		this.#stateHash = stateFile?.hash ?? null;
 
@@ -392,13 +392,17 @@ export class PersistenceController {
 		let file: FileRead | null = null;
 		let backingReadFailure: string | null = null;
 
-		try {
-			file = await this.#main.readFile(path);
-		} catch (error) {
-			backingReadFailure = errorMessage(error);
-		}
+		const [backingResult, journalResult] = await Promise.allSettled([
+			this.#main.readFile(path),
+			this.#main.readFile(this.#journalPath),
+		]);
 
-		const journalFile = await this.#main.readFile(this.#journalPath);
+		if (backingResult.status === "fulfilled") file = backingResult.value;
+		else backingReadFailure = errorMessage(backingResult.reason);
+
+		if (journalResult.status === "rejected") throw journalResult.reason;
+
+		const journalFile = journalResult.value;
 
 		this.#journalHash = journalFile?.hash ?? null;
 

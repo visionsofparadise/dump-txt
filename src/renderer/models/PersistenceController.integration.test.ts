@@ -163,6 +163,49 @@ afterEach(async () => {
 });
 
 describe("the current dump lifecycle", () => {
+	it("starts document and recovery reads together", async () => {
+		const test = await fixture("startup text");
+		const started = new Set<string>();
+		let release!: () => void;
+		const gate = new Promise<void>((resolve) => { release = resolve; });
+
+		test.setRead(async (filePath) => {
+			if (filePath === test.path || filePath.endsWith("recovery.json")) {
+				started.add(filePath);
+				await gate;
+			}
+		});
+
+		const initialization = test.persistence.initialize();
+
+		try {
+			await until(() => started.size === 2);
+		} finally {
+			release();
+			await initialization;
+		}
+
+		expect(textOf(test.persistence)).toBe("startup text");
+	});
+
+	it("uses the startup settings snapshot without reading it again", async () => {
+		const test = await fixture("startup text");
+		await test.persistence.initialize();
+		await test.persistence.flush();
+		const startupSettings = await test.read(`${test.directory}/app-state.json`);
+		expect(startupSettings).not.toBeNull();
+		vi.spyOn(test.main, "getPaths").mockResolvedValue({
+			userData: test.directory,
+			restoredFilePath: test.path,
+			startupSettings,
+		});
+		const reads = vi.spyOn(test.main, "readFile");
+		const restarted = test.create();
+		await restarted.initialize();
+		expect(reads).not.toHaveBeenCalledWith(`${test.directory}/app-state.json`);
+		expect(textOf(restarted)).toBe("startup text");
+	});
+
 	it("wires the native menu and rejects its old controller result after file replacement", async () => {
 		const { persistence, main, directory, chooseOpen, read } = await fixture("cat");
 		await persistence.initialize();

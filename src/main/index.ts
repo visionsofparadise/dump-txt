@@ -1,9 +1,11 @@
 import { mkdirSync } from "node:fs";
-import { mkdir, readFile } from "node:fs/promises";
+import { mkdir } from "node:fs/promises";
 import path from "node:path";
-import { app, BrowserWindow, screen } from "electron";
+import { app, BrowserWindow, Menu, nativeTheme, screen } from "electron";
 import { z } from "zod";
 import { windowBoundsSchema } from "../shared/utils/emitToRenderer";
+import { readFileSnapshot } from "../shared/utils/readFileSnapshot";
+import type { FileRead } from "../shared/ipc/FileSystem/readFile/Renderer";
 import { grantPath } from "./authorizePath";
 import { wireWindow } from "./wireWindow";
 
@@ -28,9 +30,19 @@ async function createWindow(): Promise<void> {
 	const grants = new Set<string>();
 	let restoredFilePath: string | null = null;
 	let bounds: z.infer<typeof windowBoundsSchema> | undefined;
+	let theme: "system" | "light" | "dark" = "system";
+	let startupSettings: FileRead | null | undefined;
 
 	try {
-		const decoded: unknown = JSON.parse(await readFile(path.join(userData, "app-state.json"), "utf8"));
+		startupSettings = await readFileSnapshot(path.join(userData, "app-state.json"));
+
+		const decoded: unknown = startupSettings ? JSON.parse(Buffer.from(startupSettings.bytes).toString("utf8")) : null;
+		const appearance = z.object({
+			appearance: z.object({ theme: z.enum(["system", "light", "dark"]) }),
+		}).safeParse(decoded);
+
+		if (appearance.success) theme = appearance.data.appearance.theme;
+
 		const state = z
 			.object({
 				version: z.literal(1),
@@ -64,9 +76,15 @@ async function createWindow(): Promise<void> {
 		minWidth: 420,
 		minHeight: 280,
 		frame: false,
+		backgroundColor: (theme === "dark" || (theme === "system" && nativeTheme.shouldUseDarkColors)) ? "#2c2c2c" : "#fafafa",
 		title: "dump.txt",
 		icon: MAIN_WINDOW_VITE_DEV_SERVER_URL ? path.join(__dirname, "../../assets/icon.png") : undefined,
-		webPreferences: { preload: path.join(__dirname, "preload.cjs"), contextIsolation: true, nodeIntegration: false },
+		webPreferences: {
+			preload: path.join(__dirname, "preload.cjs"),
+			contextIsolation: true,
+			nodeIntegration: false,
+			additionalArguments: [`--startup-theme=${theme}`],
+		},
 	});
 	browserWindow.setMenu(null);
 
@@ -84,7 +102,18 @@ async function createWindow(): Promise<void> {
 		});
 	}
 
-	wireWindow(browserWindow, { userData, restoredFilePath, grants });
+	wireWindow(browserWindow, {
+		userData,
+		restoredFilePath,
+		grants,
+		takeStartupSettings: () => {
+			const snapshot = startupSettings;
+
+			startupSettings = undefined;
+
+			return snapshot;
+		},
+	});
 
 	if (MAIN_WINDOW_VITE_DEV_SERVER_URL) void browserWindow.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
 	else void browserWindow.loadFile(path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`));
@@ -101,7 +130,11 @@ else {
 
 		browserWindow?.focus();
 	});
-	void app.whenReady().then(createWindow);
+	void app.whenReady().then(() => {
+		Menu.setApplicationMenu(null);
+
+		return createWindow();
+	});
 	app.on("activate", () => {
 		if (BrowserWindow.getAllWindows().length === 0) void createWindow();
 	});

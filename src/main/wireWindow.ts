@@ -5,7 +5,7 @@ import type { BrowserWindow } from "electron";
 
 export function wireWindow(
 	browserWindow: BrowserWindow,
-	paths: Pick<IpcHandlerDependencies, "userData" | "restoredFilePath" | "grants">,
+	paths: Pick<IpcHandlerDependencies, "userData" | "restoredFilePath" | "grants" | "takeStartupSettings">,
 ): void {
 	let allowClose = false;
 	const dependencies: IpcHandlerDependencies = {
