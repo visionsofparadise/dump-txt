@@ -28,4 +28,4 @@ if [[ "$window_manager_ready" != true ]]; then
     exit 1
 fi
 
-npm run tauri-test -- --probe
+npm run tauri-test -- "$@"

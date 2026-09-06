@@ -17,6 +17,11 @@
 		"allow-get-system-fonts",
 		"allow-read-clipboard",
 		"allow-write-clipboard",
-		"allow-show-text-context-menu"
+		"allow-show-text-context-menu",
+		"allow-get-paths",
+		"allow-read-file",
+		"allow-write-file",
+		"allow-show-open-dialog",
+		"allow-show-save-dialog"
 	]
 }

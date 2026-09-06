@@ -333,7 +333,7 @@ export default tseslint.config(
 	},
 
 	{
-		files: ["tools/testTauri.mjs"],
+		files: ["tools/testTauri.mjs", "tools/testTauriPersistence.mjs"],
 		languageOptions: { globals: globals.browser },
 	},
 

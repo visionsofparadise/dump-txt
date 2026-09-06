@@ -1265,7 +1265,7 @@ export class EditorController {
 
 				const text = await this.#callbacks.readClipboard();
 
-				if (!current() || this.#locked) return;
+				if (text === "" || !current() || this.#locked) return;
 
 				this.apply({ type: "paste", text });
 			} else if (response === "delete") this.apply({ type: "insert", text: "" });

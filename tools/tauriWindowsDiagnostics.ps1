@@ -1,12 +1,14 @@
 param(
     [ValidateSet('Test', 'Monitor', 'Collect')]
-    [string]$Mode = 'Collect'
+    [string]$Mode = 'Collect',
+    [switch]$Persistence
 )
 
 $ErrorActionPreference = 'Stop'
 $projectDirectory = Split-Path -Parent $PSScriptRoot
 $runIdentifier = if ($env:GITHUB_RUN_ID) { "$($env:GITHUB_RUN_ID)-$($env:GITHUB_RUN_ATTEMPT)" } else { 'local' }
-$evidenceDirectory = Join-Path $projectDirectory ".scratch/tauri-test/windows-$runIdentifier"
+$suffix = if ($Persistence) { '-persistence' } else { '' }
+$evidenceDirectory = Join-Path $projectDirectory ".scratch/tauri-test/windows-$runIdentifier$suffix"
 $profileDirectory = Join-Path $evidenceDirectory 'webview-profile'
 [void](New-Item -ItemType Directory -Force -Path $evidenceDirectory)
 
@@ -49,14 +51,17 @@ if ($Mode -eq 'Collect') {
 $env:TAURI_TEST_OWNER_PID = "$PID"
 $env:TAURI_TEST_WEBVIEW_DATA_FOLDER = $profileDirectory
 $env:RUST_BACKTRACE = '1'
-$monitorProcess = Start-Process -FilePath (Get-Process -Id $PID).Path -WindowStyle Hidden -PassThru -ArgumentList @(
+$monitorArguments = @(
     '-NoProfile', '-File', "`"$PSCommandPath`"", '-Mode', 'Monitor'
 )
+if ($Persistence) { $monitorArguments += '-Persistence' }
+$monitorProcess = Start-Process -FilePath (Get-Process -Id $PID).Path -WindowStyle Hidden -PassThru -ArgumentList $monitorArguments
 $testExitCode = 1
 try {
     Push-Location -LiteralPath $projectDirectory
     try {
-        & npm.cmd run tauri-test -- --probe
+        if ($Persistence) { & npm.cmd run tauri-test }
+        else { & npm.cmd run tauri-test -- --probe }
         $testExitCode = $LASTEXITCODE
     } finally { Pop-Location }
 } finally {

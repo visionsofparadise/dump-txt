@@ -6,6 +6,27 @@ pub struct IpcFailure {
     pub message: String,
 }
 
+impl std::fmt::Display for IpcFailure {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(&self.message)
+    }
+}
+
+impl std::error::Error for IpcFailure {}
+
+impl From<std::io::Error> for IpcFailure {
+    fn from(error: std::io::Error) -> Self {
+        Self {
+            code: match error.kind() {
+                std::io::ErrorKind::NotFound => "missing",
+                std::io::ErrorKind::PermissionDenied => "permission",
+                _ => "io",
+            },
+            message: error.to_string(),
+        }
+    }
+}
+
 #[derive(Debug, Serialize)]
 #[serde(untagged)]
 pub enum IpcResult<T> {
@@ -14,6 +35,13 @@ pub enum IpcResult<T> {
 }
 
 impl<T> IpcResult<T> {
+    pub fn from_ipc_result(result: Result<T, IpcFailure>) -> Self {
+        match result {
+            Ok(value) => Self::Success { ok: true, value },
+            Err(error) => Self::Failure { ok: false, error },
+        }
+    }
+
     pub fn failure(code: &'static str, message: impl Into<String>) -> Self {
         Self::Failure {
             ok: false,

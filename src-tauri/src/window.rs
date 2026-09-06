@@ -1,5 +1,6 @@
 use crate::error::{empty_request, parse_request, IpcResult};
-use serde::{Deserialize, Serialize};
+use crate::startup::WindowBounds;
+use serde::Deserialize;
 use std::sync::atomic::{AtomicBool, Ordering};
 use tauri::{Emitter, Manager, State, WebviewWindow, WindowEvent};
 
@@ -10,13 +11,102 @@ pub struct WindowState {
     allow_close: AtomicBool,
 }
 
-#[derive(Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct WindowBounds {
-    x: i32,
-    y: i32,
-    width: u32,
-    height: u32,
+pub fn restore_bounds(window: &WebviewWindow, bounds: WindowBounds) -> tauri::Result<()> {
+    let scale = window.scale_factor()?;
+    let monitors = window.available_monitors()?;
+    let areas: Vec<_> = monitors
+        .iter()
+        .map(|monitor| {
+            let area = monitor.work_area();
+            let position = area.position.to_logical::<i32>(scale);
+            let size = area.size.to_logical::<u32>(scale);
+            WindowBounds {
+                x: position.x,
+                y: position.y,
+                width: size.width,
+                height: size.height,
+            }
+        })
+        .collect();
+    if let Some(area) = areas.iter().max_by_key(|area| {
+        let width = (i64::from(bounds.x) + i64::from(bounds.width))
+            .min(i64::from(area.x) + i64::from(area.width))
+            - i64::from(bounds.x).max(i64::from(area.x));
+        let height = (i64::from(bounds.y) + i64::from(bounds.height))
+            .min(i64::from(area.y) + i64::from(area.height))
+            - i64::from(bounds.y).max(i64::from(area.y));
+        width.max(0) * height.max(0)
+    }) {
+        let fitted = fit_bounds(bounds, *area);
+        window.set_size(tauri::LogicalSize::new(fitted.width, fitted.height))?;
+        window.set_position(tauri::LogicalPosition::new(fitted.x, fitted.y))?;
+    } else {
+        window.center()?;
+    }
+    Ok(())
+}
+
+fn fit_bounds(bounds: WindowBounds, area: WindowBounds) -> WindowBounds {
+    let width = bounds.width.min(area.width).max(420);
+    let height = bounds.height.min(area.height).max(280);
+    WindowBounds {
+        x: bounds.x.clamp(
+            area.x,
+            area.x
+                .saturating_add(area.width.saturating_sub(width) as i32),
+        ),
+        y: bounds.y.clamp(
+            area.y,
+            area.y
+                .saturating_add(area.height.saturating_sub(height) as i32),
+        ),
+        width,
+        height,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn restored_windows_keep_the_titlebar_inside_the_work_area() {
+        let area = WindowBounds {
+            x: 0,
+            y: 24,
+            width: 1280,
+            height: 696,
+        };
+        assert_eq!(
+            fit_bounds(
+                WindowBounds {
+                    x: -600,
+                    y: -900,
+                    width: 2400,
+                    height: 1800
+                },
+                area
+            ),
+            area
+        );
+        assert_eq!(
+            fit_bounds(
+                WindowBounds {
+                    x: 1900,
+                    y: 400,
+                    width: 960,
+                    height: 640
+                },
+                area
+            ),
+            WindowBounds {
+                x: 320,
+                y: 80,
+                width: 960,
+                height: 640
+            }
+        );
+    }
 }
 
 fn emit_bounds(window: &tauri::Window) -> tauri::Result<()> {

@@ -1,40 +1,24 @@
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
 import { mkdir, writeFile, readFile, access } from "node:fs/promises";
-import { arch, homedir, release } from "node:os";
 import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
-import { fileURLToPath } from "node:url";
-import { cleanupWdioSession, createTauriCapabilities, startWdioSession } from "@wdio/tauri-service";
+import { cleanupWdioSession } from "@wdio/tauri-service";
 import { Key } from "webdriverio";
 import { fixture, pendingObservations } from "./tauri-fixtures.mjs";
+import { driverProvider, executable, hostReport, root, startHostSession } from "./tauriTestHost.mjs";
 
-const root = fileURLToPath(new URL("../", import.meta.url));
+if (process.argv.length === 2) {
+	await import("./testTauriPersistence.mjs");
+	process.exit(process.exitCode ?? 0);
+}
+
 const folder = path.join(root, ".scratch", "tauri-test", `${Date.now()}`);
-const executable =
-	process.env.TAURI_TEST_BINARY ??
-	path.join(root, "src-tauri", "target", "release", process.platform === "win32" ? "dump-txt.exe" : "dump-txt");
-const driverProvider = process.env.TAURI_TEST_DRIVER ?? (process.platform === "darwin" ? "embedded" : "external");
-const installedDriver = path.join(
-	homedir(),
-	".cargo",
-	"bin",
-	process.platform === "win32" ? "tauri-driver.exe" : "tauri-driver",
-);
-const tauriDriverPath = process.env.TAURI_DRIVER_PATH ?? (existsSync(installedDriver) ? installedDriver : undefined);
 const observations = [];
 const failures = [];
 const report = {
-	executable,
-	driverProvider,
-	platform: process.platform,
-	architecture: arch(),
-	osRelease: release(),
-	commit: execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim(),
-	harnessSourceDirty:
-		execFileSync("git", ["status", "--porcelain"], { cwd: root, encoding: "utf8" }).trim().length > 0,
+	...hostReport(),
 	fixture: { bytes: fixture.bytes, sha256: fixture.sha256 },
 	method:
 		driverProvider === "embedded"
@@ -61,7 +45,7 @@ try {
 	assert.deepEqual(
 		process.argv.slice(2),
 		["--probe"],
-		"Phase 2 harness requires --probe; production persistence tests are not implemented",
+		"Use --probe for fixture editor checks or no arguments for native persistence checks",
 	);
 	assert.ok(["external", "embedded"].includes(driverProvider), "Unsupported TAURI_TEST_DRIVER");
 	if (process.env.TAURI_TEST_EXPECT_REDUCED_MOTION !== undefined)
@@ -83,32 +67,7 @@ try {
 		"Binary differs from build manifest; rebuild before testing",
 	);
 	assert.equal(report.binary.bytes, report.build.bytes, "Binary size differs from build manifest");
-	const capabilities = createTauriCapabilities(executable, {
-		driverProvider,
-		logLevel: "warn",
-		startTimeout: 120000,
-		commandTimeout: 30000,
-	});
-	if (process.platform === "win32" && process.env.TAURI_TEST_WEBVIEW_DATA_FOLDER)
-		capabilities["tauri:options"].webviewOptions = {
-			userDataFolder: process.env.TAURI_TEST_WEBVIEW_DATA_FOLDER,
-			additionalBrowserArguments: [
-				"remote-debugging-port=0",
-				"remote-debugging-address=127.0.0.1",
-				"enable-logging",
-				`log-file=${path.join(folder, "webview2.log")}`,
-			],
-		};
-	Object.assign(capabilities["wdio:tauriServiceOptions"], {
-		logDir: folder,
-		captureBackendLogs: true,
-		autoDownloadEdgeDriver: !process.env.MS_EDGE_DRIVER,
-		...(tauriDriverPath ? { tauriDriverPath } : {}),
-	});
-	browser = await startWdioSession(capabilities, {
-		rootDir: root,
-		...(process.env.MS_EDGE_DRIVER ? { nativeDriverPath: process.env.MS_EDGE_DRIVER } : {}),
-	});
+	browser = await startHostSession(folder);
 	await browser.waitUntil(async () => new URL(await browser.getUrl()).pathname === "/probe.html", {
 		timeout: 15000,
 		interval: 50,

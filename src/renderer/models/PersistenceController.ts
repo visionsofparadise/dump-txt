@@ -3,6 +3,7 @@ import { contentHashOf } from "../utils/contentHashOf";
 import { decodeText, type TextFormat } from "../utils/decodeText";
 import { encodeText } from "../utils/encodeText";
 import { parsePages } from "../utils/parsePages";
+import { sameFilePath } from "../utils/sameFilePath";
 import { serializePages } from "../utils/serializePages";
 import { appStateSchema, type AppState } from "./AppState";
 import { createDocumentState, freezePages, type Page } from "./DocumentState";
@@ -45,10 +46,6 @@ const defaultFormat: TextFormat = { encoding: "utf8", bom: false, newline: "\n" 
 
 function errorMessage(error: unknown): string {
 	return error instanceof Error ? error.message : String(error);
-}
-
-function samePath(left: string, right: string): boolean {
-	return left.replaceAll("\\", "/").toLowerCase() === right.replaceAll("\\", "/").toLowerCase();
 }
 
 function recoveredPages(record: RecoveryRecord): ReadonlyArray<Page> {
@@ -232,7 +229,7 @@ export class PersistenceController {
 				if (previousRecovery) await this.#preserve("recovery", previousRecovery);
 			}
 
-			if (this.state.path && samePath(candidate.path, this.state.path)) return;
+			if (this.state.path && sameFilePath(candidate.path, this.state.path)) return;
 
 			const file = await this.#main.readFile(candidate.path);
 
@@ -279,7 +276,7 @@ export class PersistenceController {
 
 			this.#setLocked(true);
 
-			if (this.state.path && samePath(candidate.path, this.state.path)) {
+			if (this.state.path && sameFilePath(candidate.path, this.state.path)) {
 				await this.flush();
 
 				return;
@@ -382,7 +379,7 @@ export class PersistenceController {
 		this.#windowBounds = this.#settings?.windowBounds ?? null;
 
 		const path =
-			this.#settings && paths.restoredFilePath && samePath(this.#settings.activePath, paths.restoredFilePath)
+			this.#settings && paths.restoredFilePath && sameFilePath(this.#settings.activePath, paths.restoredFilePath)
 				? this.#settings.activePath
 				: `${paths.userData}/dump.txt`;
 		let file: FileRead | null = null;
@@ -414,7 +411,7 @@ export class PersistenceController {
 				recovery = null;
 			}
 
-			if (recovery && !samePath(recovery.path, path)) {
+			if (recovery && !sameFilePath(recovery.path, path)) {
 				await this.#preserve("recovery", journalFile);
 				recovery = null;
 			}

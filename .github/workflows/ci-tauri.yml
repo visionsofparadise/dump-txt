@@ -1,4 +1,4 @@
-name: Tauri feasibility
+name: Tauri migration
 
 on:
    push:
@@ -57,7 +57,8 @@ jobs:
          - run: npm run integration
          - run: npm run check:native
          - run: npm run unit:native
-         - run: npm run make:tauri:probe -- --automation
+         - id: probe-build
+           run: npm run make:tauri:probe -- --automation
          - name: Test native probe on macOS with reduced motion
            if: runner.os == 'macOS'
            env:
@@ -83,6 +84,25 @@ jobs:
            run: ./tools/tauriWindowsDiagnostics.ps1 -Mode Collect
          - name: Test native probe on Linux
            if: runner.os == 'Linux'
+           run: xvfb-run -a bash tools/tauriLinuxDesktop.sh --probe
+         - name: Build production persistence test app
+           id: persistence-build
+           if: ${{ !cancelled() && steps.probe-build.outcome == 'success' }}
+           run: npm run make:tauri -- --automation
+         - name: Test native persistence on macOS
+           if: ${{ !cancelled() && steps.persistence-build.outcome == 'success' && runner.os == 'macOS' }}
+           timeout-minutes: 5
+           run: npm run tauri-test
+         - name: Test native persistence on Windows
+           if: ${{ !cancelled() && steps.persistence-build.outcome == 'success' && runner.os == 'Windows' }}
+           timeout-minutes: 5
+           run: ./tools/tauriWindowsDiagnostics.ps1 -Mode Test -Persistence
+         - name: Collect Windows persistence startup diagnostics
+           if: always() && runner.os == 'Windows'
+           run: ./tools/tauriWindowsDiagnostics.ps1 -Mode Collect -Persistence
+         - name: Test native persistence on Linux
+           if: ${{ !cancelled() && steps.persistence-build.outcome == 'success' && runner.os == 'Linux' }}
+           timeout-minutes: 5
            run: xvfb-run -a bash tools/tauriLinuxDesktop.sh
          - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
            if: always()
@@ -91,6 +111,7 @@ jobs:
               include-hidden-files: true
               path: |
                  .scratch/tauri-test/
+                 .scratch/tauri-persistence/
                  .scratch/tauri-build.json
                  src-tauri/target/release/dump-txt
                  src-tauri/target/release/dump-txt.exe

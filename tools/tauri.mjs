@@ -13,12 +13,8 @@ const probe = arguments_.includes("--probe");
 const automation = arguments_.includes("--automation");
 const supported = new Set(["dev", "build", "check", "test-native"]);
 
-if (
-	!supported.has(command) ||
-	arguments_.some((argument) => !["--probe", "--automation"].includes(argument)) ||
-	(automation && !probe)
-) {
-	throw new Error("Use dev [--probe [--automation]], build [--probe [--automation]], check or test-native");
+if (!supported.has(command) || arguments_.some((argument) => !["--probe", "--automation"].includes(argument))) {
+	throw new Error("Use dev [--probe] [--automation], build [--probe] [--automation], check or test-native");
 }
 
 const environment = { ...process.env };
@@ -31,6 +27,7 @@ if (existsSync(cargoDirectory)) {
 
 const options = { cwd: directory, env: environment, stdio: "inherit", windowsHide: true };
 environment.TAURI_TEST_AUTOMATION = automation ? "true" : "false";
+if (command === "dev" && !probe) environment.DUMP_TXT_PROFILE ??= join(directory, ".scratch", "tauri-dev-profile");
 const cargoManifest = join(directory, "src-tauri", "Cargo.toml");
 
 function run(executable, arguments_) {
@@ -63,11 +60,21 @@ if (command === "check") {
 			"--config",
 			"src-tauri/tauri.probe.conf.json",
 			"--features",
-			automation ? "automation" : "probe",
+			automation ? "probe,automation" : "probe",
 		);
-	else if (command === "dev")
-		nativeArguments.push("--config", JSON.stringify({ identifier: "com.visionsofparadise.dump-txt.dev" }));
-	if (automation) nativeArguments.push("--config", "src-tauri/tauri.automation.conf.json");
+	else if (command === "dev" || automation)
+		nativeArguments.push(
+			"--config",
+			JSON.stringify({ identifier: `com.visionsofparadise.dump-txt.${automation ? "test" : "dev"}` }),
+		);
+	if (automation) {
+		if (!probe) nativeArguments.push("--features", "automation");
+		const automationConfig = JSON.parse(
+			readFileSync(join(directory, "src-tauri", "tauri.automation.conf.json"), "utf8"),
+		);
+		automationConfig.app.security.capabilities[0] = probe ? "probe" : "main";
+		nativeArguments.push("--config", JSON.stringify(automationConfig));
+	}
 	if (command === "build") {
 		const source = {
 			commit: execFileSync("git", ["rev-parse", "HEAD"], { cwd: directory, encoding: "utf8" }).trim(),
@@ -75,7 +82,7 @@ if (command === "check") {
 		};
 		run(process.execPath, [vite, "build", ...frontendArguments]);
 		nativeArguments.push("--ci");
-		if (probe) nativeArguments.push("--no-bundle");
+		if (probe || automation) nativeArguments.push("--no-bundle");
 		run(process.execPath, [require.resolve("@tauri-apps/cli/tauri.js"), ...nativeArguments]);
 		const executable = join(
 			directory,

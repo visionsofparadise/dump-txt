@@ -133,6 +133,21 @@ describe("CodeMirror bridge", () => {
 		expect(history.canUndo).toBe(false);
 	});
 
+	it("preserves cross-page selections when the native clipboard has no text", async () => {
+		const readClipboard = vi.fn(async () => "");
+		const { view, documentState, session, history } = fixture({
+			showTextContextMenu: async () => "paste",
+			readClipboard,
+		});
+		const selections = JSON.stringify(session.view);
+		vi.spyOn(view, "posAtCoords").mockReturnValue(1);
+		view.contentDOM.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true }));
+		await vi.waitFor(() => expect(readClipboard).toHaveBeenCalledOnce());
+		expect(documentState.pages.map((page) => page.text)).toEqual(["cat one", "two cat"]);
+		expect(JSON.stringify(session.view)).toBe(selections);
+		expect(history.canUndo).toBe(false);
+	});
+
 	it.each(["cut", "paste"] as const)(
 		"preserves text and history when native %s clipboard access fails",
 		async (intent) => {
