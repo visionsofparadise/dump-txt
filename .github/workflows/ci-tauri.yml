@@ -48,7 +48,7 @@ jobs:
            if: runner.os == 'Linux'
            run: |
               sudo apt-get update
-              sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev libfontconfig1-dev libfreetype6-dev webkit2gtk-driver xvfb fonts-dejavu
+              sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev libfontconfig1-dev libfreetype6-dev webkit2gtk-driver xvfb fonts-dejavu openbox x11-utils
          - name: Install native WebDriver
            if: runner.os != 'macOS'
            run: cargo install tauri-driver --version 2.0.6 --locked
@@ -70,7 +70,7 @@ jobs:
            run: ./tools/tauriWindowsDiagnostics.ps1 -Mode Collect
          - name: Test native probe on Linux
            if: runner.os == 'Linux'
-           run: xvfb-run -a npm run tauri-test -- --probe
+           run: xvfb-run -a bash tools/tauriLinuxDesktop.sh
          - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
            if: always()
            with:

@@ -238,6 +238,7 @@ try {
 				selection: window.getSelection().toString(),
 			});
 		});
+		await waitFor(() => document.hasFocus());
 		await delay(250);
 		await evaluate((needle) => {
 			const content = document.querySelector(".page-current .cm-content");
@@ -587,7 +588,13 @@ try {
 		const fonts = await invoke("get_system_fonts");
 		if (!fonts.ok) throw new Error(`Font enumeration failed: ${fonts.error.code}: ${fonts.error.message}`);
 		const original = await invoke("read_clipboard");
-		const result = { fontCount: fonts.value.length, roundtrip: false, restored: false, errors: [] };
+		const result = {
+			fontCount: fonts.value.length,
+			roundtrip: false,
+			emptyRoundtrip: false,
+			restored: false,
+			errors: [],
+		};
 		if (!original.ok) {
 			result.errors.push(`Clipboard snapshot failed: ${original.error.code}: ${original.error.message}`);
 			return result;
@@ -599,6 +606,12 @@ try {
 			const read = await invoke("read_clipboard");
 			if (!read.ok) throw new Error(`Clipboard read failed: ${read.error.code}: ${read.error.message}`);
 			result.roundtrip = read.ok && read.value === "dump.txt fixture 中文 👩‍💻\nclipboard";
+			const emptied = await invoke("write_clipboard", { text: "" });
+			if (!emptied.ok)
+				throw new Error(`Empty clipboard write failed: ${emptied.error.code}: ${emptied.error.message}`);
+			const empty = await invoke("read_clipboard");
+			if (!empty.ok) throw new Error(`Empty clipboard read failed: ${empty.error.code}: ${empty.error.message}`);
+			result.emptyRoundtrip = empty.value === "";
 		} catch (error) {
 			operationError = error;
 		} finally {
@@ -620,6 +633,7 @@ try {
 		0,
 		"Real native clipboard commands; original text stays inside webview",
 	);
+	check("native empty clipboard roundtrip", nativeServices.emptyRoundtrip, true, 0, "Real native clipboard commands");
 	check(
 		"original clipboard text restored",
 		nativeServices.restored,
