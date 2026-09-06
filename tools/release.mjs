@@ -28,20 +28,29 @@ function api(endpoint, run) {
 	}
 }
 
-function artifactNameOf(version) {
+export function artifactNamesOf(version) {
 	if (!/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/u.test(version))
 		throw new Error("Release version must be a stable major.minor.patch version");
 
-	return `dump-txt-Setup-${version}.exe`;
+	return [
+		`dump-txt-Setup-${version}.exe`,
+		`dump-txt-${version}-mac-arm64.dmg`,
+		`dump-txt-${version}-mac-x64.dmg`,
+		`dump-txt-${version}-linux-x64.AppImage`,
+		`dump-txt-${version}-linux-x64.deb`,
+	].sort();
 }
 
 function checksumOf(directory, version) {
-	const artifact = artifactNameOf(version);
-	const digest = createHash("sha256")
-		.update(readFileSync(join(directory, artifact)))
-		.digest("hex");
+	return artifactNamesOf(version)
+		.map((artifact) => {
+			const digest = createHash("sha256")
+				.update(readFileSync(join(directory, artifact)))
+				.digest("hex");
 
-	return `${digest}  ${artifact}\n`;
+			return `${digest}  ${artifact}\n`;
+		})
+		.join("");
 }
 
 export function writeChecksums(directory, version) {
@@ -65,7 +74,7 @@ function tagTargetOf(repository, tag, run) {
 }
 
 export function publishRelease({ repository, sha, version, directory, run = runGh }) {
-	const artifact = artifactNameOf(version);
+	const artifacts = artifactNamesOf(version);
 
 	if (!/^[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+$/u.test(repository) || !/^[a-f0-9]{40}$/u.test(sha))
 		throw new Error("A repository and exact triggering commit are required");
@@ -99,14 +108,14 @@ export function publishRelease({ repository, sha, version, directory, run = runG
 			"--title",
 			`dump.txt ${version}`,
 			"--notes",
-			"Windows x64 installer and SHA-256 checksum.",
+			"Windows x64 installer, macOS Apple Silicon and Intel DMGs, and Linux x64 AppImage and Debian package. SHA256SUMS covers every download. macOS builds are not Developer ID signed or notarized.",
 		]);
 
 	run([
 		"release",
 		"upload",
 		tag,
-		join(directory, artifact),
+		...artifacts.map((artifact) => join(directory, artifact)),
 		join(directory, "SHA256SUMS"),
 		"--repo",
 		repository,
@@ -127,8 +136,7 @@ export function publishRelease({ repository, sha, version, directory, run = runG
 			repository,
 			"--dir",
 			verification,
-			"--pattern",
-			artifact,
+			...artifacts.flatMap((artifact) => ["--pattern", artifact]),
 			"--pattern",
 			"SHA256SUMS",
 		]);
@@ -155,7 +163,7 @@ export function publishRelease({ repository, sha, version, directory, run = runG
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
 	const version = JSON.parse(readFileSync("package.json", "utf8")).version;
-	const [command, directory = "out/make/nsis"] = process.argv.slice(2);
+	const [command, directory = "out/make"] = process.argv.slice(2);
 
 	if (command === "checksums") writeChecksums(directory, version);
 	else if (command === "publish")

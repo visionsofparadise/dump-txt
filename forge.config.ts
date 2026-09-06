@@ -5,7 +5,13 @@ import { FuseV1Options, FuseVersion } from "@electron/fuses";
 import type { ForgeConfig } from "@electron-forge/shared-types";
 
 const config: ForgeConfig = {
-	packagerConfig: { asar: true, executableName: "dump-txt", icon: "assets/icon.ico" },
+	packagerConfig: {
+		asar: true,
+		executableName: "dump-txt",
+		icon: "assets/icon",
+		appBundleId: "com.visionsofparadise.dump-txt",
+		appCategoryType: "public.app-category.productivity",
+	},
 	rebuildConfig: {},
 	plugins: [
 		new AutoUnpackNativesPlugin({}),
@@ -18,6 +24,7 @@ const config: ForgeConfig = {
 		}),
 		new FusesPlugin({
 			version: FuseVersion.V1,
+			resetAdHocDarwinSignature: process.platform === "darwin",
 			[FuseV1Options.RunAsNode]: false,
 			[FuseV1Options.EnableCookieEncryption]: true,
 			[FuseV1Options.EnableNodeOptionsEnvironmentVariable]: false,

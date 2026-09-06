@@ -19,6 +19,12 @@
 				"sha256": "88f208680dc05da2b459e19b4f5aa2b4dc7c2117892ba4aab2ae63baba330016",
 				"archive": "trivy_0.72.0_macOS-ARM64.tar.gz",
 				"binary": "trivy"
+			},
+			"macOS-64bit": {
+				"url": "https://github.com/aquasecurity/trivy/releases/download/v0.72.0/trivy_0.72.0_macOS-64bit.tar.gz",
+				"sha256": "ee5e60df8a98e5b89fd74a6d86f9e5c7e9a266a35002cb1e43291698b3bfee08",
+				"archive": "trivy_0.72.0_macOS-64bit.tar.gz",
+				"binary": "trivy"
 			}
 		}
 	},
@@ -41,6 +47,12 @@
 				"url": "https://github.com/rhysd/actionlint/releases/download/v1.7.7/actionlint_1.7.7_darwin_arm64.tar.gz",
 				"sha256": "2693315b9093aeacb4ebd91a993fea54fc215057bf0da2659056b4bc033873db",
 				"archive": "actionlint_1.7.7_darwin_arm64.tar.gz",
+				"binary": "actionlint"
+			},
+			"macOS-64bit": {
+				"url": "https://github.com/rhysd/actionlint/releases/download/v1.7.7/actionlint_1.7.7_darwin_amd64.tar.gz",
+				"sha256": "28e5de5a05fc558474f638323d736d822fff183d2d492f0aecb2b73cc44584f5",
+				"archive": "actionlint_1.7.7_darwin_amd64.tar.gz",
 				"binary": "actionlint"
 			}
 		}

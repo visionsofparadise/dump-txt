@@ -139,6 +139,6 @@ else {
 		if (BrowserWindow.getAllWindows().length === 0) void createWindow();
 	});
 	app.on("window-all-closed", () => {
-		if (process.platform !== "darwin") app.quit();
+		app.quit();
 	});
 }

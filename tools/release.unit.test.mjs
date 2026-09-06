@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import { copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { afterEach, test } from "node:test";
-import { publishRelease, writeChecksums } from "./release.mjs";
+import { artifactNamesOf, publishRelease, writeChecksums } from "./release.mjs";
+import { buildTarget } from "./buildTarget.mjs";
 
 const directories = [];
 const sha = "a".repeat(40);
@@ -18,7 +19,7 @@ function fixture({ release = null, target = null, failure = null, corrupt = fals
 	const directory = mkdtempSync(join(scratch, "release-test-"));
 	directories.push(directory);
 	const artifact = "dump-txt-Setup-0.1.0.exe";
-	writeFileSync(join(directory, artifact), "test installer bytes");
+	for (const name of artifactNamesOf("0.1.0")) writeFileSync(join(directory, name), `test installer bytes: ${name}`);
 	writeChecksums(directory, "0.1.0");
 	const calls = [];
 	const run = (arguments_) => {
@@ -40,7 +41,7 @@ function fixture({ release = null, target = null, failure = null, corrupt = fals
 		if (action === "create") release = { draft: true, target_commitish: sha };
 		if (action === "download") {
 			const destination = arguments_[arguments_.indexOf("--dir") + 1];
-			copyFileSync(join(directory, artifact), join(destination, artifact));
+			for (const name of artifactNamesOf("0.1.0")) copyFileSync(join(directory, name), join(destination, name));
 			copyFileSync(join(directory, "SHA256SUMS"), join(destination, "SHA256SUMS"));
 			if (corrupt) writeFileSync(join(destination, artifact), "corrupted");
 		}
@@ -115,4 +116,33 @@ test("leaves a draft unpublished when downloaded release bytes fail verification
 
 test("rejects malformed versions without accessing files or running commands", () => {
 	assert.throws(() => publishRelease({ version: "../bad" }), /version/u);
+});
+
+test("requires every platform artifact before publishing", () => {
+	const { publish, directory, calls } = fixture();
+	rmSync(join(directory, "dump-txt-0.1.0-mac-arm64.dmg"));
+	assert.throws(publish, /ENOENT/u);
+	assert.equal(calls.length, 0);
+});
+
+test("uploads and verifies every platform artifact", () => {
+	const { publish, calls, directory } = fixture();
+	publish();
+	const upload = calls.find((call) => call[1] === "upload");
+	const download = calls.find((call) => call[1] === "download");
+	for (const name of artifactNamesOf("0.1.0")) {
+		assert.ok(upload.includes(join(directory, name)));
+		assert.ok(download.includes(name));
+	}
+});
+
+test("resolves executable paths for every supported build", () => {
+	assert.equal(buildTarget("win32", "x64").executable, join("out", "dump.txt-win32-x64", "dump-txt.exe"));
+	assert.equal(buildTarget("linux", "x64").executable, join("out", "dump.txt-linux-x64", "dump-txt"));
+	for (const arch of ["arm64", "x64"])
+		assert.equal(
+			buildTarget("darwin", arch).executable,
+			join("out", `dump.txt-darwin-${arch}`, "dump.txt.app", "Contents", "MacOS", "dump-txt"),
+		);
+	assert.throws(() => buildTarget("linux", "arm64"), /Unsupported/u);
 });

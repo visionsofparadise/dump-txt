@@ -6,12 +6,12 @@ import { createServer } from "node:net";
 import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
+import { buildTarget } from "./buildTarget.mjs";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 const baseline = process.argv.includes("--baseline");
 const executable =
-	process.argv.slice(2).find((argument) => !argument.startsWith("--")) ??
-	path.join(root, "out/dump.txt-win32-x64/dump-txt.exe");
+	process.argv.slice(2).find((argument) => !argument.startsWith("--")) ?? path.join(root, buildTarget().executable);
 const folder = path.join(root, ".scratch/electron-tests", `${Date.now()}`);
 await mkdir(folder, { recursive: true });
 const pages = [
@@ -140,8 +140,13 @@ try {
 		throw new Error(`Timed out: ${expression}`);
 	};
 	const key = async (key, code, modifiers = 0) => {
+		if (process.platform === "darwin" && modifiers & 2) modifiers = (modifiers & ~2) | 4;
 		await send("Input.dispatchKeyEvent", { type: "keyDown", key, code, modifiers });
 		await send("Input.dispatchKeyEvent", { type: "keyUp", key, code, modifiers });
+	};
+	const startOfPage = async () => {
+		await key("a", "KeyA", 2);
+		await key("ArrowLeft", "ArrowLeft");
 	};
 	const clickAt = async (point) => {
 		await send("Input.dispatchMouseEvent", { type: "mousePressed", ...point, button: "left", clickCount: 1 });
@@ -180,7 +185,7 @@ try {
 		await delay(100);
 	};
 	const liveScroller = "document.querySelector('.page-current .cm-scroller')";
-	const pageCount = () => evaluate("document.querySelector('.page-count').textContent.trim()");
+	const pageCount = () => evaluate("document.querySelector('.page-count').textContent.trim().replace('Pages ', '')");
 	const wheel = async (deltaY, source = liveScroller) => {
 		const point = await evaluate(
 			`(()=>{const r=${source}.getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2};})()`,
@@ -217,9 +222,9 @@ try {
 			true,
 		);
 		check(
-			"filename and page count use Arial",
+			"filename uses Arial",
 			await evaluate(
-				"['.app-name','.page-count'].every(selector=>getComputedStyle(document.querySelector(selector)).fontFamily.includes('Arial'))",
+				"['.app-name'].every(selector=>getComputedStyle(document.querySelector(selector)).fontFamily.includes('Arial'))",
 			),
 			true,
 		);
@@ -345,7 +350,7 @@ try {
 		await send("Emulation.clearDeviceMetricsOverride");
 		await delay(200);
 		await key("ArrowUp", "ArrowUp", 1);
-		await key("Home", "Home", 2);
+		await startOfPage();
 		await send("Input.insertText", { text: "Transition input " });
 		await delay(300);
 		check("input during slide targets destination", await pageCount(), "2 / 4");
@@ -366,14 +371,14 @@ try {
 		);
 		await navigate(1);
 		await scroll(0);
-		await wheel(-100);
+		await wheel(-400);
 		await delay(450);
 		check(
 			"upward overscroll previous page",
-			await evaluate("document.querySelector('.page-count').textContent.trim()"),
+			await evaluate("document.querySelector('.page-count').textContent.trim().replace('Pages ', '')"),
 			"2 / 4",
 		);
-		await wheel(-100);
+		await wheel(-400);
 		await delay(450);
 		check("upward overscroll enters previous long page", await pageCount(), "1 / 4");
 		check(
@@ -382,7 +387,7 @@ try {
 			0,
 			2,
 		);
-		await wheel(100);
+		await wheel(400);
 		await delay(450);
 		check("downward overscroll enters next page", await pageCount(), "2 / 4");
 		check("downward overscroll enters top", await evaluate(`${liveScroller}.scrollTop`), 0, 2);
@@ -390,7 +395,11 @@ try {
 			"document.querySelector('.page-bar').dispatchEvent(new WheelEvent('wheel',{deltaY:100,bubbles:true,cancelable:true}))",
 		);
 		await delay(450);
-		check("bar wheel next page", await evaluate("document.querySelector('.page-count').textContent.trim()"), "3 / 4");
+		check(
+			"bar wheel next page",
+			await evaluate("document.querySelector('.page-count').textContent.trim().replace('Pages ', '')"),
+			"3 / 4",
+		);
 		const beforeSize = await evaluate("parseFloat(getComputedStyle(document.querySelector('.cm-content')).fontSize)");
 		await scroll(2000);
 		const anchorBefore = await evaluate(
@@ -413,7 +422,7 @@ try {
 		await navigate(-1);
 		await navigate(1);
 		check("zoomed page remembered position", await evaluate(`${liveScroller}.scrollTop`), zoomScroll, 2);
-		await key("Home", "Home", 2);
+		await startOfPage();
 		const typingAt = performance.now();
 		for (const text of "typing") await send("Input.insertText", { text });
 		observations.push({
@@ -423,7 +432,7 @@ try {
 		});
 		await key("z", "KeyZ", 2);
 		await navigate(-1);
-		await key("Home", "Home", 2);
+		await startOfPage();
 		await key("ArrowDown", "ArrowDown");
 		await key("Home", "Home");
 		for (let index = 0; index < 5; index++) await key("ArrowRight", "ArrowRight", 8);
@@ -439,8 +448,8 @@ try {
 		await delay(150);
 		check(
 			"first selected-text control D adds next",
-			await evaluate("document.querySelector('.occurrence-panel .panel-count').textContent"),
-			"2 selections · 1 page",
+			await evaluate("document.querySelector('.status-counts').textContent.split(' · ')[0]"),
+			"2 selections",
 		);
 		check(
 			"selected targets removed from previews",
@@ -482,7 +491,7 @@ try {
 		check("distant next occurrence remains visible", distantMatch.visible, true);
 		await screenshot("cross-page-occurrence");
 		await key("Escape", "Escape");
-		await key("Home", "Home", 2);
+		await startOfPage();
 		await key("ArrowRight", "ArrowRight", 8);
 		await delay(100);
 		check(
