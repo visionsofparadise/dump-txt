@@ -58,9 +58,22 @@ jobs:
          - run: npm run check:native
          - run: npm run unit:native
          - run: npm run make:tauri:probe -- --automation
-         - name: Test native probe
+         - name: Test native probe on macOS with reduced motion
            if: runner.os == 'macOS'
-           run: npm run tauri-test -- --probe
+           env:
+              TAURI_TEST_EXPECT_REDUCED_MOTION: "true"
+           run: |
+              defaults write com.apple.universalaccess reduceMotion -bool true
+              defaults read com.apple.universalaccess reduceMotion
+              npm run tauri-test -- --probe
+         - name: Test native probe on macOS with normal motion
+           if: runner.os == 'macOS'
+           env:
+              TAURI_TEST_EXPECT_REDUCED_MOTION: "false"
+           run: |
+              defaults write com.apple.universalaccess reduceMotion -bool false
+              defaults read com.apple.universalaccess reduceMotion
+              npm run tauri-test -- --probe
          - name: Test native probe on Windows
            if: runner.os == 'Windows'
            timeout-minutes: 5

@@ -64,6 +64,11 @@ try {
 		"Phase 2 harness requires --probe; production persistence tests are not implemented",
 	);
 	assert.ok(["external", "embedded"].includes(driverProvider), "Unsupported TAURI_TEST_DRIVER");
+	if (process.env.TAURI_TEST_EXPECT_REDUCED_MOTION !== undefined)
+		assert.ok(
+			["true", "false"].includes(process.env.TAURI_TEST_EXPECT_REDUCED_MOTION),
+			"TAURI_TEST_EXPECT_REDUCED_MOTION must be true or false",
+		);
 	await access(executable);
 	const binary = await readFile(executable);
 	report.binary = { bytes: binary.length, sha256: createHash("sha256").update(binary).digest("hex") };
@@ -285,6 +290,12 @@ try {
 		reducedMotion: matchMedia("(prefers-reduced-motion: reduce)").matches,
 	}));
 	report.capabilities = browser.capabilities;
+	if (process.env.TAURI_TEST_EXPECT_REDUCED_MOTION !== undefined)
+		check(
+			"requested system motion preference",
+			report.engine.reducedMotion,
+			process.env.TAURI_TEST_EXPECT_REDUCED_MOTION === "true",
+		);
 	await evaluate(() => {
 		window.tauriTestEvents = [];
 		window.tauriTestSelections = [];
