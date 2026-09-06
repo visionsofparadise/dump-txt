@@ -5,6 +5,7 @@ import { createRequire } from "node:module";
 import { homedir } from "node:os";
 import { delimiter, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { normalizeTauriPackages } from "./normalizeTauriPackages.mjs";
 
 const require = createRequire(import.meta.url);
 const directory = fileURLToPath(new URL("../", import.meta.url));
@@ -84,6 +85,10 @@ if (command === "check") {
 		nativeArguments.push("--ci");
 		if (probe || automation) nativeArguments.push("--no-bundle");
 		run(process.execPath, [require.resolve("@tauri-apps/cli/tauri.js"), ...nativeArguments]);
+		if (!probe && !automation) {
+			const { version } = JSON.parse(readFileSync(join(directory, "package.json"), "utf8"));
+			console.log("Packages:", normalizeTauriPackages(directory, version));
+		}
 		const executable = join(
 			directory,
 			"src-tauri",

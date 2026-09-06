@@ -1,0 +1,10 @@
+{
+	"$schema": "https://schema.tauri.app/config/2",
+	"bundle": {
+		"targets": ["appimage", "deb"],
+		"linux": {
+			"appimage": { "bundleMediaFramework": false },
+			"deb": { "depends": ["libc6 (>= 2.39)", "libfontconfig1", "libfreetype6"] }
+		}
+	}
+}

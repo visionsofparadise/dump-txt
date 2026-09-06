@@ -1,13 +1,36 @@
 import assert from "node:assert/strict";
-import { copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { afterEach, test } from "node:test";
 import { artifactNamesOf, publishRelease, writeChecksums } from "./release.mjs";
 import { buildTarget } from "./buildTarget.mjs";
+import { normalizeTauriPackages } from "./normalizeTauriPackages.mjs";
 
 const directories = [];
 const sha = "a".repeat(40);
 const other = "b".repeat(40);
+
+test("normalizes all five Tauri packages to the existing release contract", () => {
+	mkdirSync(resolve(".scratch"), { recursive: true });
+	const directory = mkdtempSync(join(resolve(".scratch"), "tauri-packages-"));
+	directories.push(directory);
+	for (const [platform, architecture, type, source, expected] of [
+		["win32", "x64", "nsis", "dump.txt_0.2.0_x64-setup.exe", "dump-txt-Setup-0.2.0.exe"],
+		["darwin", "arm64", "dmg", "dump.txt_0.2.0_aarch64.dmg", "dump-txt-0.2.0-mac-arm64.dmg"],
+		["darwin", "x64", "dmg", "dump.txt_0.2.0_x64.dmg", "dump-txt-0.2.0-mac-x64.dmg"],
+		["linux", "x64", "appimage", "dump.txt_0.2.0_amd64.AppImage", "dump-txt-0.2.0-linux-x86_64.AppImage"],
+		["linux", "x64", "deb", "dump-txt_0.2.0_amd64.deb", "dump-txt-0.2.0-linux-amd64.deb"],
+	]) {
+		const bundle = join(directory, "src-tauri", "target", "release", "bundle", type);
+		mkdirSync(bundle, { recursive: true });
+		writeFileSync(join(bundle, source), expected);
+		if (type === "appimage") continue;
+		normalizeTauriPackages(directory, "0.2.0", platform, architecture);
+		assert.equal(readFileSync(join(directory, "out", "make", expected), "utf8"), expected);
+		if (type === "dmg") rmSync(join(bundle, source));
+	}
+	writeChecksums(join(directory, "out", "make"), "0.2.0");
+});
 
 afterEach(() => {
 	for (const directory of directories.splice(0)) rmSync(directory, { recursive: true });

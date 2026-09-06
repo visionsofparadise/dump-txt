@@ -28,7 +28,7 @@ jobs:
                - os: macos-15-intel
                  artifact: mac-x64
       runs-on: ${{ matrix.os }}
-      timeout-minutes: 60
+      timeout-minutes: 90
       steps:
          - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
            with:
@@ -44,6 +44,12 @@ jobs:
          - run: npm ci
          - name: Install pinned Rust toolchain
            run: rustup show
+         - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+           with:
+              workspaces: src-tauri -> target
+              key: ${{ matrix.artifact }}
+              cache-on-failure: "true"
+              save-if: ${{ github.ref == 'refs/heads/main' }}
          - name: Install Linux native and driver dependencies
            if: runner.os == 'Linux'
            run: |
@@ -104,6 +110,35 @@ jobs:
            if: ${{ !cancelled() && steps.persistence-build.outcome == 'success' && runner.os == 'Linux' }}
            timeout-minutes: 5
            run: xvfb-run -a bash tools/tauriLinuxDesktop.sh
+         - name: Build production packages
+           id: package-build
+           if: ${{ !cancelled() && steps.persistence-build.outcome == 'success' }}
+           run: npm run make:tauri
+         - name: Verify Windows install and Electron upgrade
+           if: ${{ !cancelled() && steps.package-build.outcome == 'success' && runner.os == 'Windows' }}
+           timeout-minutes: 15
+           run: |
+              $taskInstaller = @(Get-ChildItem -LiteralPath ./out/make -Filter 'dump-txt-Setup-*.exe')
+              if ($taskInstaller.Count -ne 1) { throw 'Expected one Windows installer.' }
+              ./tools/testTauriInstaller.ps1 -InstallerPath $taskInstaller[0].FullName -ExpectedExecutablePath ./src-tauri/target/release/dump-txt.exe
+         - name: Inspect Linux package dependencies
+           if: ${{ !cancelled() && steps.package-build.outcome == 'success' && runner.os == 'Linux' }}
+           run: |
+              mkdir -p .scratch/tauri-package
+              readelf --version-info src-tauri/target/release/dump-txt > .scratch/tauri-package/elf-versions.txt
+              ldd src-tauri/target/release/dump-txt > .scratch/tauri-package/native-dependencies.txt
+              dpkg-deb --info out/make/dump-txt-*-linux-*.deb > .scratch/tauri-package/debian-control.txt
+              dpkg-query -W libwebkit2gtk-4.1-0 libc6 > .scratch/tauri-package/host-runtime.txt
+         - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+           if: ${{ !cancelled() && steps.package-build.outcome == 'success' }}
+           with:
+              name: tauri-installer-${{ matrix.artifact }}
+              path: |
+                 out/make/dump-txt-Setup-*.exe
+                 out/make/dump-txt-*-mac-*.dmg
+                 out/make/dump-txt-*-linux-*.AppImage
+                 out/make/dump-txt-*-linux-*.deb
+              if-no-files-found: error
          - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
            if: always()
            with:
@@ -112,6 +147,8 @@ jobs:
               path: |
                  .scratch/tauri-test/
                  .scratch/tauri-persistence/
+                 .scratch/tauri-installer/
+                 .scratch/tauri-package/
                  .scratch/tauri-build.json
                  src-tauri/target/release/dump-txt
                  src-tauri/target/release/dump-txt.exe
