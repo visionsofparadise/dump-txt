@@ -1,6 +1,6 @@
 import { ChevronDown, ChevronUp, ChevronsDown, ChevronsUp, Plus, Trash2 } from "lucide-react";
 import { scope } from "opshot";
-import { useCallback } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { cn } from "../utils/cn";
 import type { DumpContext } from "../models/DumpContext";
 
@@ -11,6 +11,17 @@ interface PageBarProps {
 
 export const PageBar = scope(({ position, context }: PageBarProps) => {
 	const { document, session, editor, persistenceState } = context;
+	const bar = useRef<HTMLElement>(null);
+
+	useEffect(() => {
+		const element = bar.current;
+		const wheel = (event: WheelEvent) => editor.handleWheel(event, "bar");
+
+		element?.addEventListener("wheel", wheel, { passive: false });
+
+		return () => element?.removeEventListener("wheel", wheel);
+	}, [editor]);
+
 	const index = document.pages.findIndex((page) => page.id === session.view.activePageId);
 	const top = position === "top";
 	const atEnd = top ? index === 0 : index === document.pages.length - 1;
@@ -39,6 +50,7 @@ export const PageBar = scope(({ position, context }: PageBarProps) => {
 
 	return (
 		<nav
+			ref={bar}
 			className={cn("page-bar", !top && "page-bar-bottom")}
 			aria-label={top ? "Previous page controls" : "Next page controls"}
 		>

@@ -16,6 +16,7 @@
 		"fix": "concurrently -m 1 --group \"prettier --write .\" \"eslint . --fix --cache\" \"stylelint \\\"**/*.css\\\" --fix --allow-empty-input --cache\" \"markdownlint-cli2 --fix \\\"**/*.md\\\"\" \"textlint --fix \\\"**/*.md\\\"\"",
 		"unit": "vitest run unit",
 		"integration": "vitest run integration",
+		"electron-test": "node tools/testElectron.mjs",
 		"prepare": "node -e \"const c=require('node:child_process');if(c.spawnSync('git',['rev-parse','--is-inside-work-tree'],{stdio:'ignore'}).status===0)c.execFileSync('git',['config','core.hooksPath','.githooks'])\" && node tools.mjs install"
 	},
 	"dependencies": {

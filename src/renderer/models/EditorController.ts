@@ -24,12 +24,29 @@ interface Composition {
 	changes: ChangeSet;
 }
 
+export interface PageSnapshot {
+	readonly dom: HTMLElement;
+	readonly scrollTop: number;
+}
+
+export interface PageTransition {
+	readonly id: string;
+	readonly direction: -1 | 1;
+	readonly outgoing: PageSnapshot;
+	readonly incoming: PageSnapshot | null;
+}
+
 export class EditorController {
 	readonly #document: DocumentState;
 	readonly #session: SessionState;
 	readonly #history: History;
 	readonly #callbacks: EditorCallbacks;
 	readonly #states = new Map<string, EditorState>();
+	readonly #scrollSnapshots = new Map<
+		string,
+		{ readonly state: EditorState; readonly effect: ReturnType<EditorView["scrollSnapshot"]> }
+	>();
+	readonly #transitionListeners = new Set<(transition: PageTransition | null) => void>();
 	readonly #editable = new Compartment();
 	readonly #unsubscribers: ReadonlyArray<() => void>;
 	#view: EditorView | null = null;
@@ -37,6 +54,15 @@ export class EditorController {
 	#updating = false;
 	#locked = false;
 	#composition: Composition | null = null;
+	#transition: PageTransition | null = null;
+	#restoring = false;
+	#measurement = 0;
+	#entry: "restore" | "start" | "end" = "restore";
+	#wheelAt = -Infinity;
+	#wheelDirection = 0;
+	#wheelDistance = 0;
+	#wheelConsumed = false;
+	readonly #resize = () => this.#cancelTransition();
 
 	constructor(document: DocumentState, session: SessionState, history: History, callbacks: EditorCallbacks = {}) {
 		this.#document = document;
@@ -55,13 +81,19 @@ export class EditorController {
 			state: this.#stateFor(this.#pageId),
 			dispatchTransactions: (transactions, view) => this.dispatch(transactions, view),
 		});
-		this.#view.scrollDOM.scrollTop = this.#session.view.selections[this.#pageId]?.scrollTop ?? 0;
+		window.addEventListener("resize", this.#resize);
+		this.#restoring = false;
+
+		if ((this.#session.view.selections[this.#pageId]?.scrollTop ?? 0) > 0) this.#restoreScroll("restore");
 	}
 
 	detach(): void {
 		this.finishComposition();
+		this.#cancelTransition();
+		this.#measurement++;
 
 		if (this.#view) {
+			window.removeEventListener("resize", this.#resize);
 			this.#rememberSelection();
 			this.#states.set(this.#pageId, this.#view.state);
 			this.#view.destroy();
@@ -75,6 +107,8 @@ export class EditorController {
 		for (const unsubscribe of this.#unsubscribers) unsubscribe();
 
 		this.#states.clear();
+		this.#scrollSnapshots.clear();
+		this.#transitionListeners.clear();
 	}
 
 	focus(): void {
@@ -239,16 +273,89 @@ export class EditorController {
 		});
 	}
 
-	showPage(pageId: string): void {
+	showPage(pageId: string, entry: "restore" | "start" | "end" = "restore"): void {
 		if (this.#locked || !this.#document.pages.some((page) => page.id === pageId)) return;
+
+		if (pageId === this.#pageId) return;
 
 		this.finishComposition();
 		this.#rememberSelection();
 		this.#history.closeGroup();
+		this.#entry = entry;
 		this.#session.view = snapshotView({ ...this.#session.view, activePageId: pageId });
 		flush(this.#session);
 		this.refresh();
 		this.focus();
+	}
+
+	subscribePageTransition(listener: (transition: PageTransition | null) => void): () => void {
+		this.#transitionListeners.add(listener);
+
+		return () => {
+			this.#transitionListeners.delete(listener);
+		};
+	}
+
+	finishPageTransition(id: string): void {
+		if (this.#transition?.id === id) this.#cancelTransition();
+	}
+
+	handleWheel(event: WheelEvent, source: "editor" | "bar"): void {
+		const view = this.#view;
+
+		if (!view || event.deltaY === 0) return;
+
+		const delta =
+			event.deltaY *
+			(event.deltaMode === 1 ? view.defaultLineHeight : event.deltaMode === 2 ? view.scrollDOM.clientHeight : 1);
+
+		if (source === "editor" && event.ctrlKey) {
+			event.preventDefault();
+
+			if (!this.#locked && !this.#composition) this.#resizeText(delta < 0 ? 1 : -1, event);
+
+			return;
+		}
+
+		if (event.ctrlKey || this.#locked || this.#composition) return;
+
+		const now = performance.now();
+		const direction = delta > 0 ? 1 : -1;
+		const gap = now - this.#wheelAt;
+
+		if (gap >= 300) this.#wheelConsumed = false;
+
+		if (gap >= 250 || direction !== this.#wheelDirection) this.#wheelDistance = 0;
+
+		this.#wheelAt = now;
+		this.#wheelDirection = direction;
+
+		const atEdge =
+			direction < 0
+				? view.scrollDOM.scrollTop <= 1
+				: view.scrollDOM.scrollTop + view.scrollDOM.clientHeight >= view.scrollDOM.scrollHeight - 1;
+
+		if (source === "editor" && !atEdge) {
+			this.#wheelDistance = 0;
+			this.#cancelTransition();
+
+			return;
+		}
+
+		event.preventDefault();
+
+		if (this.#wheelConsumed || this.#restoring) return;
+
+		this.#wheelDistance += Math.abs(delta);
+
+		if (source === "editor" && this.#wheelDistance < 80) return;
+
+		this.#wheelConsumed = true;
+
+		const index = this.#document.pages.findIndex((page) => page.id === this.#pageId);
+		const target = this.#document.pages[index + direction];
+
+		if (target) this.showPage(target.id, source === "bar" ? "restore" : direction > 0 ? "start" : "end");
 	}
 
 	refresh(): void {
@@ -269,14 +376,27 @@ export class EditorController {
 			const selection = this.#selectionFor(pageId, page.text.length);
 
 			if (this.#pageId !== pageId || this.#view.state.doc.toString() !== page.text) {
+				const changedPage = this.#pageId !== pageId;
+
+				this.#cancelTransition();
+
+				if (changedPage) this.#beginTransition(pageId);
+
 				this.#states.set(this.#pageId, this.#view.state);
 				this.#pageId = pageId;
 				this.#view.setState(this.#stateFor(pageId));
-				this.#view.scrollDOM.scrollTop = this.#session.view.selections[pageId]?.scrollTop ?? 0;
-			} else if (!this.#view.state.selection.eq(selection)) this.#view.dispatch({ selection });
+				this.#restoreScroll(this.#entry);
+				this.#entry = "restore";
+			} else if (!this.#view.state.selection.eq(selection)) {
+				this.#cancelTransition();
+				this.#view.dispatch({ selection });
+			}
 
 			for (const cachedId of this.#states.keys())
-				if (!this.#document.pages.some((candidate) => candidate.id === cachedId)) this.#states.delete(cachedId);
+				if (!this.#document.pages.some((candidate) => candidate.id === cachedId)) {
+					this.#states.delete(cachedId);
+					this.#scrollSnapshots.delete(cachedId);
+				}
 		} finally {
 			this.#updating = false;
 		}
@@ -284,6 +404,8 @@ export class EditorController {
 
 	apply(command: EditCommand): void {
 		if (this.#locked) return;
+
+		this.#cancelTransition();
 
 		this.finishComposition();
 		this.#history.closeGroup();
@@ -299,6 +421,12 @@ export class EditorController {
 			view.update(transactions);
 
 			return;
+		}
+
+		if (transactions.some((transaction) => transaction.docChanged || transaction.selection)) {
+			this.#cancelTransition();
+			this.#measurement++;
+			this.#restoring = false;
 		}
 
 		this.#updating = true;
@@ -421,6 +549,177 @@ export class EditorController {
 
 		this.#history.closeGroup();
 		this.refresh();
+	}
+
+	#beginTransition(pageId: string): void {
+		const view = this.#view;
+
+		if (!view) return;
+
+		if (!this.#restoring)
+			this.#scrollSnapshots.set(this.#pageId, { state: view.state, effect: view.scrollSnapshot() });
+
+		const current = this.#document.pages.findIndex((page) => page.id === this.#pageId);
+		const target = this.#document.pages.findIndex((page) => page.id === pageId);
+
+		this.#transition = {
+			id: crypto.randomUUID(),
+			direction: target >= current ? 1 : -1,
+			outgoing: this.#captureSnapshot(view),
+			incoming: null,
+		};
+		view.dom.parentElement?.classList.add("page-editor-covered");
+		this.#publishTransition();
+	}
+
+	#captureSnapshot(view: EditorView): PageSnapshot {
+		const dom = view.dom.cloneNode(true);
+
+		if (!(dom instanceof HTMLElement)) throw new Error("Editor snapshot is not an HTML element");
+
+		dom.classList.remove("page-editor-covered");
+		dom.inert = true;
+		dom.removeAttribute("id");
+
+		for (const element of dom.querySelectorAll("[id], [contenteditable], [tabindex], [autofocus]")) {
+			element.removeAttribute("id");
+			element.removeAttribute("autofocus");
+			element.removeAttribute("tabindex");
+
+			if (element.hasAttribute("contenteditable")) element.setAttribute("contenteditable", "false");
+		}
+
+		return { dom, scrollTop: view.scrollDOM.scrollTop };
+	}
+
+	#publishTransition(): void {
+		for (const listener of this.#transitionListeners) listener(this.#transition);
+	}
+
+	#cancelTransition(): void {
+		if (!this.#transition) return;
+
+		this.#transition = null;
+		this.#view?.dom.parentElement?.classList.remove("page-editor-covered");
+		this.#publishTransition();
+	}
+
+	#restoreScroll(entry: "restore" | "start" | "end"): void {
+		const view = this.#view;
+
+		if (!view) return;
+
+		const measurement = ++this.#measurement;
+		const remembered = this.#session.view.selections[this.#pageId]?.scrollTop ?? 0;
+		const cached = this.#scrollSnapshots.get(this.#pageId);
+		const snapshot = entry === "restore" && cached?.state.doc === view.state.doc ? cached.effect : null;
+
+		this.#restoring = true;
+
+		if (snapshot) view.dispatch({ effects: snapshot });
+		else if (entry !== "restore")
+			view.dispatch({
+				effects: EditorView.scrollIntoView(entry === "start" ? 0 : view.state.doc.length, { y: entry, yMargin: 0 }),
+			});
+
+		view.requestMeasure({
+			read: () => null,
+			write: () => {
+				if (measurement !== this.#measurement || view !== this.#view) return;
+
+				if (!snapshot && entry === "restore") view.scrollDOM.scrollTop = remembered;
+
+				requestAnimationFrame(() => {
+					if (measurement !== this.#measurement || view !== this.#view) return;
+
+					this.#settleScroll(view, measurement, entry, remembered);
+				});
+			},
+		});
+	}
+
+	#settleScroll(view: EditorView, measurement: number, entry: "restore" | "start" | "end", remembered: number): void {
+		view.requestMeasure({
+			read: () => ({
+				top:
+					entry === "end"
+						? view.scrollDOM.scrollHeight - view.scrollDOM.clientHeight
+						: entry === "start"
+							? 0
+							: Math.min(remembered, Math.max(0, view.scrollDOM.scrollHeight - view.scrollDOM.clientHeight)),
+			}),
+			write: ({ top }) => {
+				if (measurement !== this.#measurement || view !== this.#view) return;
+
+				requestAnimationFrame(() => {
+					if (measurement !== this.#measurement || view !== this.#view) return;
+
+					view.scrollDOM.scrollTop = top;
+					view.requestMeasure({
+						read: () => this.#captureSnapshot(view),
+						write: (incoming) => {
+							if (measurement !== this.#measurement || view !== this.#view) return;
+
+							this.#restoring = false;
+							this.#rememberSelection();
+
+							if (this.#transition) {
+								this.#transition = { ...this.#transition, incoming };
+								this.#publishTransition();
+							}
+						},
+					});
+				});
+			},
+		});
+	}
+
+	#resizeText(direction: -1 | 1, event: WheelEvent): void {
+		const view = this.#view;
+		const textSize = Math.max(8, Math.min(24, this.#session.appearance.textSize + direction));
+
+		if (!view || textSize === this.#session.appearance.textSize) return;
+
+		this.#cancelTransition();
+
+		const position = view.posAtCoords({ x: event.clientX, y: event.clientY });
+		const before = position === null ? null : view.coordsAtPos(position);
+		const measurement = ++this.#measurement;
+
+		this.#restoring = true;
+		this.#session.appearance = { ...this.#session.appearance, textSize };
+		flush(this.#session);
+
+		requestAnimationFrame(() => {
+			if (measurement !== this.#measurement || view !== this.#view) return;
+
+			view.requestMeasure({
+				read: () => (position === null ? null : view.coordsAtPos(position)),
+				write: (after) => {
+					if (measurement !== this.#measurement || view !== this.#view) return;
+
+					requestAnimationFrame(() => {
+						if (measurement !== this.#measurement || view !== this.#view) return;
+
+						if (before && after) {
+							const settled = position === null ? null : view.coordsAtPos(position);
+
+							if (settled) view.scrollDOM.scrollTop += settled.top - before.top;
+						}
+
+						view.requestMeasure({
+							read: () => null,
+							write: () => {
+								if (measurement !== this.#measurement || view !== this.#view) return;
+
+								this.#restoring = false;
+								this.#rememberSelection();
+							},
+						});
+					});
+				},
+			});
+		});
 	}
 
 	#selectionFor(pageId: string, length: number): EditorSelection {
@@ -561,6 +860,8 @@ export class EditorController {
 				}),
 				EditorView.domEventHandlers({
 					compositionstart: () => {
+						this.#cancelTransition();
+
 						if (!this.#locked && this.#view) {
 							this.#history.closeGroup();
 							this.#composition = {
@@ -580,11 +881,14 @@ export class EditorController {
 						return false;
 					},
 					mousedown: () => {
+						this.#cancelTransition();
 						this.#endOccurrence(false);
 
 						return false;
 					},
 					keydown: (event) => {
+						this.#cancelTransition();
+
 						if (
 							!event.altKey &&
 							["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End", "PageUp", "PageDown"].includes(
@@ -606,7 +910,7 @@ export class EditorController {
 					copy: (event) => this.#clipboard(event, false),
 					cut: (event) => this.#clipboard(event, true),
 					scroll: () => {
-						if (!this.#updating && !this.#composition) this.#rememberSelection();
+						if (!this.#updating && !this.#composition && !this.#restoring) this.#rememberSelection();
 
 						return false;
 					},
@@ -621,7 +925,9 @@ export class EditorController {
 		const selection = {
 			ranges: this.#view.state.selection.ranges.map(({ anchor, head }) => ({ anchor, head })),
 			mainIndex: this.#view.state.selection.mainIndex,
-			scrollTop: this.#view.scrollDOM.scrollTop,
+			scrollTop: this.#restoring
+				? (this.#session.view.selections[this.#pageId]?.scrollTop ?? 0)
+				: this.#view.scrollDOM.scrollTop,
 		};
 		const previous = this.#session.view.selections[this.#pageId];
 

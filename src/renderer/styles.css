@@ -156,27 +156,18 @@ input:focus-visible {
 	min-height: 0;
 }
 .page-current,
-.page-outgoing {
+.page-snapshot {
 	position: absolute;
 	inset: 0;
 	min-height: 0;
 	background: var(--color-surface);
 }
-.page-outgoing {
+.page-snapshot {
 	pointer-events: none;
 	overflow: hidden;
 }
-.page-outgoing pre {
-	tab-size: 4;
-	min-height: 100%;
-	box-sizing: border-box;
-	margin: 0;
-	padding: 10px 14px;
-	white-space: pre-wrap;
-	overflow-wrap: anywhere;
-	font-family: var(--editor-font, Consolas, monospace);
-	font-size: var(--editor-size, 11pt);
-	line-height: 1.5;
+.page-editor-covered {
+	opacity: 0;
 }
 .page-editor {
 	height: 100%;

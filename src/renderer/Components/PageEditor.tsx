@@ -9,12 +9,19 @@ export function PageEditor({ editor }: PageEditorProps) {
 	const parent = useRef<HTMLDivElement>(null);
 
 	useEffect(() => {
-		if (parent.current) {
-			editor.attach(parent.current);
+		const element = parent.current;
+		const wheel = (event: WheelEvent) => editor.handleWheel(event, "editor");
+
+		if (element) {
+			editor.attach(element);
 			editor.focus();
+			element.addEventListener("wheel", wheel, { passive: false });
 		}
 
-		return () => editor.detach();
+		return () => {
+			element?.removeEventListener("wheel", wheel);
+			editor.detach();
+		};
 	}, [editor]);
 
 	return <div className="page-editor" ref={parent} />;

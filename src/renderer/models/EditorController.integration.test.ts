@@ -1,12 +1,19 @@
 import { EditorSelection, Transaction } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createDocumentState } from "./DocumentState";
 import { EditorController } from "./EditorController";
 import { History } from "./History";
 import { createSessionState } from "./SessionState";
 
 const controllers: EditorController[] = [];
+
+beforeEach(() => {
+	Object.defineProperties(Range.prototype, {
+		getClientRects: { configurable: true, value: () => [] },
+		getBoundingClientRect: { configurable: true, value: () => new DOMRect() },
+	});
+});
 
 function fixture() {
 	const documentState = createDocumentState([
@@ -46,11 +53,116 @@ function fixture() {
 }
 
 afterEach(() => {
+	vi.restoreAllMocks();
 	for (const controller of controllers.splice(0)) controller.dispose();
 	document.body.replaceChildren();
 });
 
 describe("CodeMirror bridge", () => {
+	it("covers replacement synchronously with inert snapshots and cancels before destination input", () => {
+		const { controller, view, documentState } = fixture();
+		controller.closeOccurrence();
+		view.contentDOM.id = "active-editor";
+		const transitions: Array<Parameters<Parameters<EditorController["subscribePageTransition"]>[0]>[0]> = [];
+		const unsubscribe = controller.subscribePageTransition((transition) => transitions.push(transition));
+		controller.showPage("second");
+		const transition = transitions.at(-1)!;
+		expect(transition?.outgoing.dom.textContent).toContain("cat one");
+		expect(transition?.incoming).toBeNull();
+		expect(transition?.outgoing.dom.querySelector("[id]")).toBeNull();
+		expect(transition?.outgoing.dom.querySelector("[contenteditable=true]")).toBeNull();
+		expect(view.dom.parentElement?.classList.contains("page-editor-covered")).toBe(true);
+		view.dispatch({ changes: { from: 0, insert: "now " } });
+		expect(documentState.pages[1]?.text).toBe("now two cat");
+		expect(view.dom.parentElement?.classList.contains("page-editor-covered")).toBe(false);
+		expect(transitions.at(-1)).toBeNull();
+		unsubscribe();
+	});
+
+	it("ignores completion from a replaced transition and cancels on resize", () => {
+		const { controller, view } = fixture();
+		let id = "";
+		controller.subscribePageTransition((transition) => {
+			if (transition) id = transition.id;
+		});
+		controller.showPage("second");
+		const previous = id;
+		controller.showPage("first");
+		controller.finishPageTransition(previous);
+		expect(view.dom.parentElement?.classList.contains("page-editor-covered")).toBe(true);
+		window.dispatchEvent(new Event("resize"));
+		expect(view.dom.parentElement?.classList.contains("page-editor-covered")).toBe(false);
+	});
+
+	it("restores persisted scroll only after measurement without saving intermediate positions", async () => {
+		const { controller, view, session } = fixture();
+		Object.defineProperties(view.scrollDOM, {
+			clientHeight: { configurable: true, value: 100 },
+			scrollHeight: { configurable: true, value: 1000 },
+		});
+		controller.closeOccurrence();
+		session.view = {
+			...session.view,
+			selections: {
+				...session.view.selections,
+				second: { ranges: [{ anchor: 0, head: 0 }], mainIndex: 0, scrollTop: 321 },
+			},
+		};
+		controller.showPage("second");
+		view.scrollDOM.scrollTop = 17;
+		view.scrollDOM.dispatchEvent(new Event("scroll"));
+		expect(session.view.selections.second?.scrollTop).toBe(321);
+		await vi.waitFor(() => expect(view.scrollDOM.scrollTop).toBe(321));
+	});
+
+	it("requires excess editor scrolling and rearms bar navigation after an idle gap", () => {
+		const { controller, view, session } = fixture();
+		controller.closeOccurrence();
+		view.dispatch({ selection: EditorSelection.cursor(0) });
+		let now = 1000;
+		vi.spyOn(performance, "now").mockImplementation(() => now);
+		Object.defineProperties(view.scrollDOM, {
+			clientHeight: { configurable: true, value: 100 },
+			scrollHeight: { configurable: true, value: 500 },
+		});
+		view.scrollDOM.scrollTop = 100;
+		const ordinary = new WheelEvent("wheel", { deltaY: 300, cancelable: true });
+		controller.handleWheel(ordinary, "editor");
+		expect(ordinary.defaultPrevented).toBe(false);
+		view.scrollDOM.scrollTop = 400;
+		controller.handleWheel(new WheelEvent("wheel", { deltaY: 40 }), "editor");
+		expect(session.view.activePageId).toBe("first");
+		controller.handleWheel(new WheelEvent("wheel", { deltaY: 40 }), "editor");
+		expect(session.view.activePageId).toBe("second");
+		controller.handleWheel(new WheelEvent("wheel", { deltaY: -100 }), "bar");
+		expect(session.view.activePageId).toBe("second");
+		view.dispatch({ selection: EditorSelection.cursor(0) });
+		now += 301;
+		controller.handleWheel(new WheelEvent("wheel", { deltaY: -1, deltaMode: 1 }), "bar");
+		expect(session.view.activePageId).toBe("first");
+	});
+
+	it("consumes control wheel before navigation, clamps sizing, and honors composition and locking", () => {
+		const { controller, session, view } = fixture();
+		session.appearance = { ...session.appearance, textSize: 23 };
+		const wheel = new WheelEvent("wheel", { ctrlKey: true, deltaY: -120, cancelable: true });
+		controller.handleWheel(wheel, "editor");
+		expect(wheel.defaultPrevented).toBe(true);
+		expect(session.appearance.textSize).toBe(24);
+		controller.handleWheel(wheel, "editor");
+		expect(session.appearance.textSize).toBe(24);
+		expect(session.view.activePageId).toBe("first");
+		controller.setLocked(true);
+		controller.handleWheel(new WheelEvent("wheel", { ctrlKey: true, deltaY: 1 }), "editor");
+		expect(session.appearance.textSize).toBe(24);
+		controller.setLocked(false);
+		session.appearance = { ...session.appearance, textSize: 8 };
+		controller.handleWheel(new WheelEvent("wheel", { ctrlKey: true, deltaY: 1 }), "editor");
+		expect(session.appearance.textSize).toBe(8);
+		view.contentDOM.dispatchEvent(new CompositionEvent("compositionstart", { bubbles: true }));
+		controller.handleWheel(wheel, "editor");
+		expect(session.appearance.textSize).toBe(8);
+	});
 	it("reconciles current-page find after navigation and replaces from the visible cursor", () => {
 		const { controller, session, documentState } = fixture();
 		controller.closeOccurrence();
