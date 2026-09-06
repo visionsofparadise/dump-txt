@@ -2,6 +2,7 @@ import { defaultKeymap } from "@codemirror/commands";
 import { ChangeSet, Compartment, EditorSelection, EditorState, type Transaction } from "@codemirror/state";
 import { drawSelection, EditorView, keymap } from "@codemirror/view";
 import { flush, subscribe } from "opshot";
+import { createOccurrenceHighlights, refreshOccurrenceHighlights } from "../utils/createOccurrenceHighlights";
 import { findMatches } from "../utils/findMatches";
 import { participatingRanges, prepareChanges, prepareEdit } from "../utils/prepareEdit";
 import { rebuildOccurrence, selectNextOccurrence } from "../utils/selectNextOccurrence";
@@ -116,6 +117,10 @@ export class EditorController {
 	}
 
 	revealSelection(): void {
+		this.#measurement++;
+		this.#restoring = false;
+		this.#cancelTransition();
+
 		if (this.#view)
 			this.#view.dispatch({
 				effects: EditorView.scrollIntoView(this.#view.state.selection.main.head, { y: "nearest" }),
@@ -397,6 +402,8 @@ export class EditorController {
 					this.#states.delete(cachedId);
 					this.#scrollSnapshots.delete(cachedId);
 				}
+
+			this.#view.dispatch({ effects: refreshOccurrenceHighlights.of() });
 		} finally {
 			this.#updating = false;
 		}
@@ -768,6 +775,39 @@ export class EditorController {
 				EditorState.tabSize.of(4),
 				EditorView.lineWrapping,
 				drawSelection(),
+				createOccurrenceHighlights(
+					() => {
+						const occurrence = this.#session.view.occurrence;
+						const remembered = this.#session.view.selections[this.#session.view.activePageId];
+						const selected = remembered?.ranges ?? [];
+						const range = selected[remembered?.mainIndex ?? 0];
+						const page = this.#document.pages.find(
+							(candidate) => candidate.id === this.#session.view.activePageId,
+						);
+
+						return {
+							seed:
+								occurrence ??
+								(range && range.anchor !== range.head && page
+									? {
+											seed: page.text.slice(
+												Math.min(range.anchor, range.head),
+												Math.max(range.anchor, range.head),
+											),
+											seedPageId: page.id,
+											seedRange: range,
+											...this.#session.occurrencePreferences,
+										}
+									: null),
+							selected: occurrence
+								? occurrence.targets
+										.filter((target) => target.pageId === this.#session.view.activePageId)
+										.map((target) => target.range)
+								: selected,
+						};
+					},
+					{ document: this.#document, session: this.#session },
+				),
 				this.#editable.of([EditorState.readOnly.of(this.#locked), EditorView.editable.of(!this.#locked)]),
 				EditorView.contentAttributes.of({ "aria-label": "Scratchpad text", spellcheck: "false" }),
 				EditorView.theme({

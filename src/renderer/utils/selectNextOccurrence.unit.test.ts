@@ -22,6 +22,34 @@ afterEach(() => {
 });
 
 describe("next occurrence", () => {
+	it.each([
+		[0, 3, 6, 9],
+		[3, 0, 6, 9],
+		[6, 9, 0, 3],
+	])("immediately extends a selected seed from %s to %s", (anchor, head, nextAnchor, nextHead) => {
+		const context = fixture();
+		context.session.view = snapshotView({
+			...context.session.view,
+			selections: { "0": { ranges: [{ anchor, head }], mainIndex: 0, scrollTop: 0 } },
+		});
+		selectNextOccurrence(context);
+		expect(context.session.view.occurrence?.targets.map((target) => target.range)).toEqual([
+			{ anchor, head },
+			{ anchor: nextAnchor, head: nextHead },
+		]);
+		expect(context.session.view.occurrence?.steps).toBe(2);
+		expect(context.history.canUndo).toBe(false);
+	});
+	it("keeps one selected occurrence when no successor exists", () => {
+		const context = fixture(["cat"]);
+		context.session.view = snapshotView({
+			...context.session.view,
+			selections: { "0": { ranges: [{ anchor: 0, head: 3 }], mainIndex: 0, scrollTop: 0 } },
+		});
+		selectNextOccurrence(context);
+		expect(context.session.view.occurrence?.targets).toHaveLength(1);
+		expect(context.session.view.occurrence?.steps).toBe(1);
+	});
 	it("retains requested selection steps across narrowing and expanding scope", () => {
 		const context = fixture(["cat cat", "cat cat cat"]);
 		context.session.occurrencePreferences = { matchCase: false, allPages: true };

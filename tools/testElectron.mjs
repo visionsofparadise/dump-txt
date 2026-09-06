@@ -22,8 +22,8 @@ const pages = [
 	"Second page\nalpha beta alpha\n\nshort page",
 	Array.from(
 		{ length: 1200 },
-		(_, index) => `Large ${String(index + 1).padStart(4, "0")} ${"numbered content ".repeat(10)}`,
-	).join("\n"),
+		(_, index) => `Large ${String(index + 1).padStart(4, "0")} ${"numbered content ".repeat(60)}`,
+	).join("\n") + "\nalpha",
 	"",
 ];
 await writeFile(path.join(folder, "dump.txt"), pages.join("\n\f\n"));
@@ -337,6 +337,83 @@ try {
 		await navigate(-1);
 		await navigate(1);
 		check("zoomed page remembered position", await evaluate(`${liveScroller}.scrollTop`), zoomScroll, 2);
+		await key("Home", "Home", 2);
+		const typingAt = performance.now();
+		for (const text of "typing") await send("Input.insertText", { text });
+		observations.push({
+			name: "ordinary typing on large page",
+			bytes: Buffer.byteLength(pages[2]),
+			durationMilliseconds: performance.now() - typingAt,
+		});
+		await key("z", "KeyZ", 2);
+		await navigate(-1);
+		await key("Home", "Home", 2);
+		await key("ArrowDown", "ArrowDown");
+		await key("Home", "Home");
+		for (let index = 0; index < 5; index++) await key("ArrowRight", "ArrowRight", 8);
+		await delay(150);
+		check("selected text seed", await evaluate("window.getSelection().toString()"), "alpha");
+		check(
+			"passive occurrence preview",
+			await evaluate("document.querySelectorAll('.page-current .cm-occurrence-preview').length"),
+			1,
+		);
+		await screenshot("occurrence-preview-dark");
+		await key("d", "KeyD", 2);
+		await delay(150);
+		check(
+			"first selected-text control D adds next",
+			await evaluate("document.querySelector('.occurrence-panel .panel-count').textContent"),
+			"2 selections · 1 page",
+		);
+		check(
+			"selected targets removed from previews",
+			await evaluate("document.querySelectorAll('.page-current .cm-occurrence-preview').length"),
+			0,
+		);
+		for (const theme of ["dark", "light"]) {
+			await evaluate(`document.documentElement.dataset.theme = ${JSON.stringify(theme)}`);
+			const selectionStyle = await evaluate(
+				"(()=>{const glyph=document.querySelector('.page-current .cm-active-selection');const background=document.querySelector('.page-current .cm-selectionBackground');return {foreground:getComputedStyle(glyph).color,background:getComputedStyle(background).backgroundColor};})()",
+			);
+			check(`${theme} selected glyphs white`, selectionStyle.foreground, "rgb(255, 255, 255)");
+			check(`${theme} active selection blue`, selectionStyle.background, "rgb(0, 120, 215)");
+			observations.push({ name: `${theme} selection palette`, ...selectionStyle });
+			await screenshot(`active-selection-${theme}`);
+		}
+		await send("Input.insertText", { text: "gamma" });
+		await delay(100);
+		check(
+			"selected occurrences edit together",
+			await evaluate("document.querySelector('.page-current .cm-content').textContent.includes('gamma beta gamma')"),
+			true,
+		);
+		await key("z", "KeyZ", 2);
+		await delay(100);
+		check(
+			"occurrence edit undo",
+			await evaluate("document.querySelector('.page-current .cm-content').textContent.includes('alpha beta alpha')"),
+			true,
+		);
+		await evaluate("document.querySelectorAll('.occurrence-panel input')[1].click()");
+		await key("d", "KeyD", 2);
+		await delay(300);
+		check("next occurrence crosses to large page", await pageCount(), "3 / 4");
+		const distantMatch = await evaluate(
+			`(()=>{const mark=document.querySelector('.page-current .cm-active-selection');const rect=mark?.getBoundingClientRect();const viewport=${liveScroller}.getBoundingClientRect();return {text:mark?.textContent,visible:!!rect&&rect.top>=viewport.top&&rect.bottom<=viewport.bottom};})()`,
+		);
+		check("distant next occurrence selected", distantMatch.text, "alpha");
+		check("distant next occurrence remains visible", distantMatch.visible, true);
+		await screenshot("cross-page-occurrence");
+		await key("Escape", "Escape");
+		await key("Home", "Home", 2);
+		await key("ArrowRight", "ArrowRight", 8);
+		await delay(100);
+		check(
+			"one character clears previews",
+			await evaluate("document.querySelectorAll('.page-current .cm-occurrence-preview').length"),
+			0,
+		);
 	}
 	await screenshot("final");
 	check("renderer exceptions", errors.length, 0);

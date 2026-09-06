@@ -195,9 +195,39 @@ input:focus-visible {
 .cm-editor .cm-cursor {
 	border-left-color: var(--color-ink);
 }
-.cm-editor .cm-selectionBackground,
-.cm-editor.cm-focused .cm-selectionBackground {
-	background: light-dark(#d6d6d6, #484848);
+.page-editor .cm-editor .cm-scroller .cm-selectionLayer .cm-selectionBackground,
+.page-editor .cm-editor.cm-focused .cm-scroller .cm-selectionLayer .cm-selectionBackground {
+	background: #0078d7;
+}
+.cm-editor .cm-active-selection {
+	color: #fff;
+}
+.cm-editor .cm-content ::selection,
+.cm-editor .cm-content::selection {
+	background: #0078d7;
+	color: #fff;
+}
+.cm-editor .cm-occurrence-preview {
+	background: light-dark(#0078d726, #55aaff30);
+	color: inherit;
+}
+@media (forced-colors: active) {
+	.page-editor .cm-editor .cm-scroller .cm-selectionLayer .cm-selectionBackground,
+	.page-editor .cm-editor.cm-focused .cm-scroller .cm-selectionLayer .cm-selectionBackground {
+		background: Highlight;
+	}
+	.cm-editor .cm-active-selection {
+		color: HighlightText;
+	}
+	.cm-editor .cm-content ::selection,
+	.cm-editor .cm-content::selection {
+		background: Highlight;
+		color: HighlightText;
+	}
+	.cm-editor .cm-occurrence-preview {
+		background: transparent;
+		outline: 1px solid Highlight;
+	}
 }
 .menu-content {
 	z-index: 20;

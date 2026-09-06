@@ -1,38 +1,9 @@
 import { flush } from "opshot";
-import { snapshotView, type OccurrenceSession, type TextMatch, type TextRange } from "../models/SessionState";
-import { findMatches } from "./findMatches";
+import { snapshotView, type OccurrenceSession, type TextRange } from "../models/SessionState";
+import { occurrenceMatchesOf } from "./occurrenceMatchesOf";
 import type { DumpContext } from "../models/DumpContext";
 
 type OccurrenceContext = Pick<DumpContext, "document" | "session" | "history" | "editor">;
-
-function matchesOf(occurrence: OccurrenceSession, context: OccurrenceContext): ReadonlyArray<TextMatch> {
-	const { document, session } = context;
-	const seedFrom = Math.min(occurrence.seedRange.anchor, occurrence.seedRange.head);
-	const seedTo = Math.max(occurrence.seedRange.anchor, occurrence.seedRange.head);
-	const matchText = (text: string, pageId: string, offset: number) =>
-		findMatches(
-			{ query: occurrence.seed, matchCase: occurrence.matchCase, allPages: true },
-			{ document: { pages: [{ id: pageId, text }] }, session },
-		).map((match) => ({ ...match, from: match.from + offset, to: match.to + offset }));
-
-	return document.pages.flatMap((page) => {
-		if (!occurrence.allPages && page.id !== occurrence.seedPageId) return [];
-
-		const exact =
-			page.id === occurrence.seedPageId &&
-			matchText(page.text.slice(seedFrom, seedTo), page.id, seedFrom).some(
-				(match) => match.from === seedFrom && match.to === seedTo,
-			);
-
-		if (!exact) return matchText(page.text, page.id, 0);
-
-		return [
-			...matchText(page.text.slice(0, seedFrom), page.id, 0),
-			{ pageId: page.id, from: seedFrom, to: seedTo },
-			...matchText(page.text.slice(seedTo), page.id, seedTo),
-		];
-	});
-}
 
 function seedOf(context: OccurrenceContext): { readonly seed: string; readonly range: TextRange } | null {
 	const { document, session } = context;
@@ -95,7 +66,7 @@ export function rebuildOccurrence(context: OccurrenceContext): void {
 	history.closeGroup();
 
 	const preferences = session.occurrencePreferences;
-	const matches = matchesOf({ ...occurrence, ...preferences }, context);
+	const matches = occurrenceMatchesOf({ ...occurrence, ...preferences }, context);
 
 	if (matches.length === 0) {
 		context.editor.closeOccurrence();
@@ -128,12 +99,15 @@ export function selectNextOccurrence(context: OccurrenceContext): void {
 
 	history.closeGroup();
 
-	const occurrence = session.view.occurrence;
+	let occurrence = session.view.occurrence;
 
 	if (!occurrence) {
 		const seed = seedOf(context);
 
 		if (!seed?.seed) return;
+
+		const selected = session.view.selections[session.view.activePageId];
+		const initial = selected?.ranges[selected.mainIndex];
 
 		installOccurrence(
 			{
@@ -149,10 +123,14 @@ export function selectNextOccurrence(context: OccurrenceContext): void {
 		);
 		editor.focus();
 
-		return;
+		if (!initial || initial.anchor === initial.head) return;
+
+		occurrence = session.view.occurrence;
 	}
 
-	const matches = matchesOf(occurrence, context);
+	if (!occurrence) return;
+
+	const matches = occurrenceMatchesOf(occurrence, context);
 	const primary = occurrence.targets[occurrence.primaryTarget];
 
 	if (!primary) return;

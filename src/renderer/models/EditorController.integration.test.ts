@@ -1,6 +1,7 @@
 import { EditorSelection, Transaction } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import * as occurrenceMatches from "../utils/occurrenceMatchesOf";
 import { createDocumentState } from "./DocumentState";
 import { EditorController } from "./EditorController";
 import { History } from "./History";
@@ -59,6 +60,75 @@ afterEach(() => {
 });
 
 describe("CodeMirror bridge", () => {
+	it.each(["😀", "a", "😀a", "  ", "a\nb"])("previews literal %j only above one Unicode code point", (seed) => {
+		const { controller, view, documentState, history } = fixture();
+		controller.closeOccurrence();
+		documentState.pages = [{ id: "first", text: `${seed}---${seed}` }];
+		controller.refresh();
+		view.dispatch({ selection: EditorSelection.range(0, seed.length) });
+		const previews = view.dom.querySelectorAll(".cm-occurrence-preview");
+		expect(Array.from(previews, (element) => element.textContent).join("\n")).toBe(
+			Array.from(seed).length > 1 ? seed : "",
+		);
+		expect(history.canUndo).toBe(false);
+		view.dispatch({ selection: EditorSelection.cursor(0) });
+		expect(view.dom.querySelector(".cm-occurrence-preview")).toBeNull();
+	});
+	it("updates previews with case preferences and consumes the next preview on the first press", () => {
+		const { controller, view, documentState, session, history } = fixture();
+		controller.closeOccurrence();
+		documentState.pages = [{ id: "first", text: "cat CAT cat" }];
+		controller.refresh();
+		view.dispatch({ selection: EditorSelection.range(0, 3) });
+		expect(view.dom.querySelectorAll(".cm-occurrence-preview")).toHaveLength(2);
+		controller.updateOccurrenceOptions({ matchCase: true });
+		controller.refresh();
+		expect(view.dom.querySelectorAll(".cm-occurrence-preview")).toHaveLength(1);
+		controller.selectNextOccurrence();
+		expect(session.view.occurrence?.targets).toHaveLength(2);
+		expect(view.dom.querySelectorAll(".cm-active-selection")).toHaveLength(2);
+		expect(view.dom.querySelector(".cm-occurrence-preview")).toBeNull();
+		controller.apply({ type: "insert", text: "dog" });
+		expect(documentState.pages[0]?.text).toBe("dog CAT dog");
+		history.undo();
+		expect(documentState.pages[0]?.text).toBe("cat CAT cat");
+	});
+	it("previews unselected matches on other pages only in the active occurrence scope", () => {
+		const { controller, view, documentState } = fixture();
+		controller.closeOccurrence();
+		documentState.pages = [
+			{ id: "first", text: "cat cat" },
+			{ id: "second", text: "cat cat" },
+		];
+		controller.refresh();
+		view.dispatch({ selection: EditorSelection.range(0, 3) });
+		controller.selectNextOccurrence();
+		controller.showPage("second");
+		expect(view.dom.querySelector(".cm-occurrence-preview")).toBeNull();
+		controller.updateOccurrenceOptions({ allPages: true });
+		controller.showPage("second");
+		expect(view.dom.querySelectorAll(".cm-occurrence-preview")).toHaveLength(2);
+	});
+	it("caches candidate scans across refreshes and avoids them during ordinary large-page typing", () => {
+		const { controller, view, documentState } = fixture();
+		controller.closeOccurrence();
+		documentState.pages = [{ id: "first", text: `cat ${"x".repeat(1048568)} cat` }];
+		controller.refresh();
+		const matching = vi.spyOn(occurrenceMatches, "occurrenceMatchesOf");
+		view.dispatch({ selection: EditorSelection.range(0, 3) });
+		expect(matching).toHaveBeenCalledTimes(1);
+		controller.refresh();
+		controller.refresh();
+		expect(matching).toHaveBeenCalledTimes(1);
+		controller.selectNextOccurrence();
+		expect(
+			matching.mock.calls.filter(([, context]) => context.document.pages[0]?.text.length === 1048576),
+		).toHaveLength(2);
+		view.dispatch({ selection: EditorSelection.cursor(0) });
+		matching.mockClear();
+		view.dispatch({ changes: { from: 0, insert: "x" }, selection: EditorSelection.cursor(1) });
+		expect(matching).not.toHaveBeenCalled();
+	});
 	it("covers replacement synchronously with inert snapshots and cancels before destination input", () => {
 		const { controller, view, documentState } = fixture();
 		controller.closeOccurrence();
