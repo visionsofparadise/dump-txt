@@ -1,13 +1,7 @@
-import { Type } from "lucide-react";
+import { Minus, Plus, Type } from "lucide-react";
 import { scope } from "opshot";
 import { useCallback } from "react";
-import {
-	DropdownMenuSub,
-	DropdownMenuSubTrigger,
-	DropdownMenuSubContent,
-	DropdownMenuRadioGroup,
-	DropdownMenuRadioItem,
-} from "./UI/DropdownMenu";
+import { DropdownMenuItem } from "./UI/DropdownMenu";
 import type { DumpContext } from "../models/DumpContext";
 
 interface TextSizeMenuProps {
@@ -17,10 +11,10 @@ interface TextSizeMenuProps {
 export const TextSizeMenu = scope(({ context }: TextSizeMenuProps) => {
 	const { session, history, persistence, persistenceState } = context;
 	const sizeChanged = useCallback(
-		(size: string) => {
+		(change: number) => {
 			if (persistence.state.locked) return;
 
-			const textSize = Number(size);
+			const textSize = session.appearance.textSize + change;
 
 			if (textSize >= 8 && textSize <= 24) {
 				history.closeGroup();
@@ -29,23 +23,46 @@ export const TextSizeMenu = scope(({ context }: TextSizeMenuProps) => {
 		},
 		[history, persistence, session],
 	);
+	const decrease = useCallback(
+		(event: Event) => {
+			event.preventDefault();
+			sizeChanged(-1);
+		},
+		[sizeChanged],
+	);
+	const increase = useCallback(
+		(event: Event) => {
+			event.preventDefault();
+			sizeChanged(1);
+		},
+		[sizeChanged],
+	);
 
 	return (
-		<DropdownMenuSub>
-			<DropdownMenuSubTrigger disabled={persistenceState.locked}>
-				<Type size={14} aria-hidden />
-				<span>Text size</span>
-				<span className="menu-value">{session.appearance.textSize} pt</span>
-			</DropdownMenuSubTrigger>
-			<DropdownMenuSubContent>
-				<DropdownMenuRadioGroup value={String(session.appearance.textSize)} onValueChange={sizeChanged}>
-					{Array.from({ length: 17 }, (_value, index) => index + 8).map((size) => (
-						<DropdownMenuRadioItem key={size} value={String(size)} disabled={persistenceState.locked}>
-							{size} pt
-						</DropdownMenuRadioItem>
-					))}
-				</DropdownMenuRadioGroup>
-			</DropdownMenuSubContent>
-		</DropdownMenuSub>
+		<div className="menu-size-row" role="group" aria-label="Text size">
+			<Type size={16} aria-hidden />
+			<span>Text size</span>
+			<div className="menu-size-controls">
+				<DropdownMenuItem
+					asChild
+					onSelect={decrease}
+					disabled={persistenceState.locked || session.appearance.textSize <= 8}
+				>
+					<button className="menu-size-adjust" type="button" aria-label="Decrease text size">
+						<Minus size={16} aria-hidden />
+					</button>
+				</DropdownMenuItem>
+				<span className="menu-size-value">{session.appearance.textSize} pt</span>
+				<DropdownMenuItem
+					asChild
+					onSelect={increase}
+					disabled={persistenceState.locked || session.appearance.textSize >= 24}
+				>
+					<button className="menu-size-adjust" type="button" aria-label="Increase text size">
+						<Plus size={16} aria-hidden />
+					</button>
+				</DropdownMenuItem>
+			</div>
+		</div>
 	);
 });

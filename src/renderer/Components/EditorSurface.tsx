@@ -1,5 +1,5 @@
 import { createMutableState, scope } from "opshot";
-import { useCallback, useEffect, useMemo, type CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
 import { AppMenu } from "./AppMenu";
 import { PageBar } from "./PageBar";
 import { PageViewport } from "./PageViewport";
@@ -19,9 +19,10 @@ interface EditorStyle extends CSSProperties {
 
 export const EditorSurface = scope(({ context: dumpContext }: EditorSurfaceProps) => {
 	const { session, editor, persistence } = dumpContext;
+	const [chrome] = useState(() => createMutableState<ChromeState>({ menuOpen: false }));
 	const context = useMemo<ChromeContext>(
-		() => ({ ...dumpContext, chrome: createMutableState<ChromeState>({ menuOpen: false }) }),
-		[dumpContext],
+		() => ({ ...dumpContext, chrome }),
+		[chrome, dumpContext],
 	);
 	const dismissMenu = useCallback(() => {
 		context.chrome.menuOpen = false;

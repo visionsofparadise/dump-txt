@@ -43,8 +43,6 @@ export const OccurrencePanel = scope(({ context }: OccurrencePanelProps) => {
 
 	if (!occurrence) return null;
 
-	const pageCount = new Set(occurrence.targets.map((target) => target.pageId)).size;
-
 	return (
 		<div
 			role="dialog"
@@ -87,9 +85,6 @@ export const OccurrencePanel = scope(({ context }: OccurrencePanelProps) => {
 					<X size={14} aria-hidden="true" />
 				</button>
 			</div>
-			<output className="panel-count" aria-live="polite">
-				{occurrence.targets.length} selections · {pageCount} {pageCount === 1 ? "page" : "pages"}
-			</output>
 		</div>
 	);
 });

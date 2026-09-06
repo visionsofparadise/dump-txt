@@ -260,8 +260,8 @@ input:focus-visible {
 	max-width: 100vw;
 	max-height: var(--radix-dropdown-menu-content-available-height);
 	overflow-y: auto;
-	padding: 4px 0;
-	border: 1px solid var(--color-border);
+	padding: 0;
+	border: 0;
 	border-radius: 0;
 	background: var(--color-panel);
 	color: var(--color-ink);
@@ -275,12 +275,17 @@ input:focus-visible {
 	max-height: min(280px, var(--radix-dropdown-menu-content-available-height));
 	border-radius: 0;
 }
+.menu-content {
+	background: var(--color-chrome);
+}
 .menu-item {
 	display: flex;
 	align-items: center;
 	gap: 12px;
-	min-height: 28px;
-	padding: 5px 12px;
+	height: var(--spacing-bar);
+	min-height: var(--spacing-bar);
+	box-sizing: border-box;
+	padding: 0 12px;
 	outline: none;
 	user-select: none;
 	cursor: default;
@@ -290,8 +295,8 @@ input:focus-visible {
 .menu-item[data-state="open"] {
 	background: light-dark(#f0f0f0, #383838);
 }
-.menu-item[data-highlighted] {
-	box-shadow: inset 0 0 0 1px var(--color-focus);
+.menu-item:focus-visible {
+	outline: none;
 }
 .menu-item[data-disabled] {
 	opacity: 0.3;
@@ -322,39 +327,67 @@ input:focus-visible {
 	text-overflow: ellipsis;
 }
 .menu-separator {
-	height: 1px;
-	margin: 4px 0;
-	background: light-dark(#ececec, #3a3a3a);
+	height: 0;
+	margin: 0;
+}
+.menu-size-row {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	height: var(--spacing-bar);
+	padding-left: 12px;
+}
+.menu-size-controls {
+	display: flex;
+	align-items: center;
+	margin-left: auto;
+}
+.menu-size-adjust {
+	justify-content: center;
+	width: var(--spacing-bar);
+	padding: 0;
+	border: 0;
+	border-radius: 0;
+	background: transparent;
+	color: inherit;
+}
+.menu-size-value {
+	min-width: 40px;
+	text-align: center;
+	font-variant-numeric: tabular-nums;
 }
 .transient-panel {
 	position: absolute;
-	top: 8px;
-	right: 10px;
+	top: 0;
+	right: 0;
 	z-index: 5;
-	width: min(360px, calc(100% - 20px));
-	max-height: calc(100% - 16px);
+	width: min(400px, 100%);
+	max-height: 100%;
 	overflow: auto;
 	box-sizing: border-box;
-	padding: 8px;
-	border: 1px solid var(--color-border);
-	border-radius: 4px;
-	background: var(--color-panel);
+	padding: 0;
+	border: 0;
+	border-radius: 0;
+	background: var(--color-bar);
 	box-shadow: 0 6px 20px #0002;
 	font: 13px var(--font-interface);
 	animation: panel-appear 120ms ease-out;
 }
 .find-panel {
 	display: grid;
-	gap: 6px;
+	gap: 0;
 }
 .panel-input {
 	flex: 1 1 120px;
 	min-width: 0;
 	width: 0;
-	border: 1px solid var(--color-border);
-	border-radius: 2px;
-	padding: 4px 6px;
-	background: var(--color-surface);
+	height: calc(var(--spacing-bar) - 12px);
+	margin: 6px;
+	box-sizing: border-box;
+	border: 0;
+	border-radius: 0;
+	padding: 0 12px;
+	background: light-dark(#e6e6e6, #383838);
 	color: var(--color-ink);
 }
 .panel-button {
@@ -371,8 +404,16 @@ input:focus-visible {
 	background: transparent;
 	white-space: nowrap;
 }
-.occurrence-panel .panel-button {
-	margin-left: auto;
+.transient-panel .panel-button {
+	height: var(--spacing-bar);
+	min-width: 46px;
+	border-radius: 0;
+	padding: 0 12px;
+}
+.find-panel .panel-button[aria-label] {
+	width: 46px;
+	flex: none;
+	padding: 0;
 }
 .panel-button:hover:not(:disabled) {
 	background: var(--color-hover);
@@ -380,15 +421,54 @@ input:focus-visible {
 .panel-options {
 	display: flex;
 	align-items: center;
-	gap: 10px;
-	flex-wrap: wrap;
+	height: var(--spacing-bar);
+	gap: 0;
+	flex-wrap: nowrap;
 	font-size: 12px;
 }
 .panel-options label {
 	display: inline-flex;
 	align-items: center;
-	gap: 4px;
+	gap: 8px;
+	padding: 0 12px;
 	white-space: nowrap;
+}
+.panel-options input[type="checkbox"] {
+	appearance: none;
+	display: grid;
+	place-items: center;
+	width: 16px;
+	height: 16px;
+	margin: 0;
+	border: 0;
+	border-radius: 0;
+	background: light-dark(#dedede, #484848);
+	color: var(--color-ink);
+}
+.panel-options input[type="checkbox"]::before {
+	content: "✓";
+	visibility: hidden;
+	font-size: 13px;
+	line-height: 1;
+}
+.panel-options input[type="checkbox"]:checked::before {
+	visibility: visible;
+}
+.transient-panel input:focus-visible {
+	outline: none;
+	background: light-dark(#d0d0d0, #505050);
+}
+.transient-panel button:focus-visible {
+	outline: none;
+	background: var(--color-hover);
+}
+.occurrence-panel .panel-options {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 46px;
+}
+.find-panel .panel-count {
+	margin-left: auto;
+	padding-right: 12px;
 }
 .panel-count {
 	color: light-dark(#777, #a0a0a0);

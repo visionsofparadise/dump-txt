@@ -20,7 +20,9 @@ export const StatusBar = scope(({ context }: StatusBarProps) => {
 	const pageSelection = useMemo(() => selectionStatusOf(page.document, ranges ?? []), [page, ranges]);
 	const selection = crossPageSelection ?? pageSelection;
 	const counts = selection.selected ? selection.counts : page.counts;
-	const countLabel = `${counts.characters} chars · ${counts.words} words · ${counts.lines} lines`;
+	const selectionCount = targets?.length ?? ranges?.length ?? 0;
+	const selectionLabel = targets || selectionCount > 1 ? `${selectionCount} ${selectionCount === 1 ? "selection" : "selections"} · ` : "";
+	const countLabel = `${selectionLabel}${counts.characters} chars · ${counts.words} words · ${counts.lines} lines`;
 
 	return (
 		<footer className="status-bar" aria-label="Editor status">
