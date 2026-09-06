@@ -325,10 +325,10 @@ export class EditorController {
 
 		if (!view || wheelDelta === 0) return;
 
-		const lineHeight = Number.parseFloat(window.getComputedStyle(view.contentDOM).lineHeight) || view.defaultLineHeight;
+		const lineHeight =
+			Number.parseFloat(window.getComputedStyle(view.contentDOM).lineHeight) || view.defaultLineHeight;
 		const delta =
-			wheelDelta *
-			(event.deltaMode === 1 ? lineHeight : event.deltaMode === 2 ? view.scrollDOM.clientHeight : 1);
+			wheelDelta * (event.deltaMode === 1 ? lineHeight : event.deltaMode === 2 ? view.scrollDOM.clientHeight : 1);
 
 		if (source === "editor" && event.ctrlKey) {
 			event.preventDefault();
@@ -343,7 +343,9 @@ export class EditorController {
 		const wheelTicks =
 			"wheelDeltaY" in event && typeof event.wheelDeltaY === "number" && event.wheelDeltaY !== 0
 				? -event.wheelDeltaY / 120
-				: event.deltaMode === 1 ? event.deltaY / 3 : Math.sign(delta);
+				: event.deltaMode === 1
+					? event.deltaY / 3
+					: Math.sign(delta);
 		const scrollDelta = wheelTicks * 3 * lineHeight;
 		const now = performance.now();
 		const direction = delta > 0 ? 1 : -1;
@@ -750,9 +752,13 @@ export class EditorController {
 		if (!view) return;
 
 		const scroller = view.scrollDOM;
-		const lineHeight = Number.parseFloat(window.getComputedStyle(view.contentDOM).lineHeight) || view.defaultLineHeight;
+		const lineHeight =
+			Number.parseFloat(window.getComputedStyle(view.contentDOM).lineHeight) || view.defaultLineHeight;
 		const direction = Math.sign(delta);
-		const start = direction === this.#smoothWheelDirection ? (this.#smoothWheelTarget ?? scroller.scrollTop) : scroller.scrollTop;
+		const start =
+			direction === this.#smoothWheelDirection
+				? (this.#smoothWheelTarget ?? scroller.scrollTop)
+				: scroller.scrollTop;
 		const alignedTarget = (Math.round(start / lineHeight) + Math.round(delta / lineHeight)) * lineHeight;
 
 		this.#smoothWheelDirection = direction;
@@ -905,11 +911,14 @@ export class EditorController {
 					{ key: "Alt-ArrowDown", run: () => this.#navigatePage(1) },
 					{ key: "Mod-Home", run: () => this.#navigatePage("first") },
 					{ key: "Mod-End", run: () => this.#navigatePage("last") },
-					{ key: "Mod-Delete", run: () => {
-						this.apply({ type: "deletePage" });
+					{
+						key: "Mod-Delete",
+						run: () => {
+							this.apply({ type: "deletePage" });
 
-						return true;
-					} },
+							return true;
+						},
+					},
 					{ key: "Mod-z", run: () => this.#replay("undo") },
 					{ key: "Mod-y", run: () => this.#replay("redo") },
 					{ key: "Mod-Shift-z", run: () => this.#replay("redo") },

@@ -92,7 +92,7 @@ describe("scratchpad interface", () => {
 				selection: EditorSelection.create([EditorSelection.range(0, 3), EditorSelection.range(8, 13)]),
 			});
 		});
-		await waitFor(() => expect(counts()).toBe("8 chars · 2 words · 2 lines"));
+		await waitFor(() => expect(counts()).toBe("2 selections · 8 chars · 2 words · 2 lines"));
 		expect(position()).toBe("Ln 1, Col 1 – Ln 2, Col 6");
 		await act(async () => {
 			editor().dispatch({ selection: EditorSelection.cursor(0) });
@@ -180,28 +180,28 @@ describe("scratchpad interface", () => {
 		press("ArrowUp", { altKey: true });
 		await waitFor(() => expect(editor().state.doc.toString()).toBe("Bsecond"));
 		expect(editor().state.selection.main.head).toBe(1);
-		press("Home", { altKey: true });
+		press("Home", { ctrlKey: true });
 		await waitFor(() => expect(editor().state.doc.toString()).toBe("Afirst"));
 		expect(editor().state.selection.main.head).toBe(1);
 	});
 
 	it("flushes accepted text before the native close action", async () => {
-		const { insert, closed, files } = await fixture("");
+		const { insert, closed, files, user } = await fixture("");
 		await insert("durable");
-		press("w", { ctrlKey: true });
+		await user.click(screen.getByRole("button", { name: "Close window" }));
 		await waitFor(() => expect(closed).toHaveBeenCalledOnce());
 		expect(new TextDecoder().decode(files.get("/app/dump.txt"))).toBe("durable");
 	});
 
 	it("routes page shortcuts ahead of CodeMirror text key bindings", async () => {
 		const { editor, insert } = await fixture("base");
-		press("Enter", { ctrlKey: true, shiftKey: true });
+		press("n", { ctrlKey: true });
 		await waitFor(() => expect(screen.getByRole("status", { name: "Page 2 of 2" })).toBeTruthy());
 		await insert("below");
-		press("Enter", { ctrlKey: true, altKey: true });
+		press("n", { ctrlKey: true, shiftKey: true });
 		await waitFor(() => expect(screen.getByRole("status", { name: "Page 2 of 3" })).toBeTruthy());
 		await insert("middle");
-		press("Delete", { ctrlKey: true, shiftKey: true });
+		press("Delete", { ctrlKey: true });
 		await waitFor(() => expect(screen.getByRole("status", { name: "Page 2 of 2" })).toBeTruthy());
 		expect(editor().state.doc.toString()).toBe("below");
 	});
@@ -252,7 +252,9 @@ describe("scratchpad interface", () => {
 		const panel = await screen.findByRole("dialog", { name: "Multiple selections" });
 		await user.click(within(panel).getByRole("checkbox", { name: "All pages" }));
 		press("d", { ctrlKey: true });
-		await waitFor(() => expect(within(panel).getByText("2 selections · 2 pages")).toBeTruthy());
+		await waitFor(() => expect(screen.getByLabelText("Editor status").textContent).toContain("2 selections"));
+		expect(screen.getByLabelText("Editor status").textContent).toContain("Pg 1");
+		expect(screen.getByLabelText("Editor status").textContent).toContain("Pg 2");
 	});
 
 	it("keeps file actions in the menu and persists appearance from its radio items", async () => {
@@ -271,23 +273,40 @@ describe("scratchpad interface", () => {
 		});
 	});
 
-	it("updates font and text size through the extracted submenus", async () => {
+	it("opens lazy keybinds and blocks editor shortcuts until dismissed", async () => {
+		const { user, editor } = await fixture("base");
+		await user.click(screen.getByRole("button", { name: "App menu" }));
+		await user.click(await screen.findByRole("menuitem", { name: "Keybinds" }));
+		await screen.findByRole("dialog", { name: "Keybinds" });
+		press("n", { ctrlKey: true });
+		expect(document.querySelector(".page-count")?.getAttribute("aria-label")).toBe("Page 1 of 1");
+		await user.keyboard("{Escape}");
+		await waitFor(() => expect(screen.queryByRole("dialog", { name: "Keybinds" })).toBeNull());
+		expect(document.activeElement).toBe(editor().contentDOM);
+	});
+
+	it("previews fonts in the modal and keeps text size controls open", async () => {
+		vi.stubGlobal(
+			"queryLocalFonts",
+			vi.fn(async () => [{ family: "Consolas" }, { family: "Arial" }]),
+		);
+		Element.prototype.scrollIntoView = vi.fn();
 		const { user, container } = await fixture();
 		await user.click(screen.getByRole("button", { name: "App menu" }));
 		await user.click(await screen.findByRole("menuitem", { name: /Font/u }));
-		const font = await screen.findByRole("menuitemradio", { name: "Arial" });
-		font.focus();
-		await user.keyboard("{Enter}");
+		const dialog = await screen.findByRole("dialog", { name: "Font" }, { timeout: 5000 });
+		const font = await within(dialog).findByRole("option", { name: "Arial" });
+		await user.click(font);
 		await waitFor(() =>
 			expect(container.querySelector<HTMLElement>(".dump-app")?.style.getPropertyValue("--editor-font")).toBe(
 				'"Arial", sans-serif',
 			),
 		);
+		await user.click(screen.getByRole("button", { name: "Apply" }));
 		await user.click(screen.getByRole("button", { name: "App menu" }));
-		await user.click(await screen.findByRole("menuitem", { name: /Text size/u }));
-		const size = await screen.findByRole("menuitemradio", { name: "14 pt" });
-		size.focus();
-		await user.keyboard("{Enter}");
+		for (let count = 0; count < 3; count++)
+			await user.click(screen.getByRole("menuitem", { name: "Increase text size" }));
+		expect(screen.getByRole("menu")).toBeTruthy();
 		await waitFor(() =>
 			expect(container.querySelector<HTMLElement>(".dump-app")?.style.getPropertyValue("--editor-size")).toBe(
 				"14pt",

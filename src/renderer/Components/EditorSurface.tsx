@@ -1,6 +1,7 @@
 import { createMutableState, scope } from "opshot";
-import { lazy, Suspense, useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
 import { AppMenu } from "./AppMenu";
+import { ChromeDialogs } from "./ChromeDialogs";
 import { PageBar } from "./PageBar";
 import { PageViewport } from "./PageViewport";
 import { StatusBar } from "./StatusBar";
@@ -8,9 +9,6 @@ import { TitleBar } from "./TitleBar";
 import type { ChromeContext } from "../models/ChromeContext";
 import type { ChromeState } from "../models/ChromeState";
 import type { DumpContext } from "../models/DumpContext";
-
-const FontPicker = lazy(() => import("./FontPicker").then((module) => ({ default: module.FontPicker })));
-const Keybinds = lazy(() => import("./Keybinds").then((module) => ({ default: module.Keybinds })));
 
 interface EditorSurfaceProps {
 	readonly context: DumpContext;
@@ -23,11 +21,10 @@ interface EditorStyle extends CSSProperties {
 
 export const EditorSurface = scope(({ context: dumpContext }: EditorSurfaceProps) => {
 	const { session, editor, persistence } = dumpContext;
-	const [chrome] = useState(() => createMutableState<ChromeState>({ menuOpen: false, fontPickerOpen: false, keybindsOpen: false }));
-	const context = useMemo<ChromeContext>(
-		() => ({ ...dumpContext, chrome }),
-		[chrome, dumpContext],
+	const [chrome] = useState(() =>
+		createMutableState<ChromeState>({ menuOpen: false, fontPickerOpen: false, keybindsOpen: false }),
 	);
+	const context = useMemo<ChromeContext>(() => ({ ...dumpContext, chrome }), [chrome, dumpContext]);
 	const dismissMenu = useCallback(() => {
 		context.chrome.menuOpen = false;
 	}, [context]);
@@ -71,7 +68,10 @@ export const EditorSurface = scope(({ context: dumpContext }: EditorSurfaceProps
 					command = () => {
 						dump.session.appearance = {
 							...dump.session.appearance,
-							textSize: key === "0" ? 11 : Math.max(8, Math.min(24, dump.session.appearance.textSize + (key === "-" ? -1 : 1))),
+							textSize:
+								key === "0"
+									? 11
+									: Math.max(8, Math.min(24, dump.session.appearance.textSize + (key === "-" ? -1 : 1))),
 						};
 					};
 				else if (key === "f" && !event.shiftKey) command = () => editor.openFind();
@@ -82,8 +82,7 @@ export const EditorSurface = scope(({ context: dumpContext }: EditorSurfaceProps
 
 						if (page) editor.showPage(page.id);
 					};
-			} else if (key === "f3" && !control && !event.altKey)
-				command = () => editor.nextFind(event.shiftKey ? -1 : 1);
+			} else if (key === "f3" && !control && !event.altKey) command = () => editor.nextFind(event.shiftKey ? -1 : 1);
 			else if (!control && !event.shiftKey && (event.altKey || key === "pageup" || key === "pagedown")) {
 				const index = dump.document.pages.findIndex((page) => page.id === dump.session.view.activePageId);
 				const target =
@@ -122,10 +121,7 @@ export const EditorSurface = scope(({ context: dumpContext }: EditorSurfaceProps
 			<PageViewport context={context} />
 			<PageBar position="bottom" context={context} />
 			{showStatusBar && <StatusBar context={context} />}
-			<Suspense fallback={null}>
-				{chrome.fontPickerOpen && <FontPicker context={context} />}
-				{chrome.keybindsOpen && <Keybinds context={context} />}
-			</Suspense>
+			<ChromeDialogs context={context} />
 		</main>
 	);
 });

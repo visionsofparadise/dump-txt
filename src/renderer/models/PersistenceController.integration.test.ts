@@ -167,7 +167,9 @@ describe("the current dump lifecycle", () => {
 		const test = await fixture("startup text");
 		const started = new Set<string>();
 		let release!: () => void;
-		const gate = new Promise<void>((resolve) => { release = resolve; });
+		const gate = new Promise<void>((resolve) => {
+			release = resolve;
+		});
 
 		test.setRead(async (filePath) => {
 			if (filePath === test.path || filePath.endsWith("recovery.json")) {

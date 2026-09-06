@@ -368,7 +368,8 @@ export class PersistenceController {
 		this.#statePath = `${paths.userData}/app-state.json`;
 		this.#journalPath = `${paths.userData}/recovery.json`;
 
-		const stateFile = paths.startupSettings === undefined ? await this.#main.readFile(this.#statePath) : paths.startupSettings;
+		const stateFile =
+			paths.startupSettings === undefined ? await this.#main.readFile(this.#statePath) : paths.startupSettings;
 
 		this.#stateHash = stateFile?.hash ?? null;
 

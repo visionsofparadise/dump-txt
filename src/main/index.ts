@@ -5,9 +5,9 @@ import { app, BrowserWindow, Menu, nativeTheme, screen } from "electron";
 import { z } from "zod";
 import { windowBoundsSchema } from "../shared/utils/emitToRenderer";
 import { readFileSnapshot } from "../shared/utils/readFileSnapshot";
-import type { FileRead } from "../shared/ipc/FileSystem/readFile/Renderer";
 import { grantPath } from "./authorizePath";
 import { wireWindow } from "./wireWindow";
+import type { FileRead } from "../shared/ipc/FileSystem/readFile/Renderer";
 
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string | undefined;
 
@@ -37,9 +37,11 @@ async function createWindow(): Promise<void> {
 		startupSettings = await readFileSnapshot(path.join(userData, "app-state.json"));
 
 		const decoded: unknown = startupSettings ? JSON.parse(Buffer.from(startupSettings.bytes).toString("utf8")) : null;
-		const appearance = z.object({
-			appearance: z.object({ theme: z.enum(["system", "light", "dark"]) }),
-		}).safeParse(decoded);
+		const appearance = z
+			.object({
+				appearance: z.object({ theme: z.enum(["system", "light", "dark"]) }),
+			})
+			.safeParse(decoded);
 
 		if (appearance.success) theme = appearance.data.appearance.theme;
 
@@ -76,7 +78,8 @@ async function createWindow(): Promise<void> {
 		minWidth: 420,
 		minHeight: 280,
 		frame: false,
-		backgroundColor: (theme === "dark" || (theme === "system" && nativeTheme.shouldUseDarkColors)) ? "#2c2c2c" : "#fafafa",
+		backgroundColor:
+			theme === "dark" || (theme === "system" && nativeTheme.shouldUseDarkColors) ? "#2c2c2c" : "#fafafa",
 		title: "dump.txt",
 		icon: MAIN_WINDOW_VITE_DEV_SERVER_URL ? path.join(__dirname, "../../assets/icon.png") : undefined,
 		webPreferences: {

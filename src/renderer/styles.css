@@ -53,7 +53,10 @@ input:focus-visible {
 .dump-app {
 	display: grid;
 	height: 100%;
-	grid-template-rows: var(--spacing-bar) var(--spacing-bar) minmax(0, 1fr) var(--spacing-bar) var(--status-bar-height, 24px);
+	grid-template-rows: var(--spacing-bar) var(--spacing-bar) minmax(0, 1fr) var(--spacing-bar) var(
+			--status-bar-height,
+			24px
+		);
 	background: var(--color-surface);
 	overflow: hidden;
 }
@@ -263,7 +266,7 @@ input:focus-visible {
 	padding: 0;
 	border: 0;
 	border-radius: 0;
-	background: var(--color-panel);
+	background: var(--color-chrome);
 	color: var(--color-ink);
 	box-shadow: 0 8px 24px #0003;
 	font: 13px var(--font-interface);
@@ -274,9 +277,6 @@ input:focus-visible {
 	min-width: 160px;
 	max-height: min(280px, var(--radix-dropdown-menu-content-available-height));
 	border-radius: 0;
-}
-.menu-content {
-	background: var(--color-chrome);
 }
 .menu-item {
 	display: flex;
@@ -416,6 +416,15 @@ input:focus-visible {
 	flex: none;
 	padding: 0;
 }
+.font-picker-actions .panel-button {
+	height: var(--spacing-bar);
+	width: 100%;
+	min-width: 0;
+	justify-content: center;
+	gap: 8px;
+	border-radius: 0;
+	background: transparent;
+}
 .panel-button:hover:not(:disabled) {
 	background: var(--color-hover);
 }
@@ -467,15 +476,15 @@ input:focus-visible {
 	display: grid;
 	grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 46px;
 }
-.find-panel .panel-count {
-	margin-left: auto;
-	padding-right: 12px;
-}
 .panel-count {
 	color: light-dark(#777, #a0a0a0);
 	font-size: 12px;
 	font-variant-numeric: tabular-nums;
 	white-space: nowrap;
+}
+.find-panel .panel-count {
+	margin-left: auto;
+	padding-right: 12px;
 }
 .save-error {
 	position: absolute;
@@ -566,7 +575,9 @@ input:focus-visible {
 	text-align: right;
 }
 .keybind-row kbd {
-	font: 12px Consolas, monospace;
+	font:
+		12px Consolas,
+		monospace;
 	white-space: nowrap;
 }
 .font-picker {
@@ -643,15 +654,6 @@ input:focus-visible {
 	display: grid;
 	grid-template-columns: 1fr 1fr;
 	background: var(--color-chrome);
-}
-.font-picker-actions .panel-button {
-	height: var(--spacing-bar);
-	width: 100%;
-	min-width: 0;
-	justify-content: center;
-	gap: 8px;
-	border-radius: 0;
-	background: transparent;
 }
 .font-picker-actions .panel-button:hover:not(:disabled) {
 	background: var(--color-hover);

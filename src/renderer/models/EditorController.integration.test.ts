@@ -10,6 +10,10 @@ import { createSessionState } from "./SessionState";
 const controllers: EditorController[] = [];
 
 beforeEach(() => {
+	vi.stubGlobal(
+		"matchMedia",
+		vi.fn(() => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() })),
+	);
 	Object.defineProperties(Range.prototype, {
 		getClientRects: { configurable: true, value: () => [] },
 		getBoundingClientRect: { configurable: true, value: () => new DOMRect() },
@@ -54,6 +58,7 @@ function fixture(callbacks: ConstructorParameters<typeof EditorController>[3] = 
 }
 
 afterEach(() => {
+	vi.unstubAllGlobals();
 	vi.restoreAllMocks();
 	for (const controller of controllers.splice(0)) controller.dispose();
 	document.body.replaceChildren();
@@ -253,7 +258,7 @@ describe("CodeMirror bridge", () => {
 		await vi.waitFor(() => expect(view.scrollDOM.scrollTop).toBe(321));
 	});
 
-	it("requires excess editor scrolling and rearms bar navigation after an idle gap", () => {
+	it("requires excess editor scrolling and rearms bar navigation after an idle gap", async () => {
 		const { controller, view, session } = fixture();
 		controller.closeOccurrence();
 		view.dispatch({ selection: EditorSelection.cursor(0) });
@@ -262,17 +267,20 @@ describe("CodeMirror bridge", () => {
 		Object.defineProperties(view.scrollDOM, {
 			clientHeight: { configurable: true, value: 100 },
 			scrollHeight: { configurable: true, value: 500 },
+			scrollTo: { configurable: true, value: vi.fn() },
 		});
 		view.scrollDOM.scrollTop = 100;
 		const ordinary = new WheelEvent("wheel", { deltaY: 300, cancelable: true });
 		controller.handleWheel(ordinary, "editor");
-		expect(ordinary.defaultPrevented).toBe(false);
+		expect(ordinary.defaultPrevented).toBe(true);
 		view.scrollDOM.scrollTop = 400;
-		controller.handleWheel(new WheelEvent("wheel", { deltaY: 40 }), "editor");
+		controller.handleWheel(new WheelEvent("wheel", { deltaY: 200 }), "editor");
 		expect(session.view.activePageId).toBe("first");
-		controller.handleWheel(new WheelEvent("wheel", { deltaY: 40 }), "editor");
+		controller.handleWheel(new WheelEvent("wheel", { deltaY: 200 }), "editor");
 		expect(session.view.activePageId).toBe("second");
-		controller.handleWheel(new WheelEvent("wheel", { deltaY: -100 }), "bar");
+		await vi.waitFor(() => expect(view.scrollDOM.scrollTop).toBe(0));
+		await new Promise((resolve) => setTimeout(resolve, 100));
+		controller.handleWheel(new WheelEvent("wheel", { deltaY: 100 }), "bar");
 		expect(session.view.activePageId).toBe("second");
 		view.dispatch({ selection: EditorSelection.cursor(0) });
 		now += 301;

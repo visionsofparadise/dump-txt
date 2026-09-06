@@ -5,9 +5,13 @@ import { mainEventSchemas, type MainEventMap } from "../shared/utils/emitToRende
 const startupTheme = process.argv.find((argument) => argument.startsWith("--startup-theme="))?.split("=")[1];
 
 if (startupTheme === "system" || startupTheme === "light" || startupTheme === "dark") {
-	window.addEventListener("DOMContentLoaded", () => {
-		document.documentElement.dataset.theme = startupTheme;
-	}, { once: true });
+	window.addEventListener(
+		"DOMContentLoaded",
+		() => {
+			document.documentElement.dataset.theme = startupTheme;
+		},
+		{ once: true },
+	);
 }
 
 function subscribe<Channel extends keyof MainEventMap>(

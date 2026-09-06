@@ -1,9 +1,9 @@
 import { CaseSensitive, Check, Search, X } from "lucide-react";
 import { scope } from "opshot";
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type KeyboardEvent } from "react";
+import { systemFontsOf } from "../utils/systemFontsOf";
 import { FontMenuItem } from "./FontMenuItem";
 import { Dialog, DialogContent, DialogTitle } from "./UI/Dialog";
-import { systemFontsOf } from "../utils/systemFontsOf";
 import type { ChromeContext } from "../models/ChromeContext";
 
 interface FontPickerProps {
@@ -51,23 +51,32 @@ export const FontPicker = scope(({ context }: FontPickerProps) => {
 		session.appearance = { ...session.appearance, font: originalFont.current };
 		chrome.fontPickerOpen = false;
 	}, [chrome, session]);
-	const openChanged = useCallback((value: boolean) => {
-		if (!value) dismiss();
-	}, [dismiss]);
-	const restoreFocus = useCallback((event: Event) => {
-		event.preventDefault();
-		editor.focus();
-	}, [editor]);
+	const openChanged = useCallback(
+		(value: boolean) => {
+			if (!value) dismiss();
+		},
+		[dismiss],
+	);
+	const restoreFocus = useCallback(
+		(event: Event) => {
+			event.preventDefault();
+			editor.focus();
+		},
+		[editor],
+	);
 	const focusSearch = useCallback((event: Event) => {
 		event.preventDefault();
 		search.current?.focus();
 	}, []);
-	const selectFont = useCallback((font: string) => {
-		if (persistenceState.locked) return;
+	const selectFont = useCallback(
+		(font: string) => {
+			if (persistenceState.locked) return;
 
-		setSelected(font);
-		session.appearance = { ...session.appearance, font };
-	}, [persistenceState, session]);
+			setSelected(font);
+			session.appearance = { ...session.appearance, font };
+		},
+		[persistenceState, session],
+	);
 	const apply = useCallback(() => {
 		if (persistenceState.locked || !fonts.includes(selected)) return;
 
@@ -81,9 +90,16 @@ export const FontPicker = scope(({ context }: FontPickerProps) => {
 	const navigate = useCallback(
 		(event: KeyboardEvent<HTMLDivElement>) => {
 			const index = filtered.indexOf(selected);
-			const next = event.key === "ArrowDown" ? Math.min(filtered.length - 1, index + 1)
-				: event.key === "ArrowUp" ? Math.max(0, index - 1)
-					: event.key === "Home" ? 0 : event.key === "End" ? filtered.length - 1 : null;
+			const next =
+				event.key === "ArrowDown"
+					? Math.min(filtered.length - 1, index + 1)
+					: event.key === "ArrowUp"
+						? Math.max(0, index - 1)
+						: event.key === "Home"
+							? 0
+							: event.key === "End"
+								? filtered.length - 1
+								: null;
 
 			if (next === null) return;
 
@@ -117,23 +133,70 @@ export const FontPicker = scope(({ context }: FontPickerProps) => {
 
 	return (
 		<Dialog open={open} onOpenChange={openChanged}>
-		<DialogContent className="font-picker" aria-describedby={undefined} onOpenAutoFocus={focusSearch} onCloseAutoFocus={restoreFocus}>
-			<header className="font-picker-header">
-				<DialogTitle><CaseSensitive size={18} aria-hidden />Font</DialogTitle>
-			</header>
-			<div className="font-search-field"><Search size={16} aria-hidden /><input ref={search} className="font-search" aria-label="Search installed fonts" value={query} onChange={queryChanged} /></div>
-			<div ref={list} className="font-list" role="listbox" aria-label="Installed fonts" tabIndex={0} onKeyDown={navigate} aria-busy={loading}>
-				{loading ? <p>Loading installed fonts…</p> : error ? (
-					<p role="alert">{error} <button type="button" className="panel-button" onClick={retry}>Retry</button></p>
-				) : filtered.length ? filtered.map((font) => (
-					<FontMenuItem key={font} font={font} selected={selected === font} onSelect={selectFont} />
-				)) : <p>No matching fonts.</p>}
-			</div>
-			<footer className="font-picker-actions">
-				<button type="button" className="panel-button" onClick={dismiss}><X size={16} aria-hidden />Cancel</button>
-				<button type="button" className="panel-button" onClick={apply} disabled={loading || !!error || persistenceState.locked || !fonts.includes(selected)}><Check size={16} aria-hidden />Apply</button>
-			</footer>
-		</DialogContent>
+			<DialogContent
+				className="font-picker"
+				aria-describedby={undefined}
+				onOpenAutoFocus={focusSearch}
+				onCloseAutoFocus={restoreFocus}
+			>
+				<header className="font-picker-header">
+					<DialogTitle>
+						<CaseSensitive size={18} aria-hidden />
+						Font
+					</DialogTitle>
+				</header>
+				<div className="font-search-field">
+					<Search size={16} aria-hidden />
+					<input
+						ref={search}
+						className="font-search"
+						aria-label="Search installed fonts"
+						value={query}
+						onChange={queryChanged}
+					/>
+				</div>
+				<div
+					ref={list}
+					className="font-list"
+					role="listbox"
+					aria-label="Installed fonts"
+					tabIndex={0}
+					onKeyDown={navigate}
+					aria-busy={loading}
+				>
+					{loading ? (
+						<p>Loading installed fonts…</p>
+					) : error ? (
+						<p role="alert">
+							{error}{" "}
+							<button type="button" className="panel-button" onClick={retry}>
+								Retry
+							</button>
+						</p>
+					) : filtered.length ? (
+						filtered.map((font) => (
+							<FontMenuItem key={font} font={font} selected={selected === font} onSelect={selectFont} />
+						))
+					) : (
+						<p>No matching fonts.</p>
+					)}
+				</div>
+				<footer className="font-picker-actions">
+					<button type="button" className="panel-button" onClick={dismiss}>
+						<X size={16} aria-hidden />
+						Cancel
+					</button>
+					<button
+						type="button"
+						className="panel-button"
+						onClick={apply}
+						disabled={loading || !!error || persistenceState.locked || !fonts.includes(selected)}
+					>
+						<Check size={16} aria-hidden />
+						Apply
+					</button>
+				</footer>
+			</DialogContent>
 		</Dialog>
 	);
 });

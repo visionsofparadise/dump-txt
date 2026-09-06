@@ -16,12 +16,16 @@ export const StatusBar = scope(({ context }: StatusBarProps) => {
 	const ranges = session.view.selections[session.view.activePageId]?.ranges;
 	const targets = session.view.occurrence?.targets;
 	const pages = document.pages;
-	const crossPageSelection = useMemo(() => targets ? crossPageSelectionStatusOf(pages, targets) : null, [pages, targets]);
+	const crossPageSelection = useMemo(
+		() => (targets ? crossPageSelectionStatusOf(pages, targets) : null),
+		[pages, targets],
+	);
 	const pageSelection = useMemo(() => selectionStatusOf(page.document, ranges ?? []), [page, ranges]);
 	const selection = crossPageSelection ?? pageSelection;
 	const counts = selection.selected ? selection.counts : page.counts;
 	const selectionCount = targets?.length ?? ranges?.length ?? 0;
-	const selectionLabel = targets || selectionCount > 1 ? `${selectionCount} ${selectionCount === 1 ? "selection" : "selections"} · ` : "";
+	const selectionLabel =
+		targets || selectionCount > 1 ? `${selectionCount} ${selectionCount === 1 ? "selection" : "selections"} · ` : "";
 	const countLabel = `${selectionLabel}${counts.characters} chars · ${counts.words} words · ${counts.lines} lines`;
 
 	return (

@@ -11,7 +11,15 @@ export function FontMenuItem({ font, selected, onSelect }: FontMenuItemProps) {
 	const choose = useCallback(() => onSelect(font), [font, onSelect]);
 
 	return (
-		<button className="font-option" type="button" role="option" aria-selected={selected} tabIndex={selected ? 0 : -1} style={style} onClick={choose}>
+		<button
+			className="font-option"
+			type="button"
+			role="option"
+			aria-selected={selected}
+			tabIndex={selected ? 0 : -1}
+			style={style}
+			onClick={choose}
+		>
 			{font}
 		</button>
 	);
