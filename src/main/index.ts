@@ -60,6 +60,7 @@ async function createWindow(): Promise<void> {
 		minHeight: 280,
 		frame: false,
 		title: "dump.txt",
+		icon: MAIN_WINDOW_VITE_DEV_SERVER_URL ? path.join(__dirname, "../../assets/icon.png") : undefined,
 		webPreferences: { preload: path.join(__dirname, "preload.cjs"), contextIsolation: true, nodeIntegration: false },
 	});
 	browserWindow.setMenu(null);

@@ -9,7 +9,7 @@ import { FuseV1Options, FuseVersion } from "@electron/fuses";
 import type { ForgeConfig } from "@electron-forge/shared-types";
 
 const config: ForgeConfig = {
-	packagerConfig: { asar: true, executableName: "dump-txt" },
+	packagerConfig: { asar: true, executableName: "dump-txt", icon: "assets/icon.ico" },
 	rebuildConfig: {},
 	hooks: {
 		preMake: async () => {
