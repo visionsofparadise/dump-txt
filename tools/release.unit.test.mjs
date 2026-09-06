@@ -118,6 +118,16 @@ test("rejects malformed versions without accessing files or running commands", (
 	assert.throws(() => publishRelease({ version: "../bad" }), /version/u);
 });
 
+test("matches the platform artifact names emitted by electron-builder", () => {
+	assert.deepEqual(artifactNamesOf("0.2.0"), [
+		"dump-txt-0.2.0-linux-amd64.deb",
+		"dump-txt-0.2.0-linux-x86_64.AppImage",
+		"dump-txt-0.2.0-mac-arm64.dmg",
+		"dump-txt-0.2.0-mac-x64.dmg",
+		"dump-txt-Setup-0.2.0.exe",
+	]);
+});
+
 test("requires every platform artifact before publishing", () => {
 	const { publish, directory, calls } = fixture();
 	rmSync(join(directory, "dump-txt-0.1.0-mac-arm64.dmg"));

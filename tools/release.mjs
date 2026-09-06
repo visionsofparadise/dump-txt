@@ -36,8 +36,8 @@ export function artifactNamesOf(version) {
 		`dump-txt-Setup-${version}.exe`,
 		`dump-txt-${version}-mac-arm64.dmg`,
 		`dump-txt-${version}-mac-x64.dmg`,
-		`dump-txt-${version}-linux-x64.AppImage`,
-		`dump-txt-${version}-linux-x64.deb`,
+		`dump-txt-${version}-linux-x86_64.AppImage`,
+		`dump-txt-${version}-linux-amd64.deb`,
 	].sort();
 }
 
