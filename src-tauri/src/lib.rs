@@ -24,7 +24,7 @@ fn navigation_allowed(url: &tauri::Url, development_origin: Option<&tauri::Url>)
         (url.scheme(), url.host_str()),
         ("tauri", Some("localhost")) | ("http" | "https", Some("tauri.localhost"))
     ) && url.port().is_none()
-        && matches!(url.path(), "/" | "/index.html" | "/probe.html")
+        && matches!(url.path(), "" | "/" | "/index.html" | "/probe.html")
         && url.query().is_none()
 }
 
@@ -165,6 +165,10 @@ mod tests {
     #[test]
     fn production_navigation_stays_on_the_bundled_entry() {
         assert!(navigation_allowed(
+            &"tauri://localhost".parse().unwrap(),
+            None
+        ));
+        assert!(navigation_allowed(
             &"tauri://localhost/probe.html".parse().unwrap(),
             None
         ));
@@ -173,6 +177,8 @@ mod tests {
             None
         ));
         for url in [
+            "tauri://localhost?unexpected=entry",
+            "tauri://localhost:8080",
             "https://example.com",
             "file:///etc/passwd",
             "http://localhost:1420/probe.html",

@@ -80,11 +80,17 @@ async function open(profile, name, expectedText) {
 	browser.options.connectionRetryTimeout = 15000;
 	session = { name, profile };
 	report.sessions.push(session);
-	await browser.waitUntil(async () => ["/", "/index.html"].includes(new URL(await browser.getUrl()).pathname), {
-		timeout: 15000,
-		interval: 50,
-		timeoutMsg: "Production entry did not load",
-	});
+	await browser.waitUntil(
+		async () => {
+			session.url = await browser.getUrl();
+			const url = new URL(session.url);
+			const bundledOrigin =
+				(url.protocol === "tauri:" && url.hostname === "localhost") ||
+				(["http:", "https:"].includes(url.protocol) && url.hostname === "tauri.localhost");
+			return bundledOrigin && !url.port && !url.search && ["", "/", "/index.html"].includes(url.pathname);
+		},
+		{ timeout: 15000, interval: 50, timeoutMsg: "Production entry did not load" },
+	);
 	await browser.waitUntil(
 		() => evaluate(() => !!document.querySelector('.page-current .cm-content[contenteditable="true"]')),
 		{ timeout: 15000, interval: 50, timeoutMsg: "Production editor did not become ready" },
