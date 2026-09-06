@@ -1,9 +1,18 @@
-import { createRoot } from "react-dom/client";
-import { App } from "./Components/App";
+import { mountApp } from "./desktop/mountApp";
 import "./styles.css";
 
-const root = document.getElementById("root");
+async function start(): Promise<void> {
+	if (import.meta.env.VITE_DESKTOP === "tauri") {
+		const { createTauriMain } = await import("./desktop/createTauriMain");
+		const { readyTauriRenderer } = await import("./desktop/readyTauriRenderer");
+		const desktop = await createTauriMain();
 
-if (!root) throw new Error("The editor root is missing.");
+		mountApp(desktop.main, readyTauriRenderer, desktop.dispose);
+	} else {
+		const { createElectronMain } = await import("./desktop/createElectronMain");
 
-createRoot(root).render(<App />);
+		mountApp(createElectronMain());
+	}
+}
+
+void start().catch((error: unknown) => console.error(error));

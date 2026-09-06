@@ -105,18 +105,22 @@ async function createWindow(): Promise<void> {
 		});
 	}
 
-	wireWindow(browserWindow, {
-		userData,
-		restoredFilePath,
-		grants,
-		takeStartupSettings: () => {
-			const snapshot = startupSettings;
+	wireWindow(
+		browserWindow,
+		{
+			userData,
+			restoredFilePath,
+			grants,
+			takeStartupSettings: () => {
+				const snapshot = startupSettings;
 
-			startupSettings = undefined;
+				startupSettings = undefined;
 
-			return snapshot;
+				return snapshot;
+			},
 		},
-	});
+		MAIN_WINDOW_VITE_DEV_SERVER_URL,
+	);
 
 	if (MAIN_WINDOW_VITE_DEV_SERVER_URL) void browserWindow.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
 	else void browserWindow.loadFile(path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`));

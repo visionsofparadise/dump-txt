@@ -1,7 +1,7 @@
 {
 	"$schema": "https://unpkg.com/knip@6/schema.json",
 	"project": ["src/**/*.{ts,tsx,css}", "*.config.ts"],
-	"entry": ["forge.config.ts"],
+	"entry": ["forge.config.ts", "src/renderer/probe.tsx"],
 	"vite": { "config": ["vite.*.config.ts"] },
 	"ignoreDependencies": [
 		"prettier",

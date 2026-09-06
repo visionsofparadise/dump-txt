@@ -1,0 +1,91 @@
+import { spawn, spawnSync } from "node:child_process";
+import { existsSync } from "node:fs";
+import { createRequire } from "node:module";
+import { homedir } from "node:os";
+import { delimiter, join } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const require = createRequire(import.meta.url);
+const directory = fileURLToPath(new URL("../", import.meta.url));
+const [command, ...arguments_] = process.argv.slice(2);
+const probe = arguments_.includes("--probe");
+const supported = new Set(["dev", "build", "check", "test-native"]);
+
+if (!supported.has(command) || arguments_.some((argument) => argument !== "--probe")) {
+	throw new Error("Use dev [--probe], build [--probe], check or test-native");
+}
+
+const environment = { ...process.env };
+const pathKey = Object.keys(environment).find((key) => key.toLowerCase() === "path") ?? "PATH";
+const cargoDirectory = join(homedir(), ".cargo", "bin");
+
+if (existsSync(cargoDirectory)) {
+	environment[pathKey] = `${cargoDirectory}${delimiter}${environment[pathKey] ?? ""}`;
+}
+
+const options = { cwd: directory, env: environment, stdio: "inherit", windowsHide: true };
+const cargoManifest = join(directory, "src-tauri", "Cargo.toml");
+
+function run(executable, arguments_) {
+	const result = spawnSync(executable, arguments_, options);
+	if (result.error) throw result.error;
+	if (result.status !== 0) process.exit(result.status ?? 1);
+}
+
+if (command === "check") {
+	run("cargo", ["fmt", "--manifest-path", cargoManifest, "--check"]);
+	run("cargo", [
+		"clippy",
+		"--manifest-path",
+		cargoManifest,
+		"--all-targets",
+		"--features",
+		"probe",
+		"--",
+		"-D",
+		"warnings",
+	]);
+} else if (command === "test-native") {
+	run("cargo", ["test", "--manifest-path", cargoManifest, "--features", "probe"]);
+} else {
+	const vite = join(directory, "node_modules", "vite", "bin", "vite.js");
+	const frontendArguments = ["--config", "vite.tauri.config.ts", "--mode", probe ? "probe" : "production"];
+	const nativeArguments = [command];
+	if (probe) nativeArguments.push("--config", "src-tauri/tauri.probe.conf.json", "--features", "probe");
+	else if (command === "dev")
+		nativeArguments.push("--config", JSON.stringify({ identifier: "com.visionsofparadise.dump-txt.dev" }));
+	if (command === "build") {
+		run(process.execPath, [vite, "build", ...frontendArguments]);
+		nativeArguments.push("--ci");
+		if (probe) nativeArguments.push("--no-bundle");
+		run(process.execPath, [require.resolve("@tauri-apps/cli/tauri.js"), ...nativeArguments]);
+	} else {
+		const frontend = spawn(process.execPath, [vite, ...frontendArguments], options);
+		const native = spawn(
+			process.execPath,
+			[require.resolve("@tauri-apps/cli/tauri.js"), ...nativeArguments],
+			options,
+		);
+		let stopping = false;
+		const stop = (status) => {
+			if (stopping) return;
+			stopping = true;
+			for (const child of [native, frontend]) {
+				if (!child.pid || child.exitCode !== null) continue;
+				if (process.platform === "win32")
+					spawnSync("taskkill", ["/pid", String(child.pid), "/T", "/F"], { stdio: "ignore", windowsHide: true });
+				else child.kill("SIGTERM");
+			}
+			process.exit(status);
+		};
+		for (const child of [native, frontend]) {
+			child.on("error", (error) => {
+				console.error(error);
+				stop(1);
+			});
+			child.on("exit", (status) => stop(status ?? 1));
+		}
+		process.on("SIGINT", () => stop(130));
+		process.on("SIGTERM", () => stop(143));
+	}
+}

@@ -1232,7 +1232,7 @@ export class EditorController {
 			return;
 
 		if (response === "delete") this.apply({ type: "insert", text: "" });
-		else this.#replay(response);
+		else if (response === "undo" || response === "redo") this.#replay(response);
 
 		this.focus();
 	}

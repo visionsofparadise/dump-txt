@@ -8,5 +8,15 @@
 			}
 		]
 	},
-	"ignoreFiles": ["**/node_modules/**", "**/dist/**", "**/out/**", "**/build/**", "**/coverage/**", "**/.*/**"]
+	"ignoreFiles": [
+		"**/node_modules/**",
+		"**/dist/**",
+		"**/dist-tauri/**",
+		"**/out/**",
+		"**/build/**",
+		"**/coverage/**",
+		"**/.*/**",
+		"**/src-tauri/target/**",
+		"**/src-tauri/gen/**"
+	]
 }

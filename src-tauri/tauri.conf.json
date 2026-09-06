@@ -1,0 +1,38 @@
+{
+	"$schema": "https://schema.tauri.app/config/2",
+	"productName": "dump.txt",
+	"version": "0.2.0",
+	"identifier": "com.visionsofparadise.dump-txt",
+	"build": {
+		"devUrl": "http://127.0.0.1:1420",
+		"frontendDist": "../dist-tauri"
+	},
+	"app": {
+		"windows": [
+			{
+				"label": "main",
+				"create": false,
+				"url": "index.html",
+				"title": "dump.txt",
+				"width": 960,
+				"height": 640,
+				"minWidth": 420,
+				"minHeight": 280,
+				"decorations": false,
+				"visible": false,
+				"backgroundColor": "#fafafa",
+				"dragDropEnabled": false,
+				"zoomHotkeysEnabled": false
+			}
+		],
+		"security": {
+			"capabilities": ["main"],
+			"csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src ipc: http://ipc.localhost; img-src 'self' data:; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'",
+			"devCsp": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost ws://127.0.0.1:1420; img-src 'self' data:; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'"
+		}
+	},
+	"bundle": {
+		"active": false,
+		"icon": ["../assets/icon.png", "../assets/icon.ico", "../assets/icon.icns"]
+	}
+}

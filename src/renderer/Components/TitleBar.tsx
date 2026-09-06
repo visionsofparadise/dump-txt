@@ -55,11 +55,12 @@ export const TitleBar = scope(({ children, chrome, onDismissMenu, context }: Tit
 	return (
 		<header
 			className={cn("title-bar", menuOpen && "title-bar-menu-open")}
+			data-tauri-drag-region={menuOpen ? undefined : ""}
 			aria-label="Window controls"
 			onPointerDown={menuOpen ? dismissMenu : undefined}
 		>
 			<div className="title-menu">{children}</div>
-			<span className="app-name" title={filename}>
+			<span className="app-name" title={filename} data-tauri-drag-region={menuOpen ? undefined : ""}>
 				{filename}
 			</span>
 			<div className="window-controls">

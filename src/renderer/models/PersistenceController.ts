@@ -1,4 +1,5 @@
 import { createMutableState, flush as flushState, subscribe } from "opshot";
+import { contentHashOf } from "../utils/contentHashOf";
 import { decodeText, type TextFormat } from "../utils/decodeText";
 import { encodeText } from "../utils/encodeText";
 import { parsePages } from "../utils/parsePages";
@@ -48,12 +49,6 @@ function errorMessage(error: unknown): string {
 
 function samePath(left: string, right: string): boolean {
 	return left.replaceAll("\\", "/").toLowerCase() === right.replaceAll("\\", "/").toLowerCase();
-}
-
-async function hashBytes(bytes: Uint8Array): Promise<string> {
-	const digest = await crypto.subtle.digest("SHA-256", new Uint8Array(bytes));
-
-	return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
 function recoveredPages(record: RecoveryRecord): ReadonlyArray<Page> {
@@ -457,7 +452,7 @@ export class PersistenceController {
 		let backingHash = file?.hash ?? null;
 
 		if (recovery && file && !decodingFailure && this.#settings && file.hash !== this.#settings.savedContentHash) {
-			const payloadHash = await hashBytes(encodeText(recovery.text, recovery.format));
+			const payloadHash = await contentHashOf(encodeText(recovery.text, recovery.format));
 
 			if (
 				payloadHash === this.#settings.savedContentHash ||
@@ -475,7 +470,7 @@ export class PersistenceController {
 			format = recovery.format;
 			revisionNumber = recovery.revision;
 
-			const payloadHash = await hashBytes(encodeText(recovery.text, recovery.format));
+			const payloadHash = await contentHashOf(encodeText(recovery.text, recovery.format));
 
 			const savedHash = file?.hash ?? this.#settings?.savedContentHash;
 

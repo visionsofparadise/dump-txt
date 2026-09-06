@@ -9,7 +9,6 @@ import type { AppState } from "../models/AppState";
 import type { Main } from "../models/Main";
 
 let main: Main;
-vi.mock("../models/Main", () => ({ createMain: () => main }));
 
 function hash(bytes: Uint8Array): string {
 	return createHash("sha256").update(bytes).digest("hex");
@@ -34,6 +33,9 @@ async function fixture(text = "first\n\f\nsecond\n\f\nthird") {
 		showSaveDialog: vi.fn(async () => null),
 		setTitle: vi.fn(async () => undefined),
 		showTextContextMenu: vi.fn(async () => null),
+		getSystemFonts: vi.fn(async () => []),
+		readClipboard: vi.fn(async () => ""),
+		writeClipboard: vi.fn(async () => undefined),
 		minimize: vi.fn(async () => undefined),
 		toggleMaximize: vi.fn(async () => undefined),
 		finishClose: async () => {
@@ -41,7 +43,7 @@ async function fixture(text = "first\n\f\nsecond\n\f\nthird") {
 		},
 		events: { on: () => () => undefined },
 	};
-	const rendered = render(<App />);
+	const rendered = render(<App main={main} />);
 	await waitFor(() => expect(rendered.container.querySelector(".cm-editor")).not.toBeNull());
 	const editor = () => EditorView.findFromDOM(rendered.container.querySelector<HTMLElement>(".cm-editor")!)!;
 	const insert = async (value: string) => {

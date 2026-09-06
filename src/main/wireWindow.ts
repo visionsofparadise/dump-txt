@@ -6,7 +6,9 @@ import type { BrowserWindow } from "electron";
 export function wireWindow(
 	browserWindow: BrowserWindow,
 	paths: Pick<IpcHandlerDependencies, "userData" | "restoredFilePath" | "grants" | "takeStartupSettings">,
+	developmentUrl?: string,
 ): void {
+	const developmentEntry = developmentUrl ? new URL(developmentUrl).href : undefined;
 	let allowClose = false;
 	const dependencies: IpcHandlerDependencies = {
 		browserWindow,
@@ -35,7 +37,11 @@ export function wireWindow(
 			emitToRenderer(browserWindow, "closeRequested");
 		}
 	});
-	browserWindow.webContents.on("will-navigate", (event) => event.preventDefault());
+	browserWindow.webContents.on("will-navigate", (event) => {
+		const allowed = developmentEntry !== undefined && event.url === developmentEntry;
+
+		if (!allowed) event.preventDefault();
+	});
 	browserWindow.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
 	browserWindow.on("closed", () => {
 		browserWindow.removeListener("move", boundsChanged);

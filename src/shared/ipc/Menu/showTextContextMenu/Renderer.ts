@@ -10,7 +10,7 @@ export const TEXT_CONTEXT_MENU_STATE = z
 	})
 	.strict();
 
-const TEXT_CONTEXT_MENU_RESPONSE = z.enum(["undo", "redo", "delete"]).nullable();
+const TEXT_CONTEXT_MENU_RESPONSE = z.enum(["undo", "redo", "cut", "copy", "paste", "delete", "selectAll"]).nullable();
 
 export type TextContextMenuState = z.infer<typeof TEXT_CONTEXT_MENU_STATE>;
 export type TextContextMenuResponse = z.infer<typeof TEXT_CONTEXT_MENU_RESPONSE>;

@@ -1,0 +1,22 @@
+{
+	"$schema": "../gen/schemas/desktop-schema.json",
+	"identifier": "main",
+	"description": "Desktop window services for the main editor",
+	"windows": ["main"],
+	"permissions": [
+		"core:event:allow-listen",
+		"core:event:allow-unlisten",
+		"core:window:allow-start-dragging",
+		"core:window:allow-internal-toggle-maximize",
+		"allow-minimize",
+		"allow-toggle-maximize",
+		"allow-set-title",
+		"allow-finish-close",
+		"allow-renderer-ready",
+		"allow-open-inspector",
+		"allow-get-system-fonts",
+		"allow-read-clipboard",
+		"allow-write-clipboard",
+		"allow-show-text-context-menu"
+	]
+}

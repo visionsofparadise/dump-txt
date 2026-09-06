@@ -5,7 +5,8 @@ import { defineConfig } from "vite";
 export default defineConfig(({ command }) => {
 	const nonce = command === "serve" ? randomBytes(24).toString("base64") : undefined;
 	return {
-		server: { watch: { ignored: ["**/.scratch/**"] } },
+		server: { watch: { ignored: ["**/.scratch/**", "**/src-tauri/**", "**/dist-tauri/**"] } },
+		optimizeDeps: { entries: ["index.html"] },
 		html: { cspNonce: nonce },
 		plugins: [
 			react(),
