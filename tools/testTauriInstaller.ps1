@@ -38,15 +38,32 @@ $startMenuShortcut = Join-Path ([Environment]::GetFolderPath('Programs')) 'dump.
 $evidenceDirectory = Join-Path $projectDirectory ".scratch/tauri-installer/$($env:GITHUB_RUN_ID)-$($env:GITHUB_RUN_ATTEMPT)"
 $observations = [Collections.Generic.List[object]]::new()
 $processes = [Collections.Generic.List[object]]::new()
+$installedExecutables = [Collections.Generic.List[object]]::new()
+
+function Get-NsisPayloadHash([string]$Path) {
+    $bytes = [IO.File]::ReadAllBytes($Path)
+    $marker = '__TAURI_BUNDLE_TYPE_VAR_UNK'
+    $binaryText = [Text.Encoding]::Latin1.GetString($bytes)
+    $offset = $binaryText.IndexOf($marker, [StringComparison]::Ordinal)
+    if ($offset -lt 0 -or $offset -ne $binaryText.LastIndexOf($marker, [StringComparison]::Ordinal)) {
+        throw 'Expected exactly one unbundled Tauri package-type marker in the production executable.'
+    }
+    $replacement = [Text.Encoding]::ASCII.GetBytes('__TAURI_BUNDLE_TYPE_VAR_NSS')
+    [Array]::Copy($replacement, 0, $bytes, $offset, $replacement.Length)
+    return [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($bytes)).ToLowerInvariant()
+}
+
 $report = [ordered]@{
     sourceCommit = $env:GITHUB_SHA
     installer = $installer
     installerHash = (Get-FileHash -LiteralPath $installer -Algorithm SHA256).Hash.ToLowerInvariant()
     expectedExecutableHash = (Get-FileHash -LiteralPath $expectedExecutable -Algorithm SHA256).Hash.ToLowerInvariant()
+    expectedPackagedExecutableHash = Get-NsisPayloadHash $expectedExecutable
     platform = [Environment]::OSVersion.VersionString
     method = 'Native silent installers and native window close in a disposable CI account'
     observations = $observations
     processes = $processes
+    installedExecutables = $installedExecutables
     limitations = @('Wizard visuals and checkbox interaction remain unobserved.', 'Actual Squirrel uninstall remains unexecuted.')
 }
 
@@ -108,8 +125,9 @@ function Assert-ProfileSnapshot($Expected, [string]$Name) {
 function Test-InstalledApplication {
     $executable = Join-Path $installDirectory 'dump-txt.exe'
     Assert-Condition (Test-Path -LiteralPath $executable -PathType Leaf) 'Installed application exists'
-    Assert-Condition ((Get-FileHash -LiteralPath $executable -Algorithm SHA256).Hash.ToLowerInvariant() -eq
-        $report.expectedExecutableHash) 'Installed executable matches the normal production build'
+    $installedHash = (Get-FileHash -LiteralPath $executable -Algorithm SHA256).Hash.ToLowerInvariant()
+    $installedExecutables.Add(@{ path = $executable; sha256 = $installedHash })
+    Assert-Condition ($installedHash -eq $report.expectedPackagedExecutableHash) 'Installed executable matches the production build with the exact NSIS package-type marker'
     $process = Start-Process -FilePath $executable -WorkingDirectory $installDirectory -PassThru -WindowStyle Hidden
     $deadline = [DateTime]::UtcNow.AddSeconds(45)
     do {
