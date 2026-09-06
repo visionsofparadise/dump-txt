@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 @theme {
-	--color-surface: light-dark(#fafafa, #1e1e1e);
-	--color-chrome: light-dark(#e6e6e6, #2c2c2c);
+	--color-surface: light-dark(#fafafa, #2c2c2c);
+	--color-chrome: light-dark(#e6e6e6, #1e1e1e);
 	--color-bar: light-dark(#f0f0f0, #252525);
 	--color-ink: light-dark(#1a1a1a, #e6e6e6);
 	--color-muted: light-dark(#8a8a8a, #6e6e6e);
