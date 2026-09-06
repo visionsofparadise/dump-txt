@@ -39,6 +39,7 @@ $evidenceDirectory = Join-Path $projectDirectory ".scratch/tauri-installer/$($en
 $observations = [Collections.Generic.List[object]]::new()
 $processes = [Collections.Generic.List[object]]::new()
 $installedExecutables = [Collections.Generic.List[object]]::new()
+$windowDiagnostics = [Collections.Generic.List[object]]::new()
 
 function Get-NsisPayloadHash([string]$Path) {
     $bytes = [IO.File]::ReadAllBytes($Path)
@@ -53,6 +54,86 @@ function Get-NsisPayloadHash([string]$Path) {
     return [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($bytes)).ToLowerInvariant()
 }
 
+Add-Type -TypeDefinition @'
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Runtime.InteropServices;
+using System.Text;
+
+public sealed class DumpInstallerWindowInfo {
+    public long Handle { get; set; }
+    public uint ProcessId { get; set; }
+    public string ClassName { get; set; }
+    public string Title { get; set; }
+    public int Width { get; set; }
+    public int Height { get; set; }
+    public bool Visible { get; set; }
+    public long Owner { get; set; }
+}
+
+public static class DumpInstallerWindows {
+    private delegate bool EnumerateCallback(IntPtr handle, IntPtr parameter);
+    [StructLayout(LayoutKind.Sequential)]
+    private struct Rectangle { public int Left; public int Top; public int Right; public int Bottom; }
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool EnumWindows(EnumerateCallback callback, IntPtr parameter);
+    [DllImport("user32.dll")]
+    private static extern uint GetWindowThreadProcessId(IntPtr handle, out uint processId);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    private static extern int GetClassNameW(IntPtr handle, StringBuilder value, int length);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    private static extern int GetWindowTextW(IntPtr handle, StringBuilder value, int length);
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GetWindowRect(IntPtr handle, out Rectangle rectangle);
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool IsWindowVisible(IntPtr handle);
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetWindow(IntPtr handle, uint command);
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool PostMessageW(IntPtr handle, uint message, IntPtr wParam, IntPtr lParam);
+
+    public static DumpInstallerWindowInfo[] Enumerate(uint targetProcessId) {
+        var result = new List<DumpInstallerWindowInfo>();
+        if (!EnumWindows(delegate(IntPtr handle, IntPtr parameter) {
+            uint processId;
+            GetWindowThreadProcessId(handle, out processId);
+            if (processId != targetProcessId) return true;
+            var className = new StringBuilder(512);
+            var title = new StringBuilder(4096);
+            GetClassNameW(handle, className, className.Capacity);
+            GetWindowTextW(handle, title, title.Capacity);
+            Rectangle rectangle;
+            if (!GetWindowRect(handle, out rectangle)) return true;
+            result.Add(new DumpInstallerWindowInfo {
+                Handle = handle.ToInt64(), ProcessId = processId,
+                ClassName = className.ToString(), Title = title.ToString(),
+                Width = rectangle.Right - rectangle.Left, Height = rectangle.Bottom - rectangle.Top,
+                Visible = IsWindowVisible(handle), Owner = GetWindow(handle, 4).ToInt64()
+            });
+            return true;
+        }, IntPtr.Zero)) throw new Win32Exception(Marshal.GetLastWin32Error());
+        return result.ToArray();
+    }
+
+    public static void Close(long handle) {
+        if (!PostMessageW(new IntPtr(handle), 0x0010, IntPtr.Zero, IntPtr.Zero))
+            throw new Win32Exception(Marshal.GetLastWin32Error());
+    }
+}
+'@
+
+function Get-EditorWindows([uint32]$ProcessId) {
+    @([DumpInstallerWindows]::Enumerate($ProcessId) | Where-Object {
+        $_.Visible -and $_.Owner -eq 0 -and $_.Width -gt 0 -and $_.Height -gt 0 -and
+        $_.ClassName -ceq 'Tauri Window' -and $_.Title -ceq 'dump.txt'
+    })
+}
+
 $report = [ordered]@{
     sourceCommit = $env:GITHUB_SHA
     installer = $installer
@@ -64,6 +145,7 @@ $report = [ordered]@{
     observations = $observations
     processes = $processes
     installedExecutables = $installedExecutables
+    windowDiagnostics = $windowDiagnostics
     limitations = @('Wizard visuals and checkbox interaction remain unobserved.', 'Actual Squirrel uninstall remains unexecuted.')
 }
 
@@ -122,6 +204,26 @@ function Assert-ProfileSnapshot($Expected, [string]$Name) {
     Assert-Condition (($actual | ConvertTo-Json -Compress) -eq ($Expected | ConvertTo-Json -Compress)) $Name
 }
 
+function Record-ApplicationWindow($Process, [string]$Phase) {
+    $diagnostic = [ordered]@{ phase = $Phase; processId = $Process.Id; timestamp = [DateTime]::UtcNow.ToString('o') }
+    try {
+        $Process.Refresh()
+        $diagnostic.hasExited = $Process.HasExited
+        if ($Process.HasExited) {
+            $diagnostic.exitCode = $Process.ExitCode
+        } else {
+            $diagnostic.mainWindowHandle = $Process.MainWindowHandle.ToInt64()
+            $diagnostic.mainWindowTitle = $Process.MainWindowTitle
+            $diagnostic.responding = $Process.Responding
+            $diagnostic.windows = @([DumpInstallerWindows]::Enumerate($Process.Id))
+        }
+        $diagnostic.profile = Get-ProfileSnapshot
+    } catch {
+        $diagnostic.error = $_.Exception.Message
+    }
+    $windowDiagnostics.Add($diagnostic)
+}
+
 function Test-InstalledApplication {
     $executable = Join-Path $installDirectory 'dump-txt.exe'
     Assert-Condition (Test-Path -LiteralPath $executable -PathType Leaf) 'Installed application exists'
@@ -133,8 +235,10 @@ function Test-InstalledApplication {
     do {
         Start-Sleep -Milliseconds 200
         $process.Refresh()
-    } while (-not $process.HasExited -and $process.MainWindowHandle -eq 0 -and [DateTime]::UtcNow -lt $deadline)
-    Assert-Condition (-not $process.HasExited -and $process.MainWindowHandle -ne 0) 'Installed application reaches a native window'
+        $editorWindows = @(Get-EditorWindows $process.Id)
+    } while (-not $process.HasExited -and $editorWindows.Count -eq 0 -and [DateTime]::UtcNow -lt $deadline)
+    Record-ApplicationWindow $process 'initial native window'
+    Assert-Condition (-not $process.HasExited -and $editorWindows.Count -eq 1) 'Installed application reaches one visible editor window'
     $duplicate = Start-Process -FilePath $executable -WorkingDirectory $installDirectory -PassThru -WindowStyle Hidden
     Assert-Condition ($duplicate.WaitForExit(15000)) 'Second installed launch exits through the single-instance handler'
     $duplicate.Refresh()
@@ -142,8 +246,15 @@ function Test-InstalledApplication {
     Invoke-Installer $installer @('/S') $false
     $process.Refresh()
     Assert-Condition (-not $process.HasExited) 'Installer leaves the running editor alive'
-    Assert-Condition ($process.CloseMainWindow()) 'Installed window accepts the normal close request'
-    Assert-Condition ($process.WaitForExit(15000)) 'Installed application completes guarded close'
+    Record-ApplicationWindow $process 'before native close'
+    $editorWindows = @(Get-EditorWindows $process.Id)
+    Assert-Condition ($editorWindows.Count -eq 1) 'Exactly one installed editor window is selected for native close'
+    $windowDiagnostics.Add(@{ phase = 'selected native close target'; window = $editorWindows[0] })
+    [DumpInstallerWindows]::Close($editorWindows[0].Handle)
+    Assert-Condition $true 'Native close request is posted to the installed editor window'
+    $closed = $process.WaitForExit(15000)
+    Record-ApplicationWindow $process 'after native close wait'
+    Assert-Condition $closed 'Installed application completes guarded close'
     $process.Refresh()
     Assert-Condition ($process.ExitCode -eq 0) 'Installed application exits successfully'
     $processes.Add(@{ executable = $executable; exitCode = $process.ExitCode; method = 'native window close' })
@@ -249,9 +360,22 @@ try {
     $report.profileAfterUpgrade = $reopenedProfile
     $report.passed = $true
 } catch {
+    $failure = $_
     $report.passed = $false
     $report.error = $_.Exception.Message
-    throw
+    try {
+        $profileEvidence = Join-Path $evidenceDirectory 'failed-profile'
+        [void](New-Item -ItemType Directory -Path $profileEvidence -Force)
+        foreach ($name in @('dump.txt', 'app-state.json', 'recovery.json')) {
+            $source = Join-Path $profileDirectory $name
+            if (Test-Path -LiteralPath $source -PathType Leaf) {
+                Copy-Item -LiteralPath $source -Destination (Join-Path $profileEvidence $name)
+            }
+        }
+    } catch {
+        $report.profileDiagnosticError = $_.Exception.Message
+    }
+    throw $failure
 } finally {
     $report | ConvertTo-Json -Depth 12 | Set-Content -LiteralPath (Join-Path $evidenceDirectory 'report.json') -Encoding utf8
 }
