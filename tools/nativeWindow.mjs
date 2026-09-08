@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { mkdir, readlink } from "node:fs/promises";
+import { appendFile, mkdir, readlink } from "node:fs/promises";
 import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
@@ -123,24 +123,120 @@ export async function createNativeWindow(browser, folder) {
 		};
 	}
 	const state = () => native("state");
+	let clickNumber = 0;
+	const trace = (entry) =>
+		appendFile(path.join(folder, "native-pointer.jsonl"), `${JSON.stringify({ at: Date.now(), ...entry })}\n`);
 	const point = async (selector) => {
-		const bounds = await state();
+		let bounds;
+		let previousBounds;
+		await browser.waitUntil(
+			async () => {
+				bounds = await state();
+				const geometry = JSON.stringify([
+					bounds.x,
+					bounds.y,
+					bounds.width,
+					bounds.height,
+					bounds.clientX,
+					bounds.clientY,
+				]);
+				const stable = !bounds.minimized && geometry === previousBounds;
+				previousBounds = geometry;
+				return stable;
+			},
+			{ timeout: 10000, interval: 150, timeoutMsg: "Native window geometry must settle before pointer input" },
+		);
 		if (selector === null) {
 			assert.equal(process.platform, "linux", "Native frame drag is only used on Linux");
 			return { x: Math.round(bounds.x + bounds.width / 2), y: Math.round((bounds.y + bounds.clientY) / 2) };
 		}
-		const geometry = await browser.execute((query) => {
+		await browser.execute((query) => {
 			const element = document.querySelector(query);
 			if (!element) throw new Error(`Missing native pointer target: ${query}`);
 			element.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "instant" });
-			const rect = element.getBoundingClientRect();
-			if (!rect.width || !rect.height) throw new Error(`Native pointer target has no area: ${query}`);
-			return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2, scale: devicePixelRatio };
 		}, selector);
+		let geometry;
+		let previous;
+		await browser.waitUntil(
+			async () => {
+				geometry = await browser.execute((query) => {
+					const element = document.querySelector(query);
+					if (!element) return null;
+					const rect = element.getBoundingClientRect();
+					const x = rect.x + rect.width / 2;
+					const y = rect.y + rect.height / 2;
+					const hit = document.elementFromPoint(x, y);
+					return {
+						x,
+						y,
+						width: rect.width,
+						height: rect.height,
+						scale: devicePixelRatio,
+						hit: !!hit && element.contains(hit),
+						hitTag: hit?.tagName,
+						hitText: hit?.textContent?.slice(0, 100),
+					};
+				}, selector);
+				const stable =
+					geometry?.hit && geometry.width > 0 && geometry.height > 0 && JSON.stringify(geometry) === previous;
+				previous = JSON.stringify(geometry);
+				return stable;
+			},
+			{ timeout: 5000, interval: 100, timeoutMsg: `Native target must settle and pass hit testing: ${selector}` },
+		);
 		const scale = process.platform === "darwin" ? 1 : geometry.scale;
 		return { x: Math.round(bounds.clientX + geometry.x * scale), y: Math.round(bounds.clientY + geometry.y * scale) };
 	};
-	const click = async (selector) => native("pointer", await point(selector));
+	const click = async (selector) => {
+		const number = ++clickNumber;
+		await browser.execute(() => {
+			if (!window.nativePointerEvents) {
+				window.nativePointerEvents = [];
+				for (const type of ["pointerdown", "pointerup", "click"])
+					document.addEventListener(
+						type,
+						(event) => {
+							const element = event.target.closest?.("[role], button");
+							window.nativePointerEvents.push({
+								type,
+								trusted: event.isTrusted,
+								x: event.clientX,
+								y: event.clientY,
+								role: element?.getAttribute("role"),
+								label: element?.getAttribute("aria-label"),
+								text: element?.textContent?.slice(0, 100),
+								theme: document.documentElement.dataset.theme,
+							});
+						},
+						true,
+					);
+			}
+			window.nativePointerEvents.length = 0;
+		});
+		const position = await point(selector);
+		const viewport = await browser.execute(
+			(query) => ({
+				target: document.querySelector(query)?.getBoundingClientRect().toJSON(),
+				screenX,
+				screenY,
+				innerWidth,
+				innerHeight,
+				outerWidth,
+				outerHeight,
+				scale: devicePixelRatio,
+			}),
+			selector,
+		);
+		await trace({ number, phase: "before", selector, position, viewport, bounds: await state() });
+		if (selector.includes("data-chrome-test"))
+			await native("screenshot", { path: path.join(folder, `pointer-${number}-before.png`), bounds: await state() });
+		await native("pointer", position);
+		await delay(150);
+		const events = await browser
+			.execute(() => ({ events: window.nativePointerEvents, theme: document.documentElement.dataset.theme }))
+			.catch((error) => ({ disconnected: String(error) }));
+		await trace({ number, phase: "after", selector, ...events });
+	};
 	const control = (action, selector) => (process.platform === "win32" ? click(selector) : native(action));
 	await native("focus");
 	return {

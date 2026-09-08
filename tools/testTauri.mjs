@@ -386,7 +386,10 @@ try {
 		remembered,
 		2,
 	);
-	await scroll(0);
+	const wheelOrigin = await evaluate(() =>
+		Math.max(0, parseFloat(getComputedStyle(document.querySelector(".cm-content")).paddingTop) - 10),
+	);
+	await scroll(wheelOrigin);
 	const lineHeight = await evaluate(() =>
 		parseFloat(getComputedStyle(document.querySelector(".cm-content")).lineHeight),
 	);
@@ -410,7 +413,8 @@ try {
 	});
 	check(
 		"one normalized notch moves three rendered lines",
-		await evaluate(() => document.querySelector(".page-current .cm-scroller").scrollTop),
+		(await evaluate(() => document.querySelector(".page-current .cm-scroller").scrollTop)) -
+			report.syntheticWheel.frames[0].top,
 		lineHeight * 3,
 		2,
 		"Synthetic DOM notch with deltaMode=LINE, deltaY=3, wheelDeltaY=-120; physical notch remains pending",
@@ -418,7 +422,10 @@ try {
 	if (!report.engine.reducedMotion)
 		check(
 			"normalized notch has intermediate smooth positions",
-			report.syntheticWheel.frames.some((frame) => frame.top > 1 && frame.top < lineHeight * 3 - 1),
+			report.syntheticWheel.frames.some((frame) => {
+				const distance = frame.top - report.syntheticWheel.frames[0].top;
+				return distance > 1 && distance < lineHeight * 3 - 1;
+			}),
 			true,
 			0,
 			"Synthetic DOM notch; requestAnimationFrame samples of actual scrollTop",
@@ -443,6 +450,10 @@ try {
 	check("300px boundary intent navigates", await count(), "1 / 3", 0, "Synthetic DOM wheel");
 	await delay(350);
 	if (!report.engine.reducedMotion) {
+		await navigate(1);
+		await scroll(wheelOrigin);
+		const queuedOrigin = await evaluate(() => document.querySelector(".page-current .cm-scroller").scrollTop);
+		await navigate(-1);
 		const overlap = await evaluate(async () => {
 			document
 				.querySelector(".page-bar")
@@ -477,7 +488,7 @@ try {
 		await settled();
 		check(
 			"queued notch scrolls newly entered long page",
-			await evaluate(() => document.querySelector(".page-current .cm-scroller").scrollTop),
+			(await evaluate(() => document.querySelector(".page-current .cm-scroller").scrollTop)) - queuedOrigin,
 			lineHeight * 3,
 			2,
 			"Synthetic DOM notch; actual rendered geometry",
@@ -486,7 +497,7 @@ try {
 		await delay(350);
 		check(
 			"continued notch scrolls after entry settles",
-			await evaluate(() => document.querySelector(".page-current .cm-scroller").scrollTop),
+			(await evaluate(() => document.querySelector(".page-current .cm-scroller").scrollTop)) - queuedOrigin,
 			lineHeight * 6,
 			2,
 			"Synthetic DOM notch; actual rendered geometry",
@@ -687,21 +698,36 @@ try {
 	check("reversal fixture has both neighbors", await count(), "2 / 4");
 	const reversal = await evaluate(async () => {
 		const pages = [];
+		const boundaries = [];
 		for (const deltaY of [200, -100, 100, 200]) {
+			const scroller = document.querySelector(".page-current .cm-scroller");
+			scroller.scrollTop = deltaY < 0 ? 0 : scroller.scrollHeight - scroller.clientHeight;
+			boundaries.push({
+				deltaY,
+				scrollTop: scroller.scrollTop,
+				maximum: scroller.scrollHeight - scroller.clientHeight,
+			});
 			const event = new WheelEvent("wheel", { deltaY, bubbles: true, cancelable: true });
-			document.querySelector(".page-current .cm-scroller").dispatchEvent(event);
+			scroller.dispatchEvent(event);
 			await new Promise(requestAnimationFrame);
 			pages.push(document.querySelector(".page-count").textContent.trim().replace("Pages ", ""));
 		}
-		return pages;
+		return { pages, boundaries };
 	});
 	report.reversal = reversal;
 	check(
+		"reversal wheel events start at their scroll boundary",
+		reversal.boundaries.every(({ deltaY, scrollTop, maximum }) =>
+			deltaY < 0 ? scrollTop <= 1 : scrollTop >= maximum - 1,
+		),
+		true,
+	);
+	check(
 		"reversal discards accumulated boundary intent",
-		reversal.slice(0, 3).join(","),
+		reversal.pages.slice(0, 3).join(","),
 		"2 / 4,2 / 4,2 / 4",
 		0,
-		"Synthetic DOM wheel sequence +200,-100,+100 on short middle page",
+		"Synthetic DOM wheel sequence +200,-100,+100 at each direction's boundary on middle page",
 	);
 	await settled();
 	check(
