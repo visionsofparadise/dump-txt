@@ -34,17 +34,25 @@ async function createLinuxDriver() {
 			const geometry = Object.fromEntries(
 				(await command("getwindowgeometry", "--shell", window)).split("\n").map((line) => line.split("=")),
 			);
+			const information = await run("xwininfo", ["-id", window]);
+			const absoluteX = information.match(/Absolute upper-left X:\s*(-?\d+)/);
+			const absoluteY = information.match(/Absolute upper-left Y:\s*(-?\d+)/);
+			assert.ok(absoluteX && absoluteY, "X11 window must expose absolute client coordinates");
+			const clientX = Number(absoluteX[1]);
+			const clientY = Number(absoluteY[1]);
 			const properties = await run("xprop", ["-id", window, "_NET_WM_STATE", "_NET_FRAME_EXTENTS"]);
 			const extents = properties.match(/_NET_FRAME_EXTENTS[^=]*=\s*(\d+),\s*(\d+),\s*(\d+),\s*(\d+)/);
 			assert.ok(extents, "Window manager must expose native frame extents");
 			const [, left, right, top, bottom] = extents.map(Number);
 			return {
-				x: Number(geometry.X) - left,
-				y: Number(geometry.Y) - top,
+				x: clientX - left,
+				y: clientY - top,
 				width: Number(geometry.WIDTH) + left + right,
 				height: Number(geometry.HEIGHT) + top + bottom,
-				clientX: Number(geometry.X),
-				clientY: Number(geometry.Y),
+				clientX,
+				clientY,
+				xdotoolX: Number(geometry.X),
+				xdotoolY: Number(geometry.Y),
 				minimized: properties.includes("_NET_WM_STATE_HIDDEN"),
 				maximized:
 					properties.includes("_NET_WM_STATE_MAXIMIZED_VERT") &&

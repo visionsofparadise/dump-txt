@@ -141,7 +141,7 @@ export async function testWindowChrome(browser, native, folder) {
 			pointerEvents.length >= 4 && pointerEvents.every((event) => event.trusted),
 		);
 		const before = await native.state();
-		await native.drag(process.platform === "linux" ? null : ".app-name", 60, 40);
+		await native.drag(process.platform === "linux" ? null : ".app-name", -24, 24);
 		await waitFor(async () => {
 			const after = await native.state();
 			return Math.abs(after.x - before.x) > 20 || Math.abs(after.y - before.y) > 20;
