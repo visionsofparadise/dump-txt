@@ -418,7 +418,7 @@ describe("CodeMirror bridge", () => {
 	});
 
 	it("restores persisted scroll only after measurement without saving intermediate positions", async () => {
-		const { controller, view, session } = fixture();
+		const { controller, view, session, history } = fixture();
 		Object.defineProperties(view.scrollDOM, {
 			clientHeight: { configurable: true, value: 100 },
 			scrollHeight: { configurable: true, value: 1000 },
@@ -431,11 +431,19 @@ describe("CodeMirror bridge", () => {
 				second: { ranges: [{ anchor: 0, head: 0 }], mainIndex: 0, scrollTop: 321 },
 			},
 		};
+		history.scroll.restore(session.view);
+		let incomingScrollTop: number | undefined;
+		controller.subscribePageTransition((transition) => {
+			incomingScrollTop = transition?.incoming?.scrollTop;
+		});
 		controller.showPage("second");
 		view.scrollDOM.scrollTop = 17;
 		view.scrollDOM.dispatchEvent(new Event("scroll"));
 		expect(session.view.selections.second?.scrollTop).toBe(321);
-		await vi.waitFor(() => expect(view.scrollDOM.scrollTop).toBe(321));
+		expect(history.scroll.positions.second).toBe(321);
+		await vi.waitFor(() => expect(incomingScrollTop).toBe(321));
+		expect(view.scrollDOM.scrollTop).toBe(321);
+		expect(history.scroll.positions.second).toBe(321);
 	});
 
 	it("keeps rapid page navigation independent of restoration and stale animation completion", async () => {
