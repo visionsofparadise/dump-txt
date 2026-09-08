@@ -104,8 +104,9 @@ export async function createNativeWindow(browser, folder) {
 			compiledSwift = target;
 		}
 		assert.ok(["darwin", "win32"].includes(process.platform), "Native checks support Windows, macOS, and Linux");
+		let windowHandle;
 		native = async (action, request = {}) => {
-			const input = JSON.stringify({ action, executable: path.resolve(executable), ...request });
+			const input = JSON.stringify({ action, executable: path.resolve(executable), windowHandle, ...request });
 			const output =
 				process.platform === "win32"
 					? await run("powershell.exe", [
@@ -119,8 +120,12 @@ export async function createNativeWindow(browser, folder) {
 							input,
 						])
 					: await run(compiledSwift, [input]);
-			return action === "state" ? JSON.parse(output) : undefined;
+			if (action !== "state") return;
+			const result = JSON.parse(output);
+			windowHandle ??= result.windowHandle;
+			return result;
 		};
+		await native("state");
 	}
 	const state = () => native("state");
 	let clickNumber = 0;
@@ -187,7 +192,7 @@ export async function createNativeWindow(browser, folder) {
 		const scale = process.platform === "darwin" ? 1 : geometry.scale;
 		return { x: Math.round(bounds.clientX + geometry.x * scale), y: Math.round(bounds.clientY + geometry.y * scale) };
 	};
-	const click = async (selector) => {
+	const click = async (selector, observeRenderer = true) => {
 		const number = ++clickNumber;
 		await browser.execute(() => {
 			if (!window.nativePointerEvents) {
@@ -231,13 +236,19 @@ export async function createNativeWindow(browser, folder) {
 		if (selector.includes("data-chrome-test"))
 			await native("screenshot", { path: path.join(folder, `pointer-${number}-before.png`), bounds: await state() });
 		await native("pointer", position);
+		if (!observeRenderer) {
+			const bounds = await state().catch((error) => ({ unavailable: String(error) }));
+			await trace({ number, phase: "after", selector, bounds });
+			return;
+		}
 		await delay(150);
 		const events = await browser
 			.execute(() => ({ events: window.nativePointerEvents, theme: document.documentElement.dataset.theme }))
 			.catch((error) => ({ disconnected: String(error) }));
 		await trace({ number, phase: "after", selector, ...events });
 	};
-	const control = (action, selector) => (process.platform === "win32" ? click(selector) : native(action));
+	const control = (action, selector) =>
+		process.platform === "win32" ? click(selector, !["minimize", "close"].includes(action)) : native(action);
 	await native("focus");
 	return {
 		method:

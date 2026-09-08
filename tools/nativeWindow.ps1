@@ -13,6 +13,7 @@ public static class NativeWindow {
   [DllImport("user32.dll")] public static extern bool ClientToScreen(IntPtr window, ref Point point);
   [DllImport("user32.dll")] public static extern bool IsIconic(IntPtr window);
   [DllImport("user32.dll")] public static extern bool IsZoomed(IntPtr window);
+  [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr window, out uint processId);
   [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr window, int command);
   [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr window);
   [DllImport("user32.dll")] public static extern bool SetCursorPos(int x, int y);
@@ -20,16 +21,19 @@ public static class NativeWindow {
 }
 '@
 [void][NativeWindow]::SetProcessDpiAwarenessContext([IntPtr](-4))
-$matches = @(Get-Process | Where-Object { $_.Path -eq $requestData.executable -and $_.MainWindowHandle -ne 0 })
+$matches = @(Get-Process | Where-Object { $_.Path -eq $requestData.executable })
 if ($matches.Count -ne 1) { throw "Expected one isolated app window for $($requestData.executable); found $($matches.Count)" }
-$window = $matches[0].MainWindowHandle
+$window = if ($requestData.windowHandle) { [IntPtr]([long]$requestData.windowHandle) } else { $matches[0].MainWindowHandle }
+$ownerProcessId = [uint32]0
+[void][NativeWindow]::GetWindowThreadProcessId($window, [ref]$ownerProcessId)
+if ($window -eq [IntPtr]::Zero -or $ownerProcessId -ne $matches[0].Id) { throw 'Native window handle does not belong to the isolated app process' }
 $rectangle = New-Object NativeWindow+Rect
 $origin = New-Object NativeWindow+Point
 [void][NativeWindow]::GetWindowRect($window, [ref]$rectangle)
 [void][NativeWindow]::ClientToScreen($window, [ref]$origin)
 switch ($requestData.action) {
   'state' {
-    @{ x=$rectangle.Left; y=$rectangle.Top; width=$rectangle.Right-$rectangle.Left; height=$rectangle.Bottom-$rectangle.Top; clientX=$origin.X; clientY=$origin.Y; minimized=[NativeWindow]::IsIconic($window); maximized=[NativeWindow]::IsZoomed($window); processId=$matches[0].Id; controls=@() } | ConvertTo-Json -Compress
+    @{ x=$rectangle.Left; y=$rectangle.Top; width=$rectangle.Right-$rectangle.Left; height=$rectangle.Bottom-$rectangle.Top; clientX=$origin.X; clientY=$origin.Y; minimized=[NativeWindow]::IsIconic($window); maximized=[NativeWindow]::IsZoomed($window); processId=$matches[0].Id; windowHandle=$window.ToInt64().ToString(); controls=@() } | ConvertTo-Json -Compress
   }
   'restore' { [void][NativeWindow]::ShowWindow($window, 9); [void][NativeWindow]::SetForegroundWindow($window) }
   'focus' { [void][NativeWindow]::SetForegroundWindow($window) }

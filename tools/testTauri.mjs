@@ -390,9 +390,6 @@ try {
 		Math.max(0, parseFloat(getComputedStyle(document.querySelector(".cm-content")).paddingTop) - 10),
 	);
 	await scroll(wheelOrigin);
-	const lineHeight = await evaluate(() =>
-		parseFloat(getComputedStyle(document.querySelector(".cm-content")).lineHeight),
-	);
 	report.syntheticWheel = await evaluate(async () => {
 		const event = new WheelEvent("wheel", { deltaY: 3, deltaMode: 1, bubbles: true, cancelable: true });
 		const constructorValues = {
@@ -402,6 +399,9 @@ try {
 		};
 		Object.defineProperty(event, "wheelDeltaY", { value: -120 });
 		const scroller = document.querySelector(".page-current .cm-scroller");
+		const origin = Math.max(0, parseFloat(getComputedStyle(document.querySelector(".cm-content")).paddingTop) - 10);
+		scroller.scrollTop = origin;
+		const lineHeight = parseFloat(getComputedStyle(document.querySelector(".cm-content")).lineHeight);
 		const startedAt = performance.now();
 		const frames = [{ elapsed: 0, top: scroller.scrollTop }];
 		scroller.dispatchEvent(event);
@@ -409,8 +409,15 @@ try {
 			await new Promise(requestAnimationFrame);
 			frames.push({ elapsed: performance.now() - startedAt, top: scroller.scrollTop });
 		}
-		return { constructorValues, suppliedWheelDeltaY: -120, frames };
+		return { constructorValues, suppliedWheelDeltaY: -120, origin, lineHeight, frames };
 	});
+	const lineHeight = report.syntheticWheel.lineHeight;
+	check(
+		"normalized notch starts at the measured line-grid origin",
+		report.syntheticWheel.frames[0].top,
+		report.syntheticWheel.origin,
+		1,
+	);
 	check(
 		"one normalized notch moves three rendered lines",
 		(await evaluate(() => document.querySelector(".page-current .cm-scroller").scrollTop)) -

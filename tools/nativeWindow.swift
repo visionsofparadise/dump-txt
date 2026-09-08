@@ -31,6 +31,15 @@ func pointer(_ point: CGPoint, _ kind: CGEventType, _ alternate: Bool = false) {
     event.post(tap: .cghidEventTap)
 }
 
+func movePointer(_ destination: CGPoint) {
+    guard let current = CGEvent(source: nil)?.location else { fail("Could not read native pointer location") }
+    for step in 1...20 {
+        pointer(CGPoint(x: current.x + (destination.x-current.x)*Double(step)/20, y: current.y + (destination.y-current.y)*Double(step)/20), .mouseMoved)
+        usleep(10000)
+    }
+    usleep(100000)
+}
+
 guard AXIsProcessTrusted(), CGPreflightPostEventAccess() else {
     fail("Native window checks require Accessibility/input permission for the nativeWindow helper")
 }
@@ -66,10 +75,12 @@ case "restore":
 case "focus":
     app.activate(options: [.activateIgnoringOtherApps])
 case "pointer":
-    app.activate(options: [.activateIgnoringOtherApps])
-    usleep(100000)
+    if !app.isActive {
+        app.activate(options: [.activateIgnoringOtherApps])
+        usleep(100000)
+    }
     let start = CGPoint(x: request["x"] as! Double, y: request["y"] as! Double)
-    pointer(start, .mouseMoved)
+    movePointer(start)
     pointer(start, .leftMouseDown)
     if let endX = request["endX"] as? Double, let endY = request["endY"] as? Double {
         for step in 1...20 {
@@ -86,9 +97,11 @@ case "minimize", "maximize", "close":
     guard let control = attribute(window, key) else { fail("Native \(action) button is unavailable") }
     let rect = rectangle(control as! AXUIElement)
     let point = CGPoint(x: rect.midX, y: rect.midY)
-    app.activate(options: [.activateIgnoringOtherApps])
-    usleep(100000)
-    pointer(point, .mouseMoved)
+    if !app.isActive {
+        app.activate(options: [.activateIgnoringOtherApps])
+        usleep(100000)
+    }
+    movePointer(point)
     pointer(point, .leftMouseDown, action == "maximize")
     usleep(60000)
     pointer(point, .leftMouseUp, action == "maximize")

@@ -9,7 +9,14 @@ export async function testWindowChrome(browser, native, folder) {
 		observations.push({ name, actual, expected });
 		assert.deepEqual(actual, expected, name);
 	};
-	const waitFor = (predicate) => browser.waitUntil(predicate, { timeout: 15000, interval: 100 });
+	const waitFor = async (predicate) => {
+		const deadline = Date.now() + 15000;
+		while (Date.now() < deadline) {
+			if (await predicate()) return;
+			await delay(100);
+		}
+		throw new Error(`Timed out: ${predicate}`);
+	};
 	const menuOpen = () => browser.execute(() => !!document.querySelector(".menu-content"));
 	const dismiss = () => native.click(process.platform === "linux" ? ".page-current .cm-line" : ".app-name");
 	try {
