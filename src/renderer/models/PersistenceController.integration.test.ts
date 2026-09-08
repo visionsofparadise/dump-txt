@@ -81,6 +81,7 @@ async function fixture(initial?: string) {
 		readClipboard: async () => "",
 		writeClipboard: async () => undefined,
 		setTitle: async () => undefined,
+		setTheme: async () => undefined,
 		minimize: async () => undefined,
 		toggleMaximize: async () => undefined,
 		finishClose: async () => {

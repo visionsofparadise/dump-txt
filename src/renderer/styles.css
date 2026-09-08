@@ -77,6 +77,10 @@ input:focus-visible {
 	background: var(--color-surface);
 }
 
+.dump-app[data-platform="linux"] {
+	grid-template-rows: var(--spacing-bar) minmax(0, 1fr) var(--spacing-bar) var(--status-bar-height, 24px);
+}
+
 .loading-copy {
 	padding: 14px;
 	font-size: 12px;
@@ -93,21 +97,38 @@ input:focus-visible {
 	-webkit-app-region: drag;
 }
 
-.title-menu,
-.window-controls {
-	height: var(--spacing-bar);
-	display: flex;
-}
-
-.window-controls {
-	justify-content: flex-end;
-}
-
 .title-bar-menu-open {
 	-webkit-app-region: no-drag;
 }
 
+.title-menu {
+	position: relative;
+	width: fit-content;
+	height: var(--spacing-bar);
+	display: flex;
+	grid-column: 1;
+	grid-row: 1;
+	-webkit-app-region: no-drag;
+}
+
+.title-bar[data-platform="macos"] .title-menu {
+	grid-column: 3;
+	justify-self: end;
+	justify-content: flex-end;
+}
+
+.window-controls {
+	height: var(--spacing-bar);
+	display: flex;
+	grid-column: 3;
+	grid-row: 1;
+	justify-content: flex-end;
+}
+
 .app-name {
+	position: relative;
+	grid-column: 2;
+	grid-row: 1;
 	font-family: Arial, sans-serif;
 	min-width: 0;
 	overflow: hidden;
@@ -161,6 +182,10 @@ input:focus-visible {
 	grid-template-columns: 46px minmax(0, 1fr) 138px;
 }
 
+.page-bar-menu {
+	grid-template-columns: 92px minmax(0, 1fr) 92px;
+}
+
 .page-bar-leading,
 .page-bar-trailing {
 	display: flex;
@@ -177,6 +202,10 @@ input:focus-visible {
 
 .page-bar-bottom .page-nav-main {
 	padding-left: 92px;
+}
+
+.page-bar-menu .page-nav-main {
+	padding-left: 0;
 }
 
 .page-nav-main:hover:not(:disabled) {

@@ -291,7 +291,7 @@ try {
 		window.addEventListener("error", (event) => window.tauriTestErrors.push(String(event.error ?? event.message)));
 		window.addEventListener("unhandledrejection", (event) => window.tauriTestErrors.push(String(event.reason)));
 	});
-	check("fixture title", await evaluate(() => document.querySelector(".app-name").textContent), "dump.txt");
+	check("fixture title", await evaluate(() => document.title), "dump.txt");
 	check(
 		"40px chrome",
 		await evaluate(() =>
@@ -305,12 +305,16 @@ try {
 	await click('[aria-label="App menu"]');
 	await waitFor(() => !!document.querySelector(".menu-content"));
 	check(
-		"menu flush left",
-		await evaluate(() => document.querySelector(".menu-content").getBoundingClientRect().left),
+		"menu aligned with its platform trigger",
+		await evaluate(() => {
+			const menu = document.querySelector(".menu-content").getBoundingClientRect();
+			const trigger = document.querySelector('[aria-label="App menu"]').getBoundingClientRect();
+			return window.dumpPlatform === "macos" ? menu.right - trigger.right : menu.left - trigger.left;
+		}),
 		0,
 		1,
 	);
-	await click(".app-name");
+	await click(process.platform === "linux" ? ".cm-content" : ".app-name");
 	await waitFor(() => !document.querySelector(".menu-content"));
 	await click(".cm-content");
 	await navigate(1);

@@ -25,6 +25,15 @@ beforeEach(() => {
 afterEach(() => vi.restoreAllMocks());
 
 describe("Tauri desktop boundary", () => {
+	it.each(["system", "light", "dark"] as const)("synchronizes the native window theme: %s", async (theme) => {
+		const desktop = await createTauriMain();
+
+		native.invoke.mockResolvedValueOnce({ ok: true, value: null });
+		await expect(desktop.main.setTheme(theme)).resolves.toBeUndefined();
+		expect(native.invoke).toHaveBeenLastCalledWith("set_theme", { request: { theme } });
+		desktop.dispose();
+	});
+
 	it("opens the native development inspector and removes its shortcut on disposal", async () => {
 		const desktop = await createTauriMain();
 

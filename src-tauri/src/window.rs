@@ -38,7 +38,17 @@ pub fn restore_bounds(window: &WebviewWindow, bounds: WindowBounds) -> tauri::Re
         width.max(0) * height.max(0)
     }) {
         let fitted = fit_bounds(bounds, *area);
-        window.set_size(tauri::LogicalSize::new(fitted.width, fitted.height))?;
+        let outer = window.outer_size()?;
+        let inner = window.inner_size()?;
+        let frame = tauri::PhysicalSize::new(
+            outer.width.saturating_sub(inner.width),
+            outer.height.saturating_sub(inner.height),
+        )
+        .to_logical::<u32>(scale);
+        window.set_size(tauri::LogicalSize::new(
+            fitted.width.saturating_sub(frame.width),
+            fitted.height.saturating_sub(frame.height),
+        ))?;
         window.set_position(tauri::LogicalPosition::new(fitted.x, fitted.y))?;
     } else {
         window.center()?;

@@ -148,7 +148,7 @@ async function editAndMinimize(text) {
 
 async function closeAndVerify(documentPath, expectedBytes, name) {
 	await evaluate(() => {
-		setTimeout(() => document.querySelector('[aria-label="Close window"]').click(), 0);
+		setTimeout(() => void window.__TAURI_INTERNALS__.invoke("plugin:window|close", { label: "main" }), 0);
 	});
 	await until(async () => {
 		try {

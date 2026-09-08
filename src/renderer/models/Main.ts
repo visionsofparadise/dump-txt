@@ -22,6 +22,8 @@ export interface Main {
 
 	setTitle(title: string): Promise<void>;
 
+	setTheme(theme: "system" | "light" | "dark"): Promise<void>;
+
 	finishClose(): Promise<void>;
 
 	showTextContextMenu(state: TextContextMenuState): Promise<TextContextMenuResponse>;

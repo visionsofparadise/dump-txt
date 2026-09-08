@@ -10,6 +10,7 @@ mod menu;
 mod paths;
 mod startup;
 mod window;
+mod window_theme;
 
 use std::{path::PathBuf, sync::Arc};
 use tauri::{webview::NewWindowResponse, Manager, Theme, WebviewWindowBuilder};
@@ -104,12 +105,25 @@ pub fn run() {
             };
             let profile = app.path().app_local_data_dir()?.join("webview");
             let window = WebviewWindowBuilder::from_config(app, window_config)?
+                .theme(match theme {
+                    startup::StartupTheme::System => None,
+                    startup::StartupTheme::Light => Some(Theme::Light),
+                    startup::StartupTheme::Dark => Some(Theme::Dark),
+                })
                 .data_directory(profile)
                 .incognito(cfg!(target_os = "macos") && configuration.identifier != "com.visionsofparadise.dump-txt")
-                .initialization_script(format!("document.addEventListener('DOMContentLoaded', () => {{ document.documentElement.dataset.theme = '{}'; }}, {{ once: true }});", theme.as_str()))
+                .initialization_script(format!("window.dumpPlatform = '{}'; document.addEventListener('DOMContentLoaded', () => {{ document.documentElement.dataset.theme = '{}'; }}, {{ once: true }});", std::env::consts::OS, theme.as_str()))
                 .on_navigation(move |url| navigation_allowed(url, development_origin.as_ref()))
                 .on_new_window(|_, _| NewWindowResponse::Deny)
                 .devtools(cfg!(debug_assertions));
+            #[cfg(target_os = "macos")]
+            let window = window
+                .decorations(true)
+                .title_bar_style(tauri::TitleBarStyle::Overlay)
+                .hidden_title(true)
+                .traffic_light_position(tauri::LogicalPosition::new(14.0, 12.0));
+            #[cfg(target_os = "linux")]
+            let window = window.decorations(true);
             #[cfg(all(feature = "automation", target_os = "windows"))]
             let window = match automation::browser_arguments()? {
                 Some(arguments) => window.additional_browser_args(&arguments),
@@ -139,6 +153,7 @@ pub fn run() {
             window::finish_close,
             window::renderer_ready,
             window::open_inspector,
+            window_theme::set_theme,
             fonts::get_system_fonts,
             clipboard::read_clipboard,
             clipboard::write_clipboard,

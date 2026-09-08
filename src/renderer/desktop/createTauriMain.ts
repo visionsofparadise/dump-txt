@@ -41,6 +41,7 @@ export async function createTauriMain(): Promise<{ main: Main; dispose(): void }
 	}
 
 	let disposed = false;
+
 	let removeInspector: () => void = () => undefined;
 
 	if (import.meta.env.DEV) {
@@ -71,6 +72,7 @@ export async function createTauriMain(): Promise<{ main: Main; dispose(): void }
 		minimize: () => invokeTauri("minimize", {}, nativeVoid),
 		toggleMaximize: () => invokeTauri("toggle_maximize", {}, nativeVoid),
 		setTitle: (title) => invokeTauri("set_title", { title }, nativeVoid),
+		setTheme: (theme) => invokeTauri("set_theme", { theme }, nativeVoid),
 		finishClose: () => invokeTauri("finish_close", {}, nativeVoid),
 		showTextContextMenu: (state) =>
 			invokeTauri("show_text_context_menu", { ...state }, textContextMenuResponseSchema),

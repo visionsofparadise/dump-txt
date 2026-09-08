@@ -32,6 +32,7 @@ async function fixture(text = "first\n\f\nsecond\n\f\nthird") {
 		showOpenDialog: vi.fn(async () => null),
 		showSaveDialog: vi.fn(async () => null),
 		setTitle: vi.fn(async () => undefined),
+		setTheme: vi.fn(async () => undefined),
 		showTextContextMenu: vi.fn(async () => null),
 		getSystemFonts: vi.fn(async () => ["Arial", "Consolas"]),
 		readClipboard: vi.fn(async () => ""),
@@ -82,6 +83,30 @@ afterEach(() => {
 });
 
 describe("scratchpad interface", () => {
+	it.each(["windows", "macos", "linux"] as const)("places the menu and window controls for %s", async (platform) => {
+		vi.stubGlobal("dumpPlatform", platform);
+		const { container, user } = await fixture();
+		const menu = screen.getByRole("button", { name: "App menu" });
+
+		if (platform === "windows") {
+			expect(screen.getByRole("button", { name: "Close window" })).toBeTruthy();
+			expect(screen.getByRole("button", { name: "Minimize" })).toBeTruthy();
+		} else {
+			expect(screen.queryByRole("button", { name: "Close window" })).toBeNull();
+			expect(screen.queryByRole("button", { name: "Minimize" })).toBeNull();
+		}
+		if (platform === "linux") {
+			expect(container.querySelector(".title-bar")).toBeNull();
+			expect(menu.previousElementSibling).toBe(screen.getByRole("button", { name: "Insert page above" }));
+		} else {
+			expect(menu.closest(".title-bar")?.getAttribute("data-platform")).toBe(platform);
+			expect(container.querySelector(".app-name")?.textContent).toBe("dump.txt");
+		}
+		await waitFor(() => expect(main.setTitle).toHaveBeenLastCalledWith("dump.txt"));
+		await user.click(menu);
+		expect(await screen.findByRole("menuitem", { name: /^Close/u })).toBeTruthy();
+	});
+
 	it("updates status counts and positions for typing, selections, and page navigation", async () => {
 		const { container, editor, insert, user } = await fixture("one two\nthree\n\f\nnext");
 		const counts = () => container.querySelector(".status-counts")?.textContent;

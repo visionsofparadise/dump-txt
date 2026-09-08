@@ -17,6 +17,7 @@ function fixture() {
 		minimize: vi.fn(async () => undefined),
 		toggleMaximize: vi.fn(async () => undefined),
 		setTitle: vi.fn(async () => undefined),
+		setTheme: vi.fn(async () => undefined),
 		finishClose: vi.fn(async () => undefined),
 		showTextContextMenu: vi.fn(async () => null),
 		getSystemFonts: vi.fn(async () => ["Consolas"]),

@@ -1,6 +1,7 @@
 import { FolderOpen, Keyboard, Menu as MenuIcon, PanelBottom, Redo2, Save, Search, X, Undo2 } from "lucide-react";
 import { scope } from "opshot";
 import { useCallback } from "react";
+import { platformOf } from "../../utils/platformOf";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -98,7 +99,7 @@ export const Menu = scope(({ context }: MenuProps) => {
 					<MenuIcon size={16} aria-hidden />
 				</button>
 			</DropdownMenuTrigger>
-			<DropdownMenuContent align="start" onCloseAutoFocus={restoreFocus}>
+			<DropdownMenuContent align={platformOf() === "macos" ? "end" : "start"} onCloseAutoFocus={restoreFocus}>
 				<DropdownMenuItem onSelect={openFile} disabled={persistenceState.locked}>
 					<FolderOpen size={16} aria-hidden />
 					<span>Open…</span>

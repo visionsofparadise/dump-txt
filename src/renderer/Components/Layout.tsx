@@ -1,5 +1,6 @@
 import { createMutableState, scope } from "opshot";
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
+import { platformOf } from "../utils/platformOf";
 import { Menu } from "./Menu";
 import { ChromeDialogs } from "./Menu/ChromeDialogs";
 import { DownBar } from "./Page/DownBar";
@@ -22,6 +23,7 @@ interface EditorStyle extends CSSProperties {
 
 export const Layout = scope(({ context: dumpContext }: LayoutProps) => {
 	const { session, editor, persistence } = dumpContext;
+	const platform = platformOf();
 
 	const [chrome] = useState(() =>
 		createMutableState<ChromeState>({ menuOpen: false, fontPickerOpen: false, keybindsOpen: false }),
@@ -46,7 +48,8 @@ export const Layout = scope(({ context: dumpContext }: LayoutProps) => {
 
 	useEffect(() => {
 		document.documentElement.dataset.theme = theme;
-	}, [theme]);
+		void context.main.setTheme(theme).catch((error: unknown) => console.error(error));
+	}, [context.main, theme]);
 
 	useEffect(() => {
 		const keydown = (event: KeyboardEvent) => {
@@ -120,11 +123,11 @@ export const Layout = scope(({ context: dumpContext }: LayoutProps) => {
 	}, [chrome, editor, persistence]);
 
 	return (
-		<main className="dump-app" style={appearance}>
+		<main className="dump-app" data-platform={platform} style={appearance}>
 			<TitleBar chrome={context.chrome} onDismissMenu={dismissMenu} context={context}>
-				<Menu context={context} />
+				{platform !== "linux" && <Menu context={context} />}
 			</TitleBar>
-			<UpBar context={context} />
+			<UpBar context={context}>{platform === "linux" && <Menu context={context} />}</UpBar>
 			<PageLayout context={context} />
 			<DownBar context={context} />
 			{showStatusBar && <StatusBar context={context} />}

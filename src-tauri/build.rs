@@ -3,6 +3,7 @@ fn main() {
         "minimize",
         "toggle_maximize",
         "set_title",
+        "set_theme",
         "finish_close",
         "renderer_ready",
         "open_inspector",
