@@ -73,7 +73,7 @@ function tagTargetOf(repository, tag, run) {
 	return object.sha;
 }
 
-export function publishRelease({ repository, sha, version, directory, run = runGh }) {
+export function publishRelease({ repository, sha, version, directory, draftOnly = false, run = runGh }) {
 	const artifacts = artifactNamesOf(version);
 
 	if (!/^[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+$/u.test(repository) || !/^[a-f0-9]{40}$/u.test(sha))
@@ -154,6 +154,8 @@ export function publishRelease({ repository, sha, version, directory, run = runG
 
 	if (currentTarget && currentTarget !== sha) throw new Error("Release tag changed during upload");
 
+	if (draftOnly) return "draft ready for review";
+
 	run(["release", "edit", tag, "--repo", repository, "--draft=false", "--latest"]);
 
 	if (tagTargetOf(repository, tag, run) !== sha) throw new Error("Published release tag has an unexpected target");
@@ -168,7 +170,13 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
 	if (command === "checksums") writeChecksums(directory, version);
 	else if (command === "publish")
 		console.log(
-			publishRelease({ repository: process.env.GITHUB_REPOSITORY, sha: process.env.GITHUB_SHA, version, directory }),
+			publishRelease({
+				repository: process.env.GITHUB_REPOSITORY,
+				sha: process.env.GITHUB_SHA,
+				version,
+				directory,
+				draftOnly: process.env.RELEASE_DRAFT_ONLY === "true",
+			}),
 		);
 	else throw new Error("Usage: node tools/release.mjs checksums|publish [artifact-directory]");
 }

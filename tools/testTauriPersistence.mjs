@@ -5,19 +5,23 @@ import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { cleanupWdioSession } from "@wdio/tauri-service";
 import { driverProvider, executable, hostReport, root, startHostSession } from "./tauriTestHost.mjs";
+import { createNativeWindow } from "./nativeWindow.mjs";
+import { testWindowChrome } from "./testWindowChrome.mjs";
 
 const folder = path.join(root, ".scratch", "tauri-persistence", `${Date.now()}`);
 const originalProfile = process.env.DUMP_TXT_PROFILE;
+const nativeWindowChecks = process.env.TAURI_TEST_NATIVE_WINDOW === "true";
 const observations = [];
 const failures = [];
 const report = {
 	...hostReport(),
 	method:
-		"Actual production system webview and native filesystem; synthetic DOM selection and engine execCommand text input; real native minimize and renderer save-before-close",
+		"Actual production system webview and native filesystem; synthetic DOM selection and engine execCommand text input; native window interaction when TAURI_TEST_NATIVE_WINDOW=true",
+	nativeWindowChecks,
 	pendingObservations: [
 		"Physical input and native IME",
 		"Native Open/Save As chooser interaction",
-		"Operating-system initiated close during an edit",
+		...(nativeWindowChecks ? [] : ["Operating-system initiated close during an edit"]),
 	],
 	observations,
 	failures,
@@ -25,6 +29,7 @@ const report = {
 };
 let browser;
 let session;
+let native;
 await mkdir(folder, { recursive: true });
 
 function hash(bytes) {
@@ -112,6 +117,7 @@ async function open(profile, name, expectedText) {
 		"Actual production get_paths command after renderer initialization",
 	);
 	check(`${name}: restored editor text`, await editorText(), expectedText, "Actual renderer DOM observation");
+	native = nativeWindowChecks ? await createNativeWindow(browser, logs) : undefined;
 }
 
 async function cleanup() {
@@ -147,9 +153,14 @@ async function editAndMinimize(text) {
 }
 
 async function closeAndVerify(documentPath, expectedBytes, name) {
-	await evaluate(() => {
-		setTimeout(() => void window.__TAURI_INTERNALS__.invoke("plugin:window|close", { label: "main" }), 0);
-	});
+	if (native) {
+		await native.restore();
+		await native.close();
+	} else {
+		await evaluate(() => {
+			setTimeout(() => void window.__TAURI_INTERNALS__.invoke("plugin:window|close", { label: "main" }), 0);
+		});
+	}
 	await until(async () => {
 		try {
 			return (await readFile(documentPath)).equals(expectedBytes);
@@ -241,6 +252,7 @@ try {
 		const revised = "Newest café 日本語 📝\nDurable after minimize";
 		const current = await fixture("utf16-profile", initial, "utf16be");
 		await open(current.profile, "utf16-before", initial);
+		if (native) await testWindowChrome(browser, native, path.join(folder, "utf16-before"));
 		const outside = path.join(folder, "outside-profile.txt");
 		await writeFile(outside, "untouched external fixture");
 		const denied = await invoke("read_file", { path: outside });

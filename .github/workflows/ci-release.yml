@@ -29,6 +29,8 @@ jobs:
                  artifact: mac-x64
       runs-on: ${{ matrix.os }}
       timeout-minutes: 90
+      env:
+         TAURI_TEST_NATIVE_WINDOW: "true"
       steps:
          - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
            with:
@@ -54,7 +56,7 @@ jobs:
            if: runner.os == 'Linux'
            run: |
               sudo apt-get update
-              sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev libfontconfig1-dev libfreetype6-dev webkit2gtk-driver xvfb fonts-dejavu openbox x11-utils
+              sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev libfontconfig1-dev libfreetype6-dev webkit2gtk-driver xvfb fonts-dejavu openbox x11-utils xdotool imagemagick
          - name: Install native WebDriver
            if: runner.os != 'macOS'
            run: cargo install tauri-driver --version 2.0.6 --locked
@@ -99,11 +101,11 @@ jobs:
            run: npm run make:tauri -- --automation
          - name: Test native persistence on macOS
            if: ${{ !cancelled() && steps.persistence-build.outcome == 'success' && runner.os == 'macOS' }}
-           timeout-minutes: 5
+           timeout-minutes: 10
            run: npm run tauri-test
          - name: Test native persistence on Windows
            if: ${{ !cancelled() && steps.persistence-build.outcome == 'success' && runner.os == 'Windows' }}
-           timeout-minutes: 5
+           timeout-minutes: 10
            shell: pwsh
            run: ./tools/tauriWindowsDiagnostics.ps1 -Mode Test -Persistence
          - name: Collect Windows persistence startup diagnostics
@@ -112,7 +114,7 @@ jobs:
            run: ./tools/tauriWindowsDiagnostics.ps1 -Mode Collect -Persistence
          - name: Test native persistence on Linux
            if: ${{ !cancelled() && steps.persistence-build.outcome == 'success' && runner.os == 'Linux' }}
-           timeout-minutes: 5
+           timeout-minutes: 10
            run: xvfb-run -a bash tools/tauriLinuxDesktop.sh
          - name: Build production packages
            id: package-build
@@ -144,6 +146,19 @@ jobs:
                  out/make/dump-txt-*-linux-*.AppImage
                  out/make/dump-txt-*-linux-*.deb
               if-no-files-found: error
+         - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+           if: always()
+           with:
+              name: window-layouts-${{ matrix.artifact }}
+              include-hidden-files: true
+              path: |
+                 .scratch/tauri-persistence/**/layout-*.png
+                 .scratch/tauri-persistence/**/menu-*.png
+                 .scratch/tauri-persistence/**/maximized.png
+                 .scratch/tauri-persistence/**/chrome-failure.png
+                 .scratch/tauri-persistence/**/window-chrome.json
+                 .scratch/tauri-persistence/**/native-window*.json
+              if-no-files-found: warn
          - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
            if: always()
            with:
@@ -181,4 +196,5 @@ jobs:
          - name: Publish an unreleased version
            env:
               GH_TOKEN: ${{ github.token }}
+              RELEASE_DRAFT_ONLY: ${{ vars.DUMP_TXT_RELEASE_REVIEW }}
            run: node tools/release.mjs publish artifacts

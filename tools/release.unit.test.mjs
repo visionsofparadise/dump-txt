@@ -70,7 +70,8 @@ function fixture({ release = null, target = null, failure = null, corrupt = fals
 		if (action === "edit") target = sha;
 		return "";
 	};
-	const publish = () => publishRelease({ repository: "example/dump-txt", sha, version: "0.1.0", directory, run });
+	const publish = (draftOnly = false) =>
+		publishRelease({ repository: "example/dump-txt", sha, version: "0.1.0", directory, draftOnly, run });
 	return { calls, publish, directory };
 }
 
@@ -166,4 +167,24 @@ test("uploads and verifies every platform artifact", () => {
 		assert.ok(upload.includes(join(directory, name)));
 		assert.ok(download.includes(name));
 	}
+});
+
+test("holds a verified draft for review and publishes it when the hold is removed", () => {
+	const { publish, calls, directory } = fixture();
+	assert.equal(publish(true), "draft ready for review");
+	const upload = calls.find((call) => call[1] === "upload");
+	const download = calls.find((call) => call[1] === "download");
+	for (const name of [...artifactNamesOf("0.1.0"), "SHA256SUMS"]) {
+		assert.ok(upload.includes(join(directory, name)));
+		assert.ok(download.includes(name));
+	}
+	assert.ok(!calls.some((call) => call[1] === "edit"));
+	assert.equal(publish(), "published");
+	assert.equal(calls.filter((call) => call[1] === "create").length, 1);
+});
+
+test("rejects corrupted downloads while holding a release for review", () => {
+	const { publish, calls } = fixture({ corrupt: true });
+	assert.throws(() => publish(true), /checksum verification/u);
+	assert.ok(!calls.some((call) => call[1] === "edit"));
 });

@@ -433,14 +433,14 @@ try {
 		const scroller = document.querySelector(".page-current .cm-scroller");
 		const send = (deltaY) =>
 			scroller.dispatchEvent(new WheelEvent("wheel", { deltaY, bubbles: true, cancelable: true }));
-		send(-399);
+		send(-299);
 		const page = document.querySelector(".page-count").textContent.trim().replace("Pages ", "");
 		send(-1);
 		return page;
 	});
-	check("399px boundary intent stays", boundaryPage, "2 / 3", 0, "Synthetic DOM wheel");
+	check("299px boundary intent stays", boundaryPage, "2 / 3", 0, "Synthetic DOM wheel");
 	await settled();
-	check("400px boundary intent navigates", await count(), "1 / 3", 0, "Synthetic DOM wheel");
+	check("300px boundary intent navigates", await count(), "1 / 3", 0, "Synthetic DOM wheel");
 	await delay(350);
 	if (!report.engine.reducedMotion) {
 		const overlap = await evaluate(async () => {
@@ -687,7 +687,7 @@ try {
 	check("reversal fixture has both neighbors", await count(), "2 / 4");
 	const reversal = await evaluate(async () => {
 		const pages = [];
-		for (const deltaY of [300, -100, 100, 300]) {
+		for (const deltaY of [200, -100, 100, 200]) {
 			const event = new WheelEvent("wheel", { deltaY, bubbles: true, cancelable: true });
 			document.querySelector(".page-current .cm-scroller").dispatchEvent(event);
 			await new Promise(requestAnimationFrame);
@@ -701,15 +701,15 @@ try {
 		reversal.slice(0, 3).join(","),
 		"2 / 4,2 / 4,2 / 4",
 		0,
-		"Synthetic DOM wheel sequence +300,-100,+100 on short middle page",
+		"Synthetic DOM wheel sequence +200,-100,+100 on short middle page",
 	);
 	await settled();
 	check(
-		"new-direction 400px intent navigates",
+		"new-direction 300px intent navigates",
 		await count(),
 		"3 / 4",
 		0,
-		"Synthetic DOM wheel final +300 after direction reset",
+		"Synthetic DOM wheel final +200 after direction reset",
 	);
 	await chord(modifier, "z");
 	await settled();
