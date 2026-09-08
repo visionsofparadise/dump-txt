@@ -19,7 +19,7 @@ async function linuxWindow() {
 	for (const candidate of candidates)
 		if ((await readlink(`/proc/${candidate}/exe`)) === executable) matching.push(candidate);
 	assert.equal(matching.length, 1, "Expected one isolated Linux app with the exact executable path");
-	const windows = (await run("xdotool", ["search", "--onlyvisible", "--pid", matching[0], "--name", "."]))
+	const windows = (await run("xdotool", ["search", "--all", "--onlyvisible", "--pid", matching[0], "--name", "."]))
 		.split("\n")
 		.filter(Boolean);
 	assert.equal(windows.length, 1, "Expected one visible Linux application window");
