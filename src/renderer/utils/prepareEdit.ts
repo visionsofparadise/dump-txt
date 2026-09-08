@@ -9,6 +9,7 @@ import {
 } from "../models/SessionState";
 import { normalizeFormFeeds } from "./normalizeFormFeeds";
 import { parsePages } from "./parsePages";
+import { preparePageMove } from "./preparePageMove";
 import type { EditCommand } from "../models/EditCommand";
 
 export interface PageChange {
@@ -102,7 +103,10 @@ function touchedLines(text: string, range: TextRange): Array<number> {
 function changesFor(
 	page: Page,
 	ranges: ReadonlyArray<TextRange>,
-	command: Exclude<EditCommand, { type: "insertPage" } | { type: "deletePage" } | { type: "replace" }>,
+	command: Exclude<
+		EditCommand,
+		{ type: "insertPage" } | { type: "deletePage" } | { type: "movePage" } | { type: "replace" }
+	>,
 ): PageChange {
 	const changes: Array<{ from: number; to: number; insert: string }> = [];
 	const desired: Array<TextRange> = [];
@@ -324,6 +328,8 @@ export function prepareChanges(
 }
 
 export function prepareEdit(command: EditCommand, document: DocumentState, session: SessionState): PreparedEdit {
+	if (command.type === "movePage") return preparePageMove(command.direction, document, session);
+
 	const before = snapshotView(session.view);
 	const activeIndex = document.pages.findIndex((page) => page.id === before.activePageId);
 

@@ -501,6 +501,12 @@ export class EditorController {
 		this.#history.closeGroup();
 		this.#history.commit(prepareEdit(command, this.#document, this.#session));
 		this.refresh();
+
+		if (command.type === "movePage") {
+			this.#beginTransition(this.#pageId, command.direction === "up" ? 1 : -1);
+			this.#restoreScroll("restore");
+		}
+
 		this.#callbacks.changed?.();
 	}
 
@@ -643,7 +649,7 @@ export class EditorController {
 		this.refresh();
 	}
 
-	#beginTransition(pageId: string): void {
+	#beginTransition(pageId: string, direction?: -1 | 1): void {
 		const view = this.#view;
 
 		if (!view) return;
@@ -656,7 +662,7 @@ export class EditorController {
 
 		this.#transition = {
 			id: crypto.randomUUID(),
-			direction: target >= current ? 1 : -1,
+			direction: direction ?? (target >= current ? 1 : -1),
 			outgoing: this.#captureSnapshot(view),
 			incoming: null,
 		};

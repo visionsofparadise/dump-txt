@@ -1,6 +1,7 @@
 import { ChevronDown, ChevronUp, ChevronsDown, ChevronsUp, Plus, Trash2 } from "lucide-react";
 import { scope } from "opshot";
 import { useCallback, useEffect, useRef } from "react";
+import { MovePageIcon } from "./MovePageIcon";
 import { cn } from "../utils/cn";
 import type { DumpContext } from "../models/DumpContext";
 
@@ -41,6 +42,10 @@ export const PageBar = scope(({ position, context }: PageBarProps) => {
 		editor.apply({ type: "deletePage" });
 		editor.focus();
 	}, [editor]);
+	const move = useCallback(() => {
+		editor.apply({ type: "movePage", direction: top ? "up" : "down" });
+		editor.focus();
+	}, [editor, top]);
 	const insertionLabel = top ? "Insert page above" : "Insert page below";
 	const navigationLabel = top ? "Previous page" : "Next page";
 	const shortcut = top ? "Alt+Up" : "Alt+Down";
@@ -53,7 +58,7 @@ export const PageBar = scope(({ position, context }: PageBarProps) => {
 		>
 			<div className="page-bar-leading">
 				<button
-					className="chrome-button"
+					className="chrome-button page-insert"
 					title={`${insertionLabel} (${top ? "Ctrl+Shift+N" : "Ctrl+N"})`}
 					aria-label={insertionLabel}
 					disabled={persistenceState.locked}
@@ -76,7 +81,7 @@ export const PageBar = scope(({ position, context }: PageBarProps) => {
 			<div className="page-bar-trailing">
 				{!top && (
 					<button
-						className="chrome-button"
+						className="chrome-button page-delete"
 						aria-label="Delete page"
 						title="Delete page (Ctrl+Delete)"
 						disabled={persistenceState.locked}
@@ -85,6 +90,15 @@ export const PageBar = scope(({ position, context }: PageBarProps) => {
 						<Trash2 size={15} aria-hidden />
 					</button>
 				)}
+				<button
+					className="chrome-button"
+					aria-label={top ? "Move page up" : "Move page down"}
+					title={top ? "Move page up" : "Move page down"}
+					disabled={persistenceState.locked}
+					onClick={move}
+				>
+					<MovePageIcon up={top} />
+				</button>
 				<button
 					className="chrome-button"
 					aria-label={top ? "First page" : "Last page"}

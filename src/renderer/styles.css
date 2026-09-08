@@ -118,20 +118,25 @@ input:focus-visible {
 	background: var(--color-hover);
 	color: var(--color-ink);
 }
-.window-close:hover:not(:disabled) {
+.window-close:hover:not(:disabled),
+.page-delete:hover:not(:disabled) {
 	background: #c42b1c;
+	color: #fff;
+}
+.page-insert:hover:not(:disabled) {
+	background: #16803c;
 	color: #fff;
 }
 .page-bar {
 	height: var(--spacing-bar);
 	display: grid;
-	grid-template-columns: 46px minmax(0, 1fr) 46px;
+	grid-template-columns: 46px minmax(0, 1fr) 92px;
 	position: relative;
 	color: var(--color-muted);
 	background: var(--color-bar);
 }
 .page-bar-bottom {
-	grid-template-columns: 46px minmax(0, 1fr) 92px;
+	grid-template-columns: 46px minmax(0, 1fr) 138px;
 }
 .page-bar-leading,
 .page-bar-trailing {
@@ -140,13 +145,13 @@ input:focus-visible {
 .page-nav-main {
 	display: grid;
 	place-items: center;
-	padding: 0;
+	padding: 0 0 0 46px;
 	border: 0;
 	background: transparent;
 	color: inherit;
 }
 .page-bar-bottom .page-nav-main {
-	padding-left: 46px;
+	padding-left: 92px;
 }
 .page-nav-main:hover:not(:disabled) {
 	background: var(--color-page-hover);
