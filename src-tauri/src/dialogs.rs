@@ -15,6 +15,14 @@ use tauri_plugin_dialog::{DialogExt, FilePath};
 struct FileDialogOptions {
     title: Option<String>,
     default_path: Option<String>,
+    filters: Option<Vec<FileFilter>>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct FileFilter {
+    name: String,
+    extensions: Vec<String>,
 }
 
 impl FileDialogOptions {
@@ -29,6 +37,25 @@ impl FileDialogOptions {
             return Err(IpcFailure {
                 code: "invalid",
                 message: "File dialog options cannot contain NUL characters.".into(),
+            });
+        }
+        if options.filters.as_ref().is_some_and(|filters| {
+            filters.iter().any(|filter| {
+                filter.name.is_empty()
+                    || filter.name.contains('\0')
+                    || filter.extensions.is_empty()
+                    || filter.extensions.iter().any(|extension| {
+                        extension != "*"
+                            && (extension.is_empty()
+                                || !extension
+                                    .chars()
+                                    .all(|character| character.is_ascii_alphanumeric()))
+                    })
+            })
+        }) {
+            return Err(IpcFailure {
+                code: "invalid",
+                message: "File dialog filters are invalid.".into(),
             });
         }
         Ok(options)
@@ -99,10 +126,16 @@ async fn show_dialog(
     let selected = move |selection| {
         let _ = sender.send(selection);
     };
+    if let Some(filters) = options.filters {
+        for filter in filters {
+            let extensions: Vec<&str> = filter.extensions.iter().map(String::as_str).collect();
+            dialog = dialog.add_filter(filter.name, &extensions);
+        }
+    } else if save {
+        dialog = dialog.add_filter("Text files", &["txt"]);
+    }
     if save {
-        dialog
-            .add_filter("Text files", &["txt"])
-            .save_file(selected);
+        dialog.save_file(selected);
     } else {
         dialog.pick_file(selected);
     }

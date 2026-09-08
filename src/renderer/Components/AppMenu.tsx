@@ -3,6 +3,7 @@ import { scope } from "opshot";
 import { useCallback } from "react";
 import { AppearanceMenu } from "./AppearanceMenu";
 import { FontMenu } from "./FontMenu";
+import { PageFileMenu } from "./PageFileMenu";
 import { TextSizeMenu } from "./TextSizeMenu";
 import {
 	DropdownMenu,
@@ -98,6 +99,8 @@ export const AppMenu = scope(({ context }: AppMenuProps) => {
 					<span>Save As…</span>
 					<span className="menu-shortcut">Ctrl+Shift+S</span>
 				</DropdownMenuItem>
+				<DropdownMenuSeparator />
+				<PageFileMenu context={context} />
 				<DropdownMenuSeparator />
 				<DropdownMenuItem onSelect={undo} disabled={!session.canUndo || persistenceState.locked}>
 					<Undo2 size={16} aria-hidden />

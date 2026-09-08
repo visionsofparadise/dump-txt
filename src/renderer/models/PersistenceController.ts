@@ -45,6 +45,11 @@ interface PersistenceCallbacks {
 }
 
 const defaultFormat: TextFormat = { encoding: "utf8", bom: false, newline: "\n" };
+const pageFileFilters = [
+	{ name: "Text files", extensions: ["txt"] },
+	{ name: "Markdown files", extensions: ["md"] },
+	{ name: "All files", extensions: ["*"] },
+];
 
 function errorMessage(error: unknown): string {
 	return error instanceof Error ? error.message : String(error);
@@ -325,6 +330,96 @@ export class PersistenceController {
 		} finally {
 			this.#setLocked(false);
 			this.#transition = false;
+		}
+	}
+
+	async importPage(): Promise<void> {
+		if (this.#transition || this.#disposed || !this.#context) return;
+
+		this.#transition = true;
+		this.#setLocked(true);
+		const { document, session, history, editor } = this.#context;
+		const pageId = session.view.activePageId;
+
+		try {
+			const candidate = await this.#main.showOpenDialog({
+				title: "Import page",
+				filters: [{ name: "All files", extensions: ["*"] }],
+			});
+
+			if (!candidate) return;
+
+			const file = await this.#main.readFile(candidate.path);
+
+			if (!file) throw new Error("The selected file is missing.");
+
+			const text = new TextDecoder("utf-8")
+				.decode(file.bytes)
+				.replace(/\r\n?/gu, "\n")
+				.replace(/\f/gu, "\u240c");
+
+			if (this.state.phase !== "failed") this.state.error = null;
+
+			if (document.pages.find((page) => page.id === pageId)?.text === text) return;
+
+			const before = snapshotView(session.view);
+
+			history.closeGroup();
+			history.commit({
+				pages: document.pages.map((page) => (page.id === pageId ? { id: pageId, text } : page)),
+				before,
+				after: snapshotView({
+					...before,
+					occurrence: null,
+					selections: {
+						...before.selections,
+						[pageId]: { ranges: [{ anchor: 0, head: 0 }], mainIndex: 0, scrollTop: 0 },
+					},
+				}),
+				group: null,
+			});
+			editor.refresh();
+		} catch (error) {
+			this.state.error = errorMessage(error);
+		} finally {
+			this.#setLocked(false);
+			this.#transition = false;
+			editor.focus();
+		}
+	}
+
+	async exportPage(): Promise<void> {
+		if (this.#transition || this.#disposed || !this.#context) return;
+
+		this.#transition = true;
+		this.#setLocked(true);
+		const { document, session, editor } = this.#context;
+		const index = document.pages.findIndex((page) => page.id === session.view.activePageId);
+		const text = document.pages[index]?.text ?? "";
+
+		try {
+			const candidate = await this.#main.showSaveDialog({
+				title: "Export page",
+				defaultPath: `page-${index + 1}.txt`,
+				filters: pageFileFilters,
+			});
+
+			if (!candidate) return;
+
+			if (this.state.path && sameFilePath(candidate.path, this.state.path))
+				throw new Error("Choose a different file for page export; this file stores the whole dump.");
+
+			await this.#main.writeFile({
+				path: candidate.path,
+				bytes: new TextEncoder().encode(text),
+				expectedHash: candidate.hash,
+			});
+		} catch (error) {
+			this.state.error = errorMessage(error);
+		} finally {
+			this.#setLocked(false);
+			this.#transition = false;
+			editor.focus();
 		}
 	}
 
