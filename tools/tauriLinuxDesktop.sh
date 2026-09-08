@@ -6,10 +6,18 @@ cd -- "$task_root"
 evidence_folder=.scratch/tauri-test/linux-desktop
 mkdir -p -- "$evidence_folder"
 
-sed '/<keyboard>/a\
-  <keybind key="A-F9"><action name="Iconify"/></keybind>\
-  <keybind key="A-F10"><action name="ToggleMaximize"/></keybind>' \
-  /etc/xdg/openbox/rc.xml >"$evidence_folder/rc.xml"
+python3 - "$evidence_folder/rc.xml" <<'PYTHON'
+import sys
+import xml.etree.ElementTree as xml
+
+namespace = "http://openbox.org/3.4/rc"
+xml.register_namespace("", namespace)
+configuration = xml.parse("/etc/xdg/openbox/rc.xml")
+theme = configuration.find(f"{{{namespace}}}theme")
+theme.find(f"{{{namespace}}}name").text = "Clearlooks"
+theme.find(f"{{{namespace}}}titleLayout").text = "NLIMC"
+configuration.write(sys.argv[1], encoding="utf-8", xml_declaration=True)
+PYTHON
 
 openbox --sm-disable --config-file "$evidence_folder/rc.xml" >"$evidence_folder/openbox.log" 2>&1 &
 window_manager_pid=$!

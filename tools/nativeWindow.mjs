@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { appendFile, mkdir, readlink } from "node:fs/promises";
+import { appendFile, mkdir, readFile, readlink } from "node:fs/promises";
 import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
@@ -26,9 +26,9 @@ async function linuxWindow() {
 	return windows[0];
 }
 
-async function createLinuxDriver() {
+async function createLinuxDriver(folder) {
 	const window = await linuxWindow();
-	return async (action, request = {}) => {
+	const driver = async (action, request = {}) => {
 		const command = (...args) => run("xdotool", args);
 		if (action === "state") {
 			const geometry = Object.fromEntries(
@@ -94,17 +94,70 @@ async function createLinuxDriver() {
 				request.path,
 			]);
 		}
-		const keys = { minimize: "alt+F9", maximize: "alt+F10", close: "alt+F4" };
-		assert.ok(keys[action], `Unknown native action: ${action}`);
+		assert.ok(["minimize", "maximize", "close"].includes(action), `Unknown native action: ${action}`);
 		await command("windowactivate", "--sync", window);
-		return command("key", "--clearmodifiers", keys[action]);
+		const tree = await run("xwininfo", ["-id", window, "-tree"]);
+		const parent = tree.match(/Parent window id:\s*(0x[\da-f]+)/iu)?.[1];
+		const frame = parent ? await run("xwininfo", ["-id", parent, "-tree"]) : null;
+		const configuration = await run("xprop", ["-root", "_OB_CONFIG_FILE", "_OB_VERSION", "_OB_THEME"]);
+		const bounds = await driver("state");
+		const titleHeight = bounds.clientY - bounds.y;
+		const candidates = new Map();
+		for (const match of (frame ?? "").matchAll(
+			/(0x[\da-f]+)[^\n]*?\s(\d+)x(\d+)[+-]\d+[+-]\d+\s+([+-]\d+)([+-]\d+)\s*$/gimu,
+		)) {
+			const [, handle, width, height, x, y] = match;
+			const rectangle = { handle, x: Number(x), y: Number(y), width: Number(width), height: Number(height) };
+			if (
+				rectangle.width > 8 &&
+				Math.abs(rectangle.width - rectangle.height) <= 1 &&
+				rectangle.height <= titleHeight &&
+				rectangle.y >= bounds.y &&
+				rectangle.y + rectangle.height <= bounds.clientY &&
+				rectangle.x > bounds.x + bounds.width / 2 &&
+				rectangle.x + rectangle.width <= bounds.x + bounds.width
+			)
+				candidates.set(`${rectangle.x}:${rectangle.y}:${rectangle.width}:${rectangle.height}`, rectangle);
+		}
+		const buttons = [...candidates.values()].sort((left, right) => left.x - right.x);
+		await appendFile(
+			path.join(folder, "native-linux-controls.jsonl"),
+			`${JSON.stringify({
+				action,
+				window,
+				active: await command("getactivewindow"),
+				configuration,
+				tree,
+				frame,
+				bounds,
+				buttons,
+			})}\n`,
+		);
+		const configPath = configuration.match(/_OB_CONFIG_FILE[^=]*=\s*"([^"]+)"/)?.[1];
+		assert.ok(configPath, "Openbox must expose its active configuration path");
+		assert.match(
+			await readFile(configPath, "utf8"),
+			/<titleLayout>\s*NLIMC\s*<\/titleLayout>/u,
+			"Native button checks require the pinned NLIMC title layout",
+		);
+		assert.equal(
+			buttons.length,
+			3,
+			"Expected exactly three distinct right-side native title buttons; inspect native-linux-controls.jsonl",
+		);
+		const button = buttons[["minimize", "maximize", "close"].indexOf(action)];
+		return driver("pointer", {
+			x: Math.round(button.x + button.width / 2),
+			y: Math.round(button.y + button.height / 2),
+		});
 	};
+	return driver;
 }
 
 export async function createNativeWindow(browser, folder) {
 	await mkdir(folder, { recursive: true });
 	let native;
-	if (process.platform === "linux") native = await createLinuxDriver();
+	if (process.platform === "linux") native = await createLinuxDriver(folder);
 	else {
 		if (process.platform === "darwin" && !compiledSwift) {
 			const target = path.join(folder, "nativeWindow");
@@ -261,7 +314,7 @@ export async function createNativeWindow(browser, folder) {
 	return {
 		method:
 			process.platform === "linux"
-				? "X11 mouse input; Openbox Alt+F9/F10/F4 window controls; native frame screenshot"
+				? "X11 mouse input; Openbox native title buttons identified by frame child geometry in pinned NLIMC layout; native frame screenshot"
 				: process.platform === "darwin"
 					? "CoreGraphics mouse input; AX native button geometry; Option-click zoom; native window screenshot"
 					: "Win32 mouse input at DPI-scaled client coordinates; native window screenshot",

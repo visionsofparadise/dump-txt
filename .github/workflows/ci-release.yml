@@ -158,7 +158,7 @@ jobs:
                  .scratch/tauri-persistence/**/chrome-failure.png
                  .scratch/tauri-persistence/**/window-chrome.json
                  .scratch/tauri-persistence/**/native-window*.json
-                 .scratch/tauri-persistence/**/native-pointer.jsonl
+                 .scratch/tauri-persistence/**/native-*.jsonl
                  .scratch/tauri-persistence/**/pointer-*-before.png
               if-no-files-found: warn
          - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
