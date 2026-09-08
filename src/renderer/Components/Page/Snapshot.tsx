@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef, type Ref } from "react";
-import type { PageSnapshot as Snapshot } from "../models/EditorController";
+import type { PageSnapshot as Snapshot } from "../../models/EditorController";
 
 interface PageSnapshotProps {
 	readonly snapshot: Snapshot;

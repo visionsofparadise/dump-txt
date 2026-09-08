@@ -1,8 +1,8 @@
 import { Minus, Plus, Type } from "lucide-react";
 import { scope } from "opshot";
 import { useCallback } from "react";
-import { DropdownMenuItem } from "./UI/DropdownMenu";
-import type { DumpContext } from "../models/DumpContext";
+import { DropdownMenuItem } from "../UI/DropdownMenu";
+import type { DumpContext } from "../../models/DumpContext";
 
 interface TextSizeMenuProps {
 	readonly context: DumpContext;
@@ -10,6 +10,7 @@ interface TextSizeMenuProps {
 
 export const TextSizeMenu = scope(({ context }: TextSizeMenuProps) => {
 	const { session, history, persistence, persistenceState } = context;
+
 	const sizeChanged = useCallback(
 		(change: number) => {
 			if (persistence.state.locked) return;
@@ -23,6 +24,7 @@ export const TextSizeMenu = scope(({ context }: TextSizeMenuProps) => {
 		},
 		[history, persistence, session],
 	);
+
 	const decrease = useCallback(
 		(event: Event) => {
 			event.preventDefault();
@@ -30,6 +32,7 @@ export const TextSizeMenu = scope(({ context }: TextSizeMenuProps) => {
 		},
 		[sizeChanged],
 	);
+
 	const increase = useCallback(
 		(event: Event) => {
 			event.preventDefault();

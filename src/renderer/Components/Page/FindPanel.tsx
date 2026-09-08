@@ -1,8 +1,8 @@
 import { ArrowDown, ArrowUp, X } from "lucide-react";
 import { scope } from "opshot";
 import { useCallback, useEffect, useRef, type ChangeEvent, type KeyboardEvent as ReactKeyboardEvent } from "react";
-import { findMatches } from "../utils/findMatches";
-import type { DumpContext } from "../models/DumpContext";
+import { findMatches } from "../../utils/findMatches";
+import type { DumpContext } from "../../models/DumpContext";
 
 interface FindPanelProps {
 	readonly context: DumpContext;
@@ -10,28 +10,39 @@ interface FindPanelProps {
 
 export const FindPanel = scope(({ context }: FindPanelProps) => {
 	const { session, editor, persistenceState } = context;
+
 	const input = useRef<HTMLInputElement>(null);
+
 	const open = session.find.open;
+
 	const changeQuery = useCallback(
 		(event: ChangeEvent<HTMLInputElement>) => editor.updateFind({ query: event.target.value }),
 		[editor],
 	);
+
 	const changeReplacement = useCallback(
 		(event: ChangeEvent<HTMLInputElement>) => editor.updateFind({ replacement: event.target.value }),
 		[editor],
 	);
+
 	const changeMatchCase = useCallback(
 		(event: ChangeEvent<HTMLInputElement>) => editor.updateFind({ matchCase: event.target.checked }),
 		[editor],
 	);
+
 	const changeAllPages = useCallback(
 		(event: ChangeEvent<HTMLInputElement>) => editor.updateFind({ allPages: event.target.checked }),
 		[editor],
 	);
+
 	const previousMatch = useCallback(() => editor.nextFind(-1), [editor]);
+
 	const nextMatch = useCallback(() => editor.nextFind(1), [editor]);
+
 	const close = useCallback(() => editor.closeFind(), [editor]);
+
 	const replace = useCallback(() => editor.replaceFind(false), [editor]);
+
 	const replaceAll = useCallback(() => editor.replaceFind(true), [editor]);
 
 	useEffect(() => {

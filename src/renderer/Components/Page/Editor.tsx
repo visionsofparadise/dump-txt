@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import type { EditorController } from "../models/EditorController";
+import type { EditorController } from "../../models/EditorController";
 
 interface PageEditorProps {
 	readonly editor: EditorController;

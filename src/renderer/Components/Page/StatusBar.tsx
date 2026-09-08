@@ -1,8 +1,8 @@
 import { Text } from "@codemirror/state";
 import { scope } from "opshot";
 import { useMemo } from "react";
-import { crossPageSelectionStatusOf, selectionStatusOf, textCountsOf } from "../utils/textStatusOf";
-import type { DumpContext } from "../models/DumpContext";
+import { crossPageSelectionStatusOf, selectionStatusOf, textCountsOf } from "../../utils/textStatusOf";
+import type { DumpContext } from "../../models/DumpContext";
 
 interface StatusBarProps {
 	readonly context: DumpContext;
@@ -12,15 +12,20 @@ export const StatusBar = scope(({ context }: StatusBarProps) => {
 	const { document, session } = context;
 	const index = document.pages.findIndex((page) => page.id === session.view.activePageId);
 	const text = document.pages[index]?.text ?? "";
+
 	const page = useMemo(() => ({ document: Text.of(text.split("\n")), counts: textCountsOf(text) }), [text]);
+
 	const ranges = session.view.selections[session.view.activePageId]?.ranges;
 	const targets = session.view.occurrence?.targets;
 	const pages = document.pages;
+
 	const crossPageSelection = useMemo(
 		() => (targets ? crossPageSelectionStatusOf(pages, targets) : null),
 		[pages, targets],
 	);
+
 	const pageSelection = useMemo(() => selectionStatusOf(page.document, ranges ?? []), [page, ranges]);
+
 	const selection = crossPageSelection ?? pageSelection;
 	const counts = selection.selected ? selection.counts : page.counts;
 	const selectionCount = targets?.length ?? ranges?.length ?? 0;

@@ -8,6 +8,7 @@ interface FontMenuItemProps {
 
 export function FontMenuItem({ font, selected, onSelect }: FontMenuItemProps) {
 	const style = useMemo(() => ({ fontFamily: JSON.stringify(font) }), [font]);
+
 	const choose = useCallback(() => onSelect(font), [font, onSelect]);
 
 	return (

@@ -1,8 +1,8 @@
 import { FileInput, FileOutput } from "lucide-react";
 import { scope } from "opshot";
 import { useCallback } from "react";
-import { DropdownMenuItem } from "./UI/DropdownMenu";
-import type { ChromeContext } from "../models/ChromeContext";
+import { DropdownMenuItem } from "../UI/DropdownMenu";
+import type { ChromeContext } from "../../models/ChromeContext";
 
 interface PageFileMenuProps {
 	readonly context: ChromeContext;
@@ -10,9 +10,11 @@ interface PageFileMenuProps {
 
 export const PageFileMenu = scope(({ context }: PageFileMenuProps) => {
 	const { persistence, persistenceState } = context;
+
 	const importPage = useCallback(() => {
 		void persistence.importPage();
 	}, [persistence]);
+
 	const exportPage = useCallback(() => {
 		void persistence.exportPage();
 	}, [persistence]);

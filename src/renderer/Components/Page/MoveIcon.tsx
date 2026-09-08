@@ -1,10 +1,10 @@
 import { Icon } from "lucide-react";
 
-interface MovePageIconProps {
+interface MoveIconProps {
 	readonly up: boolean;
 }
 
-export function MovePageIcon({ up }: MovePageIconProps) {
+export function MoveIcon({ up }: MoveIconProps) {
 	return (
 		<Icon
 			size={16}

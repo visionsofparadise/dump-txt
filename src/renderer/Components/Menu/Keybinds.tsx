@@ -1,8 +1,8 @@
 import { Keyboard, X } from "lucide-react";
 import { scope } from "opshot";
 import { useCallback } from "react";
-import { Dialog, DialogContent, DialogTitle } from "./UI/Dialog";
-import type { ChromeContext } from "../models/ChromeContext";
+import { Dialog, DialogContent, DialogTitle } from "../UI/Dialog";
+import type { ChromeContext } from "../../models/ChromeContext";
 
 const groups = [
 	{
@@ -64,15 +64,18 @@ interface KeybindsProps {
 export const Keybinds = scope(({ context }: KeybindsProps) => {
 	const { chrome, editor } = context;
 	const primaryModifier = navigator.platform.includes("Mac") ? "Command" : "Ctrl";
+
 	const openChanged = useCallback(
 		(open: boolean) => {
 			chrome.keybindsOpen = open;
 		},
 		[chrome],
 	);
+
 	const close = useCallback(() => {
 		chrome.keybindsOpen = false;
 	}, [chrome]);
+
 	const restoreFocus = useCallback(
 		(event: Event) => {
 			event.preventDefault();

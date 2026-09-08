@@ -1,8 +1,8 @@
 import { CaseSensitive } from "lucide-react";
 import { scope } from "opshot";
 import { useCallback } from "react";
-import { DropdownMenuItem } from "./UI/DropdownMenu";
-import type { ChromeContext } from "../models/ChromeContext";
+import { DropdownMenuItem } from "../UI/DropdownMenu";
+import type { ChromeContext } from "../../models/ChromeContext";
 
 interface FontMenuProps {
 	readonly context: ChromeContext;
@@ -10,6 +10,7 @@ interface FontMenuProps {
 
 export const FontMenu = scope(({ context }: FontMenuProps) => {
 	const { session, persistenceState, chrome } = context;
+
 	const open = useCallback(() => {
 		chrome.fontPickerOpen = true;
 	}, [chrome]);

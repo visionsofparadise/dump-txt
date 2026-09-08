@@ -7,8 +7,8 @@ import {
 	DropdownMenuSubContent,
 	DropdownMenuRadioGroup,
 	DropdownMenuRadioItem,
-} from "./UI/DropdownMenu";
-import type { DumpContext } from "../models/DumpContext";
+} from "../UI/DropdownMenu";
+import type { DumpContext } from "../../models/DumpContext";
 
 interface AppearanceMenuProps {
 	readonly context: DumpContext;
@@ -16,6 +16,7 @@ interface AppearanceMenuProps {
 
 export const AppearanceMenu = scope(({ context }: AppearanceMenuProps) => {
 	const { session, history, persistence, persistenceState } = context;
+
 	const themeChanged = useCallback(
 		(theme: string) => {
 			if (persistence.state.locked) return;

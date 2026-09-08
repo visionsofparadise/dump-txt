@@ -1,9 +1,9 @@
 import { CaseSensitive, Check, Search, X } from "lucide-react";
 import { scope } from "opshot";
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type KeyboardEvent } from "react";
+import { Dialog, DialogContent, DialogTitle } from "../UI/Dialog";
 import { FontMenuItem } from "./FontMenuItem";
-import { Dialog, DialogContent, DialogTitle } from "./UI/Dialog";
-import type { ChromeContext } from "../models/ChromeContext";
+import type { ChromeContext } from "../../models/ChromeContext";
 
 interface FontPickerProps {
 	readonly context: ChromeContext;
@@ -13,20 +13,32 @@ export const FontPicker = scope(({ context }: FontPickerProps) => {
 	const { chrome, session, history, editor, persistenceState, main } = context;
 	const open = chrome.fontPickerOpen;
 	const currentFont = session.appearance.font;
+
 	const search = useRef<HTMLInputElement>(null);
+
 	const list = useRef<HTMLDivElement>(null);
+
 	const originalFont = useRef(currentFont);
+
 	const wasOpen = useRef(false);
+
 	const [fonts, setFonts] = useState<ReadonlyArray<string>>([]);
+
 	const [query, setQuery] = useState("");
+
 	const [selected, setSelected] = useState(currentFont);
+
 	const [loading, setLoading] = useState(false);
+
 	const [error, setError] = useState<string | null>(null);
+
 	const request = useRef(0);
+
 	const filtered = useMemo(
 		() => fonts.filter((font) => font.toLocaleLowerCase().includes(query.toLocaleLowerCase())),
 		[fonts, query],
 	);
+
 	const load = useCallback(async () => {
 		const generation = ++request.current;
 
@@ -44,18 +56,21 @@ export const FontPicker = scope(({ context }: FontPickerProps) => {
 			if (generation === request.current) setLoading(false);
 		}
 	}, [main]);
+
 	const dismiss = useCallback(() => {
 		if (!chrome.fontPickerOpen) return;
 
 		session.appearance = { ...session.appearance, font: originalFont.current };
 		chrome.fontPickerOpen = false;
 	}, [chrome, session]);
+
 	const openChanged = useCallback(
 		(value: boolean) => {
 			if (!value) dismiss();
 		},
 		[dismiss],
 	);
+
 	const restoreFocus = useCallback(
 		(event: Event) => {
 			event.preventDefault();
@@ -63,10 +78,12 @@ export const FontPicker = scope(({ context }: FontPickerProps) => {
 		},
 		[editor],
 	);
+
 	const focusSearch = useCallback((event: Event) => {
 		event.preventDefault();
 		search.current?.focus();
 	}, []);
+
 	const selectFont = useCallback(
 		(font: string) => {
 			if (persistenceState.locked) return;
@@ -76,16 +93,20 @@ export const FontPicker = scope(({ context }: FontPickerProps) => {
 		},
 		[persistenceState, session],
 	);
+
 	const apply = useCallback(() => {
 		if (persistenceState.locked || !fonts.includes(selected)) return;
 
 		session.appearance = { ...session.appearance, font: selected };
 		chrome.fontPickerOpen = false;
 	}, [chrome, fonts, persistenceState, selected, session]);
+
 	const queryChanged = useCallback((event: ChangeEvent<HTMLInputElement>) => setQuery(event.target.value), []);
+
 	const retry = useCallback(() => {
 		void load();
 	}, [load]);
+
 	const navigate = useCallback(
 		(event: KeyboardEvent<HTMLDivElement>) => {
 			const index = filtered.indexOf(selected);

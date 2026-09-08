@@ -1,22 +1,26 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
+import { PageEditor } from "./Editor";
 import { FindPanel } from "./FindPanel";
 import { OccurrencePanel } from "./OccurrencePanel";
-import { PageEditor } from "./PageEditor";
-import { PageSnapshot } from "./PageSnapshot";
 import { SaveStatus } from "./SaveStatus";
-import type { DumpContext } from "../models/DumpContext";
-import type { PageTransition } from "../models/EditorController";
+import { PageSnapshot } from "./Snapshot";
+import type { DumpContext } from "../../models/DumpContext";
+import type { PageTransition } from "../../models/EditorController";
 
-interface PageViewportProps {
+interface PageLayoutProps {
 	readonly context: DumpContext;
 }
 
-export function PageViewport({ context }: PageViewportProps) {
+export function PageLayout({ context }: PageLayoutProps) {
 	const { editor, navigation } = context;
+
 	const current = useRef<HTMLDivElement>(null);
+
 	const [transition, setTransition] = useState<PageTransition | null>(null);
+
 	const incoming = useRef<HTMLDivElement>(null);
+
 	const outgoing = useRef<HTMLDivElement>(null);
 
 	useEffect(() => {
@@ -34,6 +38,7 @@ export function PageViewport({ context }: PageViewportProps) {
 	}, [navigation]);
 
 	useLayoutEffect(() => editor.subscribePageTransition((next) => flushSync(() => setTransition(next))), [editor]);
+
 	useLayoutEffect(() => {
 		if (!transition?.incoming) return;
 

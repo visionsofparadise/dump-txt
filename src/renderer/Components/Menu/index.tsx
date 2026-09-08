@@ -1,25 +1,26 @@
-import { FolderOpen, Keyboard, Menu, PanelBottom, Redo2, Save, Search, X, Undo2 } from "lucide-react";
+import { FolderOpen, Keyboard, Menu as MenuIcon, PanelBottom, Redo2, Save, Search, X, Undo2 } from "lucide-react";
 import { scope } from "opshot";
 import { useCallback } from "react";
-import { AppearanceMenu } from "./AppearanceMenu";
-import { FontMenu } from "./FontMenu";
-import { PageFileMenu } from "./PageFileMenu";
-import { TextSizeMenu } from "./TextSizeMenu";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuItem,
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
-} from "./UI/DropdownMenu";
-import type { ChromeContext } from "../models/ChromeContext";
+} from "../UI/DropdownMenu";
+import { AppearanceMenu } from "./AppearanceMenu";
+import { FontMenu } from "./FontMenu";
+import { PageFileMenu } from "./PageFileMenu";
+import { TextSizeMenu } from "./TextSizeMenu";
+import type { ChromeContext } from "../../models/ChromeContext";
 
-interface AppMenuProps {
+interface MenuProps {
 	readonly context: ChromeContext;
 }
 
-export const AppMenu = scope(({ context }: AppMenuProps) => {
+export const Menu = scope(({ context }: MenuProps) => {
 	const { session, editor, history, persistence, persistenceState, chrome } = context;
+
 	const menuChanged = useCallback(
 		(value: boolean) => {
 			editor.finishComposition();
@@ -28,37 +29,45 @@ export const AppMenu = scope(({ context }: AppMenuProps) => {
 		},
 		[chrome, editor, history],
 	);
+
 	const openFile = useCallback(() => {
 		if (persistence.state.locked) return;
 
 		void persistence.open().catch(() => undefined);
 	}, [persistence]);
+
 	const saveAs = useCallback(() => {
 		if (persistence.state.locked) return;
 
 		void persistence.saveAs().catch(() => undefined);
 	}, [persistence]);
+
 	const undo = useCallback(() => {
 		if (persistence.state.locked) return;
 
 		history.undo();
 		editor.refresh();
 	}, [editor, history, persistence]);
+
 	const redo = useCallback(() => {
 		if (persistence.state.locked) return;
 
 		history.redo();
 		editor.refresh();
 	}, [editor, history, persistence]);
+
 	const find = useCallback(() => {
 		if (!persistence.state.locked) editor.openFind();
 	}, [editor, persistence]);
+
 	const close = useCallback(() => {
 		void persistence.close().catch(() => undefined);
 	}, [persistence]);
+
 	const openKeybinds = useCallback(() => {
 		chrome.keybindsOpen = true;
 	}, [chrome]);
+
 	const toggleStatusBar = useCallback(() => {
 		if (persistence.state.locked) return;
 
@@ -67,6 +76,7 @@ export const AppMenu = scope(({ context }: AppMenuProps) => {
 			showStatusBar: !(session.appearance.showStatusBar ?? true),
 		};
 	}, [persistence, session]);
+
 	const restoreFocus = useCallback(
 		(event: Event) => {
 			event.preventDefault();
@@ -85,7 +95,7 @@ export const AppMenu = scope(({ context }: AppMenuProps) => {
 					title="App menu"
 					disabled={persistenceState.locked}
 				>
-					<Menu size={16} aria-hidden />
+					<MenuIcon size={16} aria-hidden />
 				</button>
 			</DropdownMenuTrigger>
 			<DropdownMenuContent align="start" onCloseAutoFocus={restoreFocus}>

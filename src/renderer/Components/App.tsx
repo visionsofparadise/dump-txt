@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from "react";
 import { MainEvents } from "../models/MainEvents";
 import { PersistenceController } from "../models/PersistenceController";
-import { DumpLoader } from "./DumpLoader";
+import { Loader } from "./Loader";
 import type { Main } from "../models/Main";
 
 interface AppProps {
@@ -27,5 +27,5 @@ export function App({ main, onReady }: AppProps) {
 		};
 	}, [context, onReady]);
 
-	return <DumpLoader context={context} />;
+	return <Loader context={context} />;
 }

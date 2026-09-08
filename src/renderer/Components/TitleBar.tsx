@@ -14,9 +14,12 @@ interface TitleBarProps {
 
 export const TitleBar = scope(({ children, chrome, onDismissMenu, context }: TitleBarProps) => {
 	const { main, events, persistence, persistenceState } = context;
+
 	const [maximized, setMaximized] = useState(false);
+
 	const filename = persistenceState.path?.split(/[\\/]/u).at(-1) ?? "dump.txt";
 	const menuOpen = chrome?.menuOpen ?? false;
+
 	const dismissMenu = useCallback(
 		(event: PointerEvent<HTMLElement>) => {
 			if (
@@ -47,9 +50,11 @@ export const TitleBar = scope(({ children, chrome, onDismissMenu, context }: Tit
 	const minimize = useCallback(() => {
 		void main.minimize();
 	}, [main]);
+
 	const toggleMaximize = useCallback(() => {
 		void main.toggleMaximize();
 	}, [main]);
+
 	const close = useCallback(() => {
 		void persistence.close().catch(() => undefined);
 	}, [persistence]);

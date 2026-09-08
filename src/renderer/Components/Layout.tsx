@@ -1,16 +1,17 @@
 import { createMutableState, scope } from "opshot";
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
-import { AppMenu } from "./AppMenu";
-import { ChromeDialogs } from "./ChromeDialogs";
-import { PageBar } from "./PageBar";
-import { PageViewport } from "./PageViewport";
-import { StatusBar } from "./StatusBar";
+import { Menu } from "./Menu";
+import { ChromeDialogs } from "./Menu/ChromeDialogs";
+import { DownBar } from "./Page/DownBar";
+import { PageLayout } from "./Page/Layout";
+import { StatusBar } from "./Page/StatusBar";
+import { UpBar } from "./Page/UpBar";
 import { TitleBar } from "./TitleBar";
 import type { ChromeContext } from "../models/ChromeContext";
 import type { ChromeState } from "../models/ChromeState";
 import type { DumpContext } from "../models/DumpContext";
 
-interface EditorSurfaceProps {
+interface LayoutProps {
 	readonly context: DumpContext;
 }
 interface EditorStyle extends CSSProperties {
@@ -19,16 +20,21 @@ interface EditorStyle extends CSSProperties {
 	readonly "--status-bar-height": string;
 }
 
-export const EditorSurface = scope(({ context: dumpContext }: EditorSurfaceProps) => {
+export const Layout = scope(({ context: dumpContext }: LayoutProps) => {
 	const { session, editor, persistence } = dumpContext;
+
 	const [chrome] = useState(() =>
 		createMutableState<ChromeState>({ menuOpen: false, fontPickerOpen: false, keybindsOpen: false }),
 	);
+
 	const context = useMemo<ChromeContext>(() => ({ ...dumpContext, chrome }), [chrome, dumpContext]);
+
 	const dismissMenu = useCallback(() => {
 		context.chrome.menuOpen = false;
 	}, [context]);
+
 	const { font, textSize, theme, showStatusBar = true } = session.appearance;
+
 	const appearance = useMemo<EditorStyle>(
 		() => ({
 			"--editor-font": `"${font}", ${/mono|consol|courier|cascadia/iu.test(font) ? "monospace" : /georgia|cambria|times|serif/iu.test(font) ? "serif" : "sans-serif"}`,
@@ -41,6 +47,7 @@ export const EditorSurface = scope(({ context: dumpContext }: EditorSurfaceProps
 	useEffect(() => {
 		document.documentElement.dataset.theme = theme;
 	}, [theme]);
+
 	useEffect(() => {
 		const keydown = (event: KeyboardEvent) => {
 			if (event.defaultPrevented || event.isComposing || chrome.fontPickerOpen || chrome.keybindsOpen) return;
@@ -115,11 +122,11 @@ export const EditorSurface = scope(({ context: dumpContext }: EditorSurfaceProps
 	return (
 		<main className="dump-app" style={appearance}>
 			<TitleBar chrome={context.chrome} onDismissMenu={dismissMenu} context={context}>
-				<AppMenu context={context} />
+				<Menu context={context} />
 			</TitleBar>
-			<PageBar position="top" context={context} />
-			<PageViewport context={context} />
-			<PageBar position="bottom" context={context} />
+			<UpBar context={context} />
+			<PageLayout context={context} />
+			<DownBar context={context} />
 			{showStatusBar && <StatusBar context={context} />}
 			<ChromeDialogs context={context} />
 		</main>

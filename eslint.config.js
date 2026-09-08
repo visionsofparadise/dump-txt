@@ -13,6 +13,11 @@ import globals from "globals";
 import tseslint from "typescript-eslint";
 import eslintConfigPrettier from "eslint-config-prettier";
 
+const hookStatement = {
+	selector:
+		":matches(VariableDeclaration:has(VariableDeclarator[init.callee.name=/^use($|[A-Z0-9])/]), VariableDeclaration:has(VariableDeclarator[init.callee.property.name=/^use($|[A-Z0-9])/]), ExpressionStatement[expression.callee.name=/^use($|[A-Z0-9])/], ExpressionStatement[expression.callee.property.name=/^use($|[A-Z0-9])/])",
+};
+
 export default tseslint.config(
 	includeIgnoreFile(fileURLToPath(new URL(".gitignore", import.meta.url))),
 
@@ -283,6 +288,8 @@ export default tseslint.config(
 				{ blankLine: "any", prev: "interface", next: "interface" },
 				{ blankLine: "any", prev: "type", next: "type" },
 				{ blankLine: "any", prev: ["case", "default"], next: ["case", "default"] },
+				{ blankLine: "always", prev: "*", next: hookStatement },
+				{ blankLine: "always", prev: hookStatement, next: "*" },
 			],
 		},
 	},

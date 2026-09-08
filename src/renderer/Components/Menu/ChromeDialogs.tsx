@@ -1,6 +1,6 @@
 import { scope } from "opshot";
 import { lazy, Suspense } from "react";
-import type { ChromeContext } from "../models/ChromeContext";
+import type { ChromeContext } from "../../models/ChromeContext";
 
 const FontPicker = lazy(() => import("./FontPicker").then((module) => ({ default: module.FontPicker })));
 const Keybinds = lazy(() => import("./Keybinds").then((module) => ({ default: module.Keybinds })));

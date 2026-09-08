@@ -1,6 +1,6 @@
 import { scope } from "opshot";
 import { useCallback } from "react";
-import type { AppContext } from "../models/AppContext";
+import type { AppContext } from "../../models/AppContext";
 
 interface SaveStatusProps {
 	readonly context: AppContext;
@@ -8,12 +8,15 @@ interface SaveStatusProps {
 
 export const SaveStatus = scope(({ context }: SaveStatusProps) => {
 	const { persistence, persistenceState } = context;
+
 	const retry = useCallback(() => {
 		void persistence.flush().catch(() => undefined);
 	}, [persistence]);
+
 	const saveAs = useCallback(() => {
 		void persistence.saveAs().catch(() => undefined);
 	}, [persistence]);
+
 	const open = useCallback(() => {
 		void persistence.open().catch(() => undefined);
 	}, [persistence]);

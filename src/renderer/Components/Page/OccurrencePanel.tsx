@@ -1,7 +1,7 @@
 import { X } from "lucide-react";
 import { scope } from "opshot";
 import { useCallback, type ChangeEvent, type KeyboardEvent, type MouseEvent } from "react";
-import type { DumpContext } from "../models/DumpContext";
+import type { DumpContext } from "../../models/DumpContext";
 
 interface OccurrencePanelProps {
 	readonly context: DumpContext;
@@ -10,15 +10,19 @@ interface OccurrencePanelProps {
 export const OccurrencePanel = scope(({ context }: OccurrencePanelProps) => {
 	const { session, editor, persistenceState } = context;
 	const occurrence = session.view.occurrence;
+
 	const changeMatchCase = useCallback(
 		(event: ChangeEvent<HTMLInputElement>) => editor.updateOccurrenceOptions({ matchCase: event.target.checked }),
 		[editor],
 	);
+
 	const changeAllPages = useCallback(
 		(event: ChangeEvent<HTMLInputElement>) => editor.updateOccurrenceOptions({ allPages: event.target.checked }),
 		[editor],
 	);
+
 	const close = useCallback(() => editor.closeOccurrence(), [editor]);
+
 	const returnEditorFocus = useCallback(
 		(event: MouseEvent<HTMLInputElement>) => {
 			if (event.detail > 0) editor.focus();
