@@ -7,12 +7,14 @@ fn arguments_for_profile(profile: Option<OsString>) -> io::Result<Option<String>
         return Ok(None);
     };
     let profile = PathBuf::from(profile);
+
     if !profile.is_absolute() {
         return Err(io::Error::new(
             io::ErrorKind::InvalidInput,
             "The automation webview profile must be an absolute path.",
         ));
     }
+
     let log_path = profile.join("native-webview2.log");
     let log_path = log_path
         .to_str()
@@ -23,6 +25,7 @@ fn arguments_for_profile(profile: Option<OsString>) -> io::Result<Option<String>
                 "The automation webview log path cannot be represented safely.",
             )
         })?;
+
     Ok(Some(format!(
         "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --autoplay-policy=no-user-gesture-required --remote-debugging-port=0 --remote-debugging-address=127.0.0.1 --enable-logging --log-file=\"{log_path}\""
     )))

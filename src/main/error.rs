@@ -35,6 +35,15 @@ pub enum IpcResult<T> {
 }
 
 impl<T> IpcResult<T> {
+    pub fn from_join_result<E: std::fmt::Display>(
+        result: Result<Result<T, E>, tauri::Error>,
+    ) -> Self {
+        match result {
+            Ok(result) => Self::from_result(result),
+            Err(error) => Self::failure("io", error.to_string()),
+        }
+    }
+
     pub fn from_ipc_result(result: Result<T, IpcFailure>) -> Self {
         match result {
             Ok(value) => Self::Success { ok: true, value },

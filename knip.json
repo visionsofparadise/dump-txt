@@ -3,6 +3,7 @@
 	"project": ["src/**/*.{ts,tsx,css}", "*.config.ts"],
 	"entry": ["src/renderer/probe.tsx"],
 	"vite": { "config": ["vite.*.config.ts"] },
+	"ignoreBinaries": ["styling-lint"],
 	"ignoreDependencies": [
 		"prettier",
 		"@commitlint/cli",

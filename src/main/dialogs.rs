@@ -28,6 +28,7 @@ struct FileFilter {
 impl FileDialogOptions {
     fn parse(request: serde_json::Value) -> Result<Self, IpcFailure> {
         let options = parse_request::<Self>(request)?;
+
         if options
             .title
             .iter()
@@ -39,6 +40,7 @@ impl FileDialogOptions {
                 message: "File dialog options cannot contain NUL characters.".into(),
             });
         }
+
         if options.filters.as_ref().is_some_and(|filters| {
             filters.iter().any(|filter| {
                 filter.name.is_empty()
@@ -58,6 +60,7 @@ impl FileDialogOptions {
                 message: "File dialog filters are invalid.".into(),
             });
         }
+
         Ok(options)
     }
 }
@@ -72,6 +75,7 @@ fn dialog_hint(path: &Path) -> (Option<PathBuf>, Option<String>) {
     if path.is_dir() {
         return (Some(path.into()), None);
     }
+
     (
         path.parent()
             .filter(|parent| !parent.as_os_str().is_empty())
@@ -96,6 +100,7 @@ fn selection_of(
     let path = files.grant_path(&selected_path, false)?;
     let serialized_path = renderer_path(&path)?;
     let hash = files.read_snapshot(&path)?.map(|snapshot| snapshot.hash);
+
     Ok(Some(DialogSelection {
         path: serialized_path,
         hash,
@@ -104,28 +109,34 @@ fn selection_of(
 
 async fn show_dialog(
     window: WebviewWindow,
-    files: Arc<FileService>,
     request: serde_json::Value,
     save: bool,
 ) -> Result<Option<DialogSelection>, IpcFailure> {
     let options = FileDialogOptions::parse(request)?;
+    let files = Arc::clone(window.state::<Arc<FileService>>().inner());
     let mut dialog = window.dialog().file().set_parent(&window);
+
     if let Some(title) = options.title {
         dialog = dialog.set_title(title);
     }
+
     if let Some(default_path) = options.default_path {
         let (directory, name) = dialog_hint(default_path.as_ref());
+
         if let Some(directory) = directory {
             dialog = dialog.set_directory(directory);
         }
+
         if let Some(name) = name {
             dialog = dialog.set_file_name(name);
         }
     }
+
     let (sender, receiver) = mpsc::channel();
     let selected = move |selection| {
         let _ = sender.send(selection);
     };
+
     if let Some(filters) = options.filters {
         for filter in filters {
             let extensions: Vec<&str> = filter.extensions.iter().map(String::as_str).collect();
@@ -134,16 +145,19 @@ async fn show_dialog(
     } else if save {
         dialog = dialog.add_filter("Text files", &["txt"]);
     }
+
     if save {
         dialog.save_file(selected);
     } else {
         dialog.pick_file(selected);
     }
+
     tauri::async_runtime::spawn_blocking(move || {
         let selection = receiver.recv().map_err(|error| IpcFailure {
             code: "io",
             message: format!("The native file dialog did not return a selection: {error}"),
         })?;
+
         selection_of(&files, selection)
     })
     .await
@@ -158,11 +172,7 @@ pub async fn show_open_dialog(
     window: WebviewWindow,
     request: serde_json::Value,
 ) -> IpcResult<Option<DialogSelection>> {
-    let files = Arc::clone(window.state::<Arc<FileService>>().inner());
-    match show_dialog(window, files, request, false).await {
-        Ok(value) => IpcResult::Success { ok: true, value },
-        Err(error) => IpcResult::Failure { ok: false, error },
-    }
+    IpcResult::from_ipc_result(show_dialog(window, request, false).await)
 }
 
 #[tauri::command]
@@ -170,11 +180,7 @@ pub async fn show_save_dialog(
     window: WebviewWindow,
     request: serde_json::Value,
 ) -> IpcResult<Option<DialogSelection>> {
-    let files = Arc::clone(window.state::<Arc<FileService>>().inner());
-    match show_dialog(window, files, request, true).await {
-        Ok(value) => IpcResult::Success { ok: true, value },
-        Err(error) => IpcResult::Failure { ok: false, error },
-    }
+    IpcResult::from_ipc_result(show_dialog(window, request, true).await)
 }
 
 #[cfg(test)]

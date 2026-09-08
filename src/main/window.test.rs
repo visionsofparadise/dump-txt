@@ -8,6 +8,7 @@ fn restored_windows_keep_the_titlebar_inside_the_work_area() {
         width: 1280,
         height: 696,
     };
+
     assert_eq!(
         fit_bounds(
             WindowBounds {

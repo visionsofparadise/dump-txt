@@ -10,6 +10,7 @@ fn explicit_profile_keeps_defaults_and_contains_loopback_diagnostics() {
     let arguments = arguments_for_profile(Some(r"C:\test profiles\fixture".into()))
         .unwrap()
         .unwrap();
+
     assert!(arguments.starts_with("--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --autoplay-policy=no-user-gesture-required "));
     assert!(arguments.contains("--remote-debugging-port=0 --remote-debugging-address=127.0.0.1"));
     assert!(arguments.ends_with(

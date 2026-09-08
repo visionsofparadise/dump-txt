@@ -25,6 +25,7 @@ pub async fn read_clipboard(
     if let Err(error) = parse_request::<EmptyRequest>(request) {
         return IpcResult::Failure { ok: false, error };
     }
+
     match tauri::async_runtime::spawn_blocking(move || app.clipboard().read_text()).await {
         Ok(result) => clipboard_read_result(result),
         Err(error) => IpcResult::failure("io", error.to_string()),
@@ -43,12 +44,11 @@ pub async fn write_clipboard(app: tauri::AppHandle, request: serde_json::Value) 
         Ok(request) => request,
         Err(error) => return IpcResult::Failure { ok: false, error },
     };
-    match tauri::async_runtime::spawn_blocking(move || app.clipboard().write_text(request.text))
-        .await
-    {
-        Ok(result) => IpcResult::from_result(result),
-        Err(error) => IpcResult::failure("io", error.to_string()),
-    }
+
+    IpcResult::from_join_result(
+        tauri::async_runtime::spawn_blocking(move || app.clipboard().write_text(request.text))
+            .await,
+    )
 }
 
 #[cfg(test)]

@@ -16,6 +16,7 @@ fn unavailable_text_returns_an_empty_success() {
     let result = clipboard_read_result(Err(Error::Clipboard(
         "The clipboard contents were not available in the requested format or the clipboard is empty.".into(),
     )));
+
     assert_eq!(
         serde_json::to_value(result).unwrap(),
         json!({"ok": true, "value": ""})
@@ -32,6 +33,7 @@ fn other_clipboard_failures_preserve_the_io_envelope() {
         "The clipboard contents were not available in the requested format or the clipboard is empty. Unexpected failure.",
     ] {
         let result = clipboard_read_result(Err(Error::Clipboard(message.into())));
+
         assert_eq!(
             serde_json::to_value(result).unwrap(),
             json!({"ok": false, "error": {"code": "io", "message": message}})
@@ -45,6 +47,7 @@ fn matching_text_in_a_tauri_error_remains_an_error() {
         CONTENT_NOT_AVAILABLE,
     )));
     let message = error.to_string();
+
     assert_eq!(
         serde_json::to_value(clipboard_read_result(Err(error))).unwrap(),
         json!({"ok": false, "error": {"code": "io", "message": message}})

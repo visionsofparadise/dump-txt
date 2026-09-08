@@ -84,6 +84,7 @@ impl StartupState {
         let window_bounds = restored_file_path
             .as_ref()
             .and_then(|_| restored.as_ref().and_then(|state| state.window_bounds));
+
         Self {
             user_data,
             restored_file_path,
@@ -108,6 +109,7 @@ impl StartupState {
                 message: "The startup settings snapshot is unavailable.".into(),
             })?
             .take();
+
         Ok(AppPaths {
             user_data,
             restored_file_path,
@@ -131,10 +133,8 @@ pub fn get_paths(
     request: serde_json::Value,
 ) -> IpcResult<AppPaths> {
     let result = parse_request::<EmptyRequest>(request).and_then(|_| state.take_paths());
-    match result {
-        Ok(value) => IpcResult::Success { ok: true, value },
-        Err(error) => IpcResult::Failure { ok: false, error },
-    }
+
+    IpcResult::from_ipc_result(result)
 }
 
 #[cfg(test)]

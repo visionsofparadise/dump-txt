@@ -14,6 +14,7 @@ fn production_navigation_stays_on_the_bundled_entry() {
         &"http://tauri.localhost/index.html".parse().unwrap(),
         None
     ));
+
     for url in [
         "tauri://localhost?unexpected=entry",
         "tauri://localhost:8080",
@@ -29,6 +30,7 @@ fn production_navigation_stays_on_the_bundled_entry() {
 #[test]
 fn development_navigation_requires_the_exact_server_origin() {
     let origin = "http://localhost:1420".parse().unwrap();
+
     assert!(navigation_allowed(
         &"http://localhost:1420/probe.html".parse().unwrap(),
         Some(&origin)

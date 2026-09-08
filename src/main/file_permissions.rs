@@ -15,14 +15,18 @@ pub fn preserve(path: &Path, temporary: &File) -> io::Result<()> {
         Err(error) => return Err(error),
     };
     let permissions = original.metadata()?.permissions();
+
     if permissions.readonly() {
         return Err(io::Error::new(
             io::ErrorKind::PermissionDenied,
             "The file is read-only.",
         ));
     }
+
     let security = windows::Security::read(&original)?;
+
     security.apply(temporary)?;
+
     temporary.set_permissions(permissions)
 }
 
@@ -68,9 +72,11 @@ mod windows {
                     &mut descriptor,
                 )
             };
+
             if result != 0 {
                 return Err(io::Error::from_raw_os_error(result as i32));
             }
+
             let mut security = Self {
                 descriptor,
                 dacl,
@@ -78,11 +84,14 @@ mod windows {
             };
             let mut control = 0;
             let mut revision = 0;
+
             if unsafe { GetSecurityDescriptorControl(descriptor, &mut control, &mut revision) } == 0
             {
                 return Err(io::Error::last_os_error());
             }
+
             security.protected = control & SE_DACL_PROTECTED != 0;
+
             Ok(security)
         }
 
@@ -95,13 +104,16 @@ mod windows {
                     0,
                 )
             };
+
             if handle == INVALID_HANDLE_VALUE {
                 let error = io::Error::last_os_error();
+
                 return Err(io::Error::new(
                     error.kind(),
                     format!("Could not open temporary file permissions: {error}"),
                 ));
             }
+
             let security_file = unsafe { File::from_raw_handle(handle) };
             let inheritance = if self.protected {
                 PROTECTED_DACL_SECURITY_INFORMATION
@@ -119,10 +131,12 @@ mod windows {
                     null(),
                 )
             };
+
             if result == 0 {
                 Ok(())
             } else {
                 let error = io::Error::from_raw_os_error(result as i32);
+
                 Err(io::Error::new(
                     error.kind(),
                     format!("Could not preserve file permissions: {error}"),

@@ -4,7 +4,7 @@
 	"gitignore": true,
 	"absolute": true,
 	"threshold": 0,
-	"format": ["javascript", "typescript", "jsx", "tsx"],
+	"format": ["javascript", "typescript", "jsx", "tsx", "rust"],
 	"reporters": ["console"],
 	"ignore": [
 		"**/.*/**",
@@ -17,6 +17,7 @@
 		"package-lock.json",
 		"pnpm-lock.yaml",
 		"yarn.lock",
-		"designs/**"
+		"designs/**",
+		"**/*.test.rs"
 	]
 }

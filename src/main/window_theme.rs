@@ -22,5 +22,6 @@ pub fn set_theme(window: WebviewWindow, request: serde_json::Value) -> IpcResult
         StartupTheme::Light => Some(Theme::Light),
         StartupTheme::Dark => Some(Theme::Dark),
     };
+
     IpcResult::from_result(window.set_theme(theme))
 }

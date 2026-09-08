@@ -20,6 +20,7 @@ pub fn restore_bounds(window: &WebviewWindow, bounds: WindowBounds) -> tauri::Re
             let area = monitor.work_area();
             let position = area.position.to_logical::<i32>(scale);
             let size = area.size.to_logical::<u32>(scale);
+
             WindowBounds {
                 x: position.x,
                 y: position.y,
@@ -28,6 +29,7 @@ pub fn restore_bounds(window: &WebviewWindow, bounds: WindowBounds) -> tauri::Re
             }
         })
         .collect();
+
     if let Some(area) = areas.iter().max_by_key(|area| {
         let width = (i64::from(bounds.x) + i64::from(bounds.width))
             .min(i64::from(area.x) + i64::from(area.width))
@@ -35,6 +37,7 @@ pub fn restore_bounds(window: &WebviewWindow, bounds: WindowBounds) -> tauri::Re
         let height = (i64::from(bounds.y) + i64::from(bounds.height))
             .min(i64::from(area.y) + i64::from(area.height))
             - i64::from(bounds.y).max(i64::from(area.y));
+
         width.max(0) * height.max(0)
     }) {
         let fitted = fit_bounds(bounds, *area);
@@ -45,6 +48,7 @@ pub fn restore_bounds(window: &WebviewWindow, bounds: WindowBounds) -> tauri::Re
             outer.height.saturating_sub(inner.height),
         )
         .to_logical::<u32>(scale);
+
         window.set_size(tauri::LogicalSize::new(
             fitted.width.saturating_sub(frame.width),
             fitted.height.saturating_sub(frame.height),
@@ -53,12 +57,14 @@ pub fn restore_bounds(window: &WebviewWindow, bounds: WindowBounds) -> tauri::Re
     } else {
         window.center()?;
     }
+
     Ok(())
 }
 
 fn fit_bounds(bounds: WindowBounds, area: WindowBounds) -> WindowBounds {
     let width = bounds.width.min(area.width).max(420);
     let height = bounds.height.min(area.height).max(280);
+
     WindowBounds {
         x: bounds.x.clamp(
             area.x,
@@ -83,9 +89,11 @@ fn emit_bounds(window: &tauri::Window) -> tauri::Result<()> {
     if window.is_maximized()? || window.is_minimized()? {
         return Ok(());
     }
+
     let scale = window.scale_factor()?;
     let position = window.outer_position()?.to_logical::<i32>(scale);
     let size = window.outer_size()?.to_logical::<u32>(scale);
+
     if !(-100000..=100000).contains(&position.x)
         || !(-100000..=100000).contains(&position.y)
         || !(420..=10000).contains(&size.width)
@@ -93,6 +101,7 @@ fn emit_bounds(window: &tauri::Window) -> tauri::Result<()> {
     {
         return Ok(());
     }
+
     window.emit(
         "windowBoundsChanged",
         [WindowBounds {
@@ -106,12 +115,15 @@ fn emit_bounds(window: &tauri::Window) -> tauri::Result<()> {
 
 pub fn handle_window_event(window: &tauri::Window, event: &WindowEvent) {
     let state = window.state::<WindowState>();
+
     match event {
         WindowEvent::CloseRequested { api, .. } => {
             if state.allow_close.load(Ordering::SeqCst) {
                 return;
             }
+
             api.prevent_close();
+
             if state.ready.load(Ordering::SeqCst) {
                 let _ = window.emit("closeRequested", Vec::<bool>::new());
             } else {
@@ -124,6 +136,7 @@ pub fn handle_window_event(window: &tauri::Window, event: &WindowEvent) {
             if state.ready.load(Ordering::SeqCst) =>
         {
             let _ = emit_bounds(window);
+
             if let Ok(maximized) = window.is_maximized() {
                 let _ = window.emit("maximizedChanged", [maximized]);
             }
@@ -135,9 +148,11 @@ pub fn handle_window_event(window: &tauri::Window, event: &WindowEvent) {
 pub fn restore_existing(app: &tauri::AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.unminimize();
+
         if app.state::<WindowState>().ready.load(Ordering::SeqCst) {
             let _ = window.show();
         }
+
         let _ = window.set_focus();
     }
 }
@@ -150,6 +165,7 @@ pub fn handle_exit_request(app: &tauri::AppHandle, api: &tauri::ExitRequestApi) 
     {
         if let Some(window) = app.get_webview_window("main") {
             api.prevent_exit();
+
             let _ = window.close();
         }
     }
@@ -196,10 +212,13 @@ pub fn finish_close(
 ) -> IpcResult<()> {
     empty_request(request, || {
         state.allow_close.store(true, Ordering::SeqCst);
+
         let result = window.close();
+
         if result.is_err() {
             state.allow_close.store(false, Ordering::SeqCst);
         }
+
         result
     })
 }
@@ -216,9 +235,11 @@ pub fn renderer_ready(
         window.set_focus()?;
         window.emit("maximizedChanged", [window.is_maximized()?])?;
         emit_bounds(&window.as_ref().window())?;
+
         if state.close_requested.swap(false, Ordering::SeqCst) {
             window.emit("closeRequested", Vec::<bool>::new())?;
         }
+
         Ok(())
     })
 }
@@ -233,11 +254,14 @@ pub fn open_inspector(window: WebviewWindow, request: serde_json::Value) -> IpcR
             } else {
                 window.open_devtools();
             }
+
             Ok(())
         }
+
         #[cfg(not(debug_assertions))]
         {
             let _ = window;
+
             Err(tauri::Error::Io(std::io::Error::new(
                 std::io::ErrorKind::PermissionDenied,
                 "The inspector is available in development builds.",

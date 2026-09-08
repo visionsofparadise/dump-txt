@@ -54,9 +54,11 @@ struct WriteTicket {
 impl WriteTicket {
     fn wait(&self) -> Result<(), IpcFailure> {
         let mut state = self.queue.state.lock().map_err(lock_failure)?;
+
         while state.current != self.number {
             state = self.queue.changed.wait(state).map_err(lock_failure)?;
         }
+
         Ok(())
     }
 }
@@ -68,14 +70,19 @@ impl Drop for WriteTicket {
             .state
             .lock()
             .unwrap_or_else(|error| error.into_inner());
+
         state.completed.insert(self.number);
+
         loop {
             let current = state.current;
+
             if !state.completed.remove(&current) {
                 break;
             }
+
             state.current += 1;
         }
+
         self.queue.changed.notify_all();
     }
 }
@@ -110,7 +117,9 @@ fn absolute_path(path: &Path) -> Result<PathBuf, IpcFailure> {
     if !path.is_absolute() || path.as_os_str().to_string_lossy().contains('\0') {
         return Err(failure("invalid", "A full file path is required."));
     }
+
     let mut normalized = PathBuf::new();
+
     for component in path.components() {
         match component {
             Component::CurDir => {}
@@ -120,11 +129,13 @@ fn absolute_path(path: &Path) -> Result<PathBuf, IpcFailure> {
             component => normalized.push(component.as_os_str()),
         }
     }
+
     Ok(normalized)
 }
 
 pub fn canonical_path(path: &Path) -> Result<PathBuf, IpcFailure> {
     let resolved = absolute_path(path)?;
+
     match dunce::canonicalize(&resolved) {
         Ok(path) => Ok(path),
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
@@ -139,12 +150,14 @@ pub fn canonical_path(path: &Path) -> Result<PathBuf, IpcFailure> {
                 Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
                 Err(error) => return Err(error.into()),
             }
+
             let Some(parent) = resolved.parent() else {
                 return Err(error.into());
             };
             let Some(name) = resolved.file_name() else {
                 return Err(error.into());
             };
+
             Ok(canonical_path(parent)?.join(name))
         }
         Err(error) => Err(error.into()),
@@ -162,6 +175,7 @@ fn comparison_path(path: &Path) -> PathBuf {
     {
         PathBuf::from(path.as_os_str().to_string_lossy().to_lowercase())
     }
+
     #[cfg(not(windows))]
     {
         path.to_owned()
@@ -186,7 +200,9 @@ fn read_exact_snapshot(path: &Path) -> Result<Option<FileRead>, IpcFailure> {
 impl FileService {
     pub fn new(user_data: PathBuf) -> Result<Self, IpcFailure> {
         let user_data = absolute_path(&user_data)?;
+
         fs::create_dir_all(&user_data)?;
+
         Ok(Self {
             user_data: canonical_path(&user_data)?,
             grants: Mutex::new(HashSet::new()),
@@ -205,10 +221,12 @@ impl FileService {
             Err(_) if allow_unavailable => resolved,
             Err(error) => return Err(error),
         };
+
         self.grants
             .lock()
             .map_err(lock_failure)?
             .insert(comparison_path(&canonical));
+
         Ok(canonical)
     }
 
@@ -216,6 +234,7 @@ impl FileService {
         let canonical = canonical_path(path)?;
         let key = comparison_path(&canonical);
         let root = comparison_path(&canonical_path(&self.user_data)?);
+
         if key.starts_with(&root) || self.grants.lock().map_err(lock_failure)?.contains(&key) {
             Ok(canonical)
         } else {
@@ -242,19 +261,26 @@ impl FileService {
                 "The requested action contains invalid values.",
             ));
         }
+
         let path = self.authorize_path(Path::new(&request.path))?;
         let key = comparison_path(&path);
         let mut queues = self.queues.lock().map_err(lock_failure)?;
+
         queues.retain(|_, queue| queue.strong_count() != 0);
+
         let queue = queues.get(&key).and_then(Weak::upgrade).unwrap_or_else(|| {
             let queue = Arc::new(WriteQueue::default());
+
             queues.insert(key, Arc::downgrade(&queue));
+
             queue
         });
         let mut state = queue.state.lock().map_err(lock_failure)?;
         let number = state.next;
         state.next += 1;
+
         drop(state);
+
         Ok(PreparedWrite {
             path,
             request,
@@ -264,14 +290,18 @@ impl FileService {
 
     fn complete_write(&self, prepared: PreparedWrite) -> Result<WriteResult, IpcFailure> {
         prepared.ticket.wait()?;
+
         let path = self.authorize_path(Path::new(&prepared.request.path))?;
+
         if comparison_path(&path) != comparison_path(&prepared.path) {
             return Err(failure(
                 "permission",
                 "The file destination changed while waiting to save.",
             ));
         }
+
         let actual_hash = read_exact_snapshot(&path)?.map(|snapshot| snapshot.hash);
+
         if actual_hash != prepared.request.expected_hash {
             return Err(if actual_hash.is_none() {
                 failure(
@@ -285,10 +315,13 @@ impl FileService {
                 )
             });
         }
+
         let mut file = AtomicWriteFile::open(&path)?;
+
         crate::file_permissions::preserve(&path, file.as_file())?;
         file.write_all(&prepared.request.bytes)?;
         file.commit()?;
+
         Ok(WriteResult {
             hash: hash_of(&prepared.request.bytes),
         })
@@ -316,6 +349,7 @@ pub async fn read_file(
         Err(error) => return IpcResult::Failure { ok: false, error },
     };
     let files = Arc::clone(app.state::<Arc<FileService>>().inner());
+
     match tauri::async_runtime::spawn_blocking(move || {
         files.read_snapshot(Path::new(&request.path))
     })
@@ -338,6 +372,7 @@ pub async fn write_file(
         Ok(prepared) => prepared,
         Err(error) => return IpcResult::Failure { ok: false, error },
     };
+
     match tauri::async_runtime::spawn_blocking(move || files.complete_write(prepared)).await {
         Ok(result) => IpcResult::from_ipc_result(result),
         Err(error) => IpcResult::failure("io", error.to_string()),

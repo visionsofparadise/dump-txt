@@ -94,9 +94,11 @@ impl MenuState {
             .invocation
             .lock()
             .unwrap_or_else(|error| error.into_inner());
+
         if active.is_some() {
             return None;
         }
+
         let identifier = self.next_identifier.fetch_add(1, Ordering::Relaxed);
         let (response, receiver) = sync_channel(1);
         *active = Some(Invocation {
@@ -105,6 +107,7 @@ impl MenuState {
             selection: None,
             response,
         });
+
         Some((identifier, receiver))
     }
 
@@ -113,10 +116,12 @@ impl MenuState {
             .invocation
             .lock()
             .unwrap_or_else(|error| error.into_inner());
+
         if let Some(invocation) = active.as_mut() {
             if invocation.selection.is_some() {
                 return;
             }
+
             invocation.selection = ACTIONS.into_iter().find(|action| {
                 invocation.request.enabled(*action)
                     && action.identifier(invocation.identifier) == menu_identifier
@@ -129,11 +134,13 @@ impl MenuState {
             .invocation
             .lock()
             .unwrap_or_else(|error| error.into_inner());
+
         if !active.as_ref().is_some_and(|invocation| {
             identifier.is_none_or(|identifier| identifier == invocation.identifier)
         }) {
             return;
         }
+
         if let Some(invocation) = active.take() {
             let result = match failure {
                 Some(message) => IpcResult::failure("io", message),
@@ -165,6 +172,7 @@ fn create_menu(app: &AppHandle, identifier: u64) -> tauri::Result<Menu<tauri::Wr
             .invocation
             .lock()
             .unwrap_or_else(|error| error.into_inner());
+
         ACTIONS
             .iter()
             .map(|action| {
@@ -174,10 +182,12 @@ fn create_menu(app: &AppHandle, identifier: u64) -> tauri::Result<Menu<tauri::Wr
             })
             .collect()
     };
+
     for (action, enabled) in ACTIONS.into_iter().zip(enabled) {
         if matches!(action, MenuAction::Cut | MenuAction::SelectAll) {
             menu.append(&PredefinedMenuItem::separator(app)?)?;
         }
+
         menu.append(&MenuItem::with_id(
             app,
             action.identifier(identifier),
@@ -186,6 +196,7 @@ fn create_menu(app: &AppHandle, identifier: u64) -> tauri::Result<Menu<tauri::Wr
             None::<&str>,
         )?)?;
     }
+
     Ok(menu)
 }
 
@@ -206,6 +217,7 @@ pub async fn show_text_context_menu(
         };
     };
     let failed_app = app.clone();
+
     match tauri::async_runtime::spawn_blocking(move || {
         let shown = create_menu(&app, identifier).and_then(|menu| window.popup_menu(&menu));
         let completed_app = app.clone();
@@ -216,10 +228,12 @@ pub async fn show_text_context_menu(
                 false,
             );
         });
+
         if let Err(error) = queued {
             app.state::<MenuState>()
                 .finish(Some(identifier), Some(error.to_string()), false);
         }
+
         receiver.recv().unwrap_or_else(|_| {
             IpcResult::failure("io", "The editing menu closed without a response.")
         })
@@ -229,9 +243,11 @@ pub async fn show_text_context_menu(
         Ok(result) => result,
         Err(error) => {
             let message = error.to_string();
+
             failed_app
                 .state::<MenuState>()
                 .finish(Some(identifier), Some(message.clone()), false);
+
             IpcResult::failure("io", message)
         }
     }
