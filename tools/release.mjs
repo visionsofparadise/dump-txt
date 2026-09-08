@@ -33,7 +33,7 @@ export function artifactNamesOf(version) {
 		throw new Error("Release version must be a stable major.minor.patch version");
 
 	return [
-		`dump-txt-Setup-${version}.exe`,
+		`dump-txt-${version}-windows-x64.exe`,
 		`dump-txt-${version}-mac-arm64.dmg`,
 		`dump-txt-${version}-mac-x64.dmg`,
 		`dump-txt-${version}-linux-x86_64.AppImage`,

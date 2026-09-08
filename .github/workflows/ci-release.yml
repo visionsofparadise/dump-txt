@@ -123,7 +123,7 @@ jobs:
            timeout-minutes: 15
            shell: pwsh
            run: |
-              $taskInstaller = @(Get-ChildItem -LiteralPath ./out/make -Filter 'dump-txt-Setup-*.exe')
+              $taskInstaller = @(Get-ChildItem -LiteralPath ./out/make -Filter 'dump-txt-*-windows-x64.exe')
               if ($taskInstaller.Count -ne 1) { throw 'Expected one Windows installer.' }
               ./tools/testTauriInstaller.ps1 -InstallerPath $taskInstaller[0].FullName -ExpectedExecutablePath ./src-tauri/target/release/dump-txt.exe
          - name: Inspect Linux package dependencies
@@ -139,7 +139,7 @@ jobs:
            with:
               name: installer-${{ matrix.artifact }}
               path: |
-                 out/make/dump-txt-Setup-*.exe
+                 out/make/dump-txt-*-windows-x64.exe
                  out/make/dump-txt-*-mac-*.dmg
                  out/make/dump-txt-*-linux-*.AppImage
                  out/make/dump-txt-*-linux-*.deb

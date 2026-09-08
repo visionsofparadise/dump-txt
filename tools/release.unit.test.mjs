@@ -14,7 +14,7 @@ test("normalizes all five Tauri packages to the existing release contract", () =
 	const directory = mkdtempSync(join(resolve(".scratch"), "tauri-packages-"));
 	directories.push(directory);
 	for (const [platform, architecture, type, source, expected] of [
-		["win32", "x64", "nsis", "dump.txt_0.2.0_x64-setup.exe", "dump-txt-Setup-0.2.0.exe"],
+		["win32", "x64", "nsis", "dump.txt_0.2.0_x64-setup.exe", "dump-txt-0.2.0-windows-x64.exe"],
 		["darwin", "arm64", "dmg", "dump.txt_0.2.0_aarch64.dmg", "dump-txt-0.2.0-mac-arm64.dmg"],
 		["darwin", "x64", "dmg", "dump.txt_0.2.0_x64.dmg", "dump-txt-0.2.0-mac-x64.dmg"],
 		["linux", "x64", "appimage", "dump.txt_0.2.0_amd64.AppImage", "dump-txt-0.2.0-linux-x86_64.AppImage"],
@@ -40,7 +40,7 @@ function fixture({ release = null, target = null, failure = null, corrupt = fals
 	mkdirSync(scratch, { recursive: true });
 	const directory = mkdtempSync(join(scratch, "release-test-"));
 	directories.push(directory);
-	const artifact = "dump-txt-Setup-0.1.0.exe";
+	const artifact = "dump-txt-0.1.0-windows-x64.exe";
 	for (const name of artifactNamesOf("0.1.0")) writeFileSync(join(directory, name), `test installer bytes: ${name}`);
 	writeChecksums(directory, "0.1.0");
 	const calls = [];
@@ -140,13 +140,13 @@ test("rejects malformed versions without accessing files or running commands", (
 	assert.throws(() => publishRelease({ version: "../bad" }), /version/u);
 });
 
-test("retains the published platform artifact names", () => {
+test("includes the version, platform, and architecture in every artifact name", () => {
 	assert.deepEqual(artifactNamesOf("0.2.0"), [
 		"dump-txt-0.2.0-linux-amd64.deb",
 		"dump-txt-0.2.0-linux-x86_64.AppImage",
 		"dump-txt-0.2.0-mac-arm64.dmg",
 		"dump-txt-0.2.0-mac-x64.dmg",
-		"dump-txt-Setup-0.2.0.exe",
+		"dump-txt-0.2.0-windows-x64.exe",
 	]);
 });
 
