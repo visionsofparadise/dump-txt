@@ -70,14 +70,17 @@ export class EditorController {
 	#wheelAt = -Infinity;
 	#wheelDirection = 0;
 	#wheelDistance = 0;
+	#overscrollTimer: ReturnType<typeof setTimeout> | null = null;
 	#wheelConsumed = false;
 	#pendingWheelDelta = 0;
 	#smoothWheelTarget: number | null = null;
 	#smoothWheelDirection = 0;
 	#wheelFrame: number | null = null;
 	readonly #resize = () => {
+		this.#resetOverscroll();
 		this.#cancelWheelScroll();
 		this.#cancelTransition();
+		this.#restoreScroll("restore");
 	};
 
 	constructor(
@@ -120,10 +123,11 @@ export class EditorController {
 		window.addEventListener("resize", this.#resize);
 		this.#restoring = false;
 
-		if ((this.#session.view.selections[this.#pageId]?.scrollTop ?? 0) > 0) this.#restoreScroll("restore");
+		this.#restoreScroll("restore");
 	}
 
 	detach(): void {
+		this.#resetOverscroll();
 		this.#menuGeneration++;
 		this.#cancelWheelScroll();
 		this.finishComposition();
@@ -310,6 +314,7 @@ export class EditorController {
 		this.#menuGeneration++;
 
 		if (locked) {
+			this.#resetOverscroll();
 			this.#cancelWheelScroll();
 			this.finishComposition();
 		}
@@ -376,7 +381,7 @@ export class EditorController {
 
 		if (gap >= 300 || reversed) this.#wheelConsumed = false;
 
-		if (gap >= 250 || reversed) this.#wheelDistance = 0;
+		if (gap >= 250 || reversed) this.#resetOverscroll();
 
 		this.#wheelAt = now;
 		this.#wheelDirection = direction;
@@ -395,7 +400,7 @@ export class EditorController {
 
 		if (!atEdge) {
 			event.preventDefault();
-			this.#wheelDistance = 0;
+			this.#resetOverscroll();
 			this.#wheelConsumed = false;
 			this.#cancelTransition();
 			this.#scrollWheel(scrollDelta);
@@ -408,11 +413,28 @@ export class EditorController {
 		if (this.#wheelConsumed) return;
 
 		this.#wheelDistance += Math.abs(delta);
+		view.dom.style.setProperty(
+			direction < 0 ? "--overscroll-top" : "--overscroll-bottom",
+			`${Math.min(1, this.#wheelDistance / 300) * 100}%`,
+		);
 
-		if (this.#wheelDistance < 400) return;
+		if (this.#overscrollTimer) clearTimeout(this.#overscrollTimer);
+
+		this.#overscrollTimer = setTimeout(() => this.#resetOverscroll(), 250);
+
+		if (this.#wheelDistance < 300) return;
 
 		this.#wheelConsumed = true;
 		this.#navigation.navigate(direction, direction > 0 ? "start" : "end");
+	}
+
+	#resetOverscroll(): void {
+		if (this.#overscrollTimer) clearTimeout(this.#overscrollTimer);
+
+		this.#overscrollTimer = null;
+		this.#wheelDistance = 0;
+		this.#view?.dom.style.removeProperty("--overscroll-top");
+		this.#view?.dom.style.removeProperty("--overscroll-bottom");
 	}
 
 	refresh(): void {
@@ -443,6 +465,8 @@ export class EditorController {
 				this.#cancelTransition();
 
 				if (changedPage) this.#beginTransition(pageId);
+
+				this.#resetOverscroll();
 
 				this.#states.set(this.#pageId, this.#view.state);
 				this.#pageId = pageId;
@@ -672,6 +696,10 @@ export class EditorController {
 		this.#publishTransition();
 	}
 
+	#pageMargin(view: EditorView): number {
+		return Math.max(0, Number.parseFloat(getComputedStyle(view.contentDOM).paddingTop) - 10) || 0;
+	}
+
 	#restoreScroll(entry: "restore" | "start" | "end"): void {
 		const view = this.#view;
 
@@ -697,7 +725,7 @@ export class EditorController {
 			write: () => {
 				if (measurement !== this.#measurement || view !== this.#view) return;
 
-				if (!snapshot && entry === "restore") view.scrollDOM.scrollTop = remembered;
+				if (!snapshot && entry === "restore") view.scrollDOM.scrollTop = remembered + this.#pageMargin(view);
 
 				requestAnimationFrame(() => {
 					if (measurement !== this.#measurement || view !== this.#view) return;
@@ -715,8 +743,14 @@ export class EditorController {
 					entry === "end"
 						? view.scrollDOM.scrollHeight - view.scrollDOM.clientHeight
 						: entry === "start"
-							? 0
-							: Math.min(remembered, Math.max(0, view.scrollDOM.scrollHeight - view.scrollDOM.clientHeight)),
+							? this.#pageMargin(view)
+							: Math.max(
+									0,
+									Math.min(
+										remembered + this.#pageMargin(view),
+										Math.max(0, view.scrollDOM.scrollHeight - view.scrollDOM.clientHeight),
+									),
+								),
 			}),
 			write: ({ top }) => {
 				if (measurement !== this.#measurement || view !== this.#view) return;
@@ -769,7 +803,9 @@ export class EditorController {
 			direction === this.#smoothWheelDirection
 				? (this.#smoothWheelTarget ?? scroller.scrollTop)
 				: scroller.scrollTop;
-		const alignedTarget = (Math.round(start / lineHeight) + Math.round(delta / lineHeight)) * lineHeight;
+		const margin = this.#pageMargin(view);
+		const alignedTarget =
+			margin + (Math.round((start - margin) / lineHeight) + Math.round(delta / lineHeight)) * lineHeight;
 		const target = Math.max(0, Math.min(scroller.scrollHeight - scroller.clientHeight, alignedTarget));
 		const from = scroller.scrollTop;
 		const startedAt = performance.now();
@@ -1127,7 +1163,7 @@ export class EditorController {
 			mainIndex: this.#view.state.selection.mainIndex,
 			scrollTop: this.#restoring
 				? (this.#session.view.selections[this.#pageId]?.scrollTop ?? 0)
-				: this.#view.scrollDOM.scrollTop,
+				: this.#view.scrollDOM.scrollTop - this.#pageMargin(this.#view),
 		};
 		const previous = this.#session.view.selections[this.#pageId];
 
@@ -1184,7 +1220,7 @@ export class EditorController {
 						[view.activePageId]: {
 							ranges: [{ anchor: head, head }],
 							mainIndex: 0,
-							scrollTop: this.#view?.scrollDOM.scrollTop ?? 0,
+							scrollTop: this.#view ? this.#view.scrollDOM.scrollTop - this.#pageMargin(this.#view) : 0,
 						},
 					}
 				: view.selections,

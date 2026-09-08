@@ -9,6 +9,7 @@
 	--color-panel: light-dark(#fff, #2b2b2b);
 	--color-border: light-dark(#dcdcdc, #404040);
 	--color-hover: light-dark(#e8e8e8, #383838);
+	--color-page-hover: light-dark(#e8e8e8, #2a2a2a);
 	--color-focus: light-dark(#505050, #bababa);
 	--spacing-bar: 40px;
 	--font-interface: "Segoe UI", sans-serif;
@@ -148,7 +149,7 @@ input:focus-visible {
 	padding-left: 46px;
 }
 .page-nav-main:hover:not(:disabled) {
-	background: light-dark(#e8e8e8, #2a2a2a);
+	background: var(--color-page-hover);
 	color: var(--color-ink);
 }
 .page-nav-hidden {
@@ -179,6 +180,7 @@ input:focus-visible {
 	white-space: nowrap;
 }
 .page-viewport {
+	container-type: size;
 	position: relative;
 	overflow: hidden;
 	min-height: 0;
@@ -211,7 +213,15 @@ input:focus-visible {
 	line-height: 1.5;
 }
 .cm-editor .cm-content {
-	padding: 10px 0;
+	min-height: calc(100cqh + 100cqh / 3);
+	padding: calc(100cqh / 3 + 10px) 0;
+	background: linear-gradient(
+		to bottom,
+		color-mix(in srgb, var(--color-bar), var(--color-page-hover) var(--overscroll-top, 0%)) 0 calc(100cqh / 3),
+		var(--color-surface) calc(100cqh / 3) calc(100% - 100cqh / 3),
+		color-mix(in srgb, var(--color-bar), var(--color-page-hover) var(--overscroll-bottom, 0%)) calc(100% - 100cqh / 3)
+			100%
+	);
 	caret-color: var(--color-ink);
 }
 .cm-editor .cm-line {

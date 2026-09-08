@@ -8,7 +8,7 @@ export const pageSelectionSchema = z
 	.object({
 		ranges: z.array(rangeSchema).min(1),
 		mainIndex: z.number().int().nonnegative(),
-		scrollTop: z.number().nonnegative(),
+		scrollTop: z.number(),
 	})
 	.refine((selection) => selection.mainIndex < selection.ranges.length);
 
