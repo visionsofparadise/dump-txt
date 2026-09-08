@@ -17,7 +17,7 @@ export function normalizeTauriPackages(root, version, platform = process.platfor
 	return expected.map((name) => {
 		const extension = name.slice(name.lastIndexOf("."));
 		const type = extension === ".exe" ? "nsis" : extension.slice(1).toLowerCase();
-		const directory = join(root, "src-tauri", "target", "release", "bundle", type);
+		const directory = join(root, "target", "release", "bundle", type);
 		const candidates = readdirSync(directory).filter(
 			(file) => file.includes(`_${version}_`) && file.endsWith(extension),
 		);

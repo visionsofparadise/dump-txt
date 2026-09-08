@@ -13,12 +13,11 @@
 	"ignoreFiles": [
 		"**/node_modules/**",
 		"**/dist/**",
-		"**/dist-tauri/**",
 		"**/out/**",
 		"**/build/**",
 		"**/coverage/**",
 		"**/.*/**",
-		"**/src-tauri/target/**",
-		"**/src-tauri/gen/**"
+		"**/target/**",
+		"**/gen/**"
 	]
 }

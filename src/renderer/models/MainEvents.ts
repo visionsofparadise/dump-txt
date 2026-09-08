@@ -1,6 +1,6 @@
 import { EventEmitter } from "events";
 import type { Main } from "./Main";
-import type { MainEventMap } from "../../shared/models/MainEventMap";
+import type { MainEventMap } from "./MainEventMap";
 
 export class MainEvents extends EventEmitter<MainEventMap> {
 	readonly #unsubscribe: ReadonlyArray<() => void>;

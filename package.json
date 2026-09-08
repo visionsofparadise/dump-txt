@@ -11,19 +11,11 @@
 	"scripts": {
 		"start": "node tools/tauri.mjs dev",
 		"build": "node tools/tauri.mjs build",
-		"package": "node tools/tauri.mjs build",
-		"make": "node tools/tauri.mjs build",
-		"check": "concurrently --group \"prettier --check .\" \"eslint . --no-cache -f unix\" \"tsc --noEmit --pretty false\" \"stylelint \\\"**/*.css\\\" -f unix --allow-empty-input --cache\" \"markdownlint-cli2 \\\"**/*.md\\\"\" \"textlint -f compact \\\"**/*.md\\\"\" \"knip --no-progress\" \"jscpd .\" \"tsc --noEmit --pretty false -p tsconfig.node.json\" \"node tools.mjs run actionlint\"",
-		"fix": "concurrently -m 1 --group \"prettier --write .\" \"eslint . --fix --cache\" \"stylelint \\\"**/*.css\\\" --fix --allow-empty-input --cache\" \"markdownlint-cli2 --fix \\\"**/*.md\\\"\" \"textlint --fix \\\"**/*.md\\\"\"",
-		"unit": "vitest run unit && node --test tools/release.unit.test.mjs",
+		"check": "concurrently --group \"prettier --check .\" \"eslint . --no-cache -f unix\" \"tsc --noEmit --pretty false\" \"stylelint \\\"**/*.css\\\" -f unix --allow-empty-input --cache\" \"markdownlint-cli2 \\\"**/*.md\\\"\" \"textlint -f compact \\\"**/*.md\\\"\" \"knip --no-progress\" \"jscpd .\" \"tsc --noEmit --pretty false -p tsconfig.node.json\" \"node tools.mjs run actionlint\" \"node tools/tauri.mjs check\"",
+		"fix": "concurrently -m 1 --group \"prettier --write .\" \"eslint . --fix --cache\" \"stylelint \\\"**/*.css\\\" --fix --allow-empty-input --cache\" \"markdownlint-cli2 --fix \\\"**/*.md\\\"\" \"textlint --fix \\\"**/*.md\\\"\" \"node tools/tauri.mjs fix\"",
+		"unit": "concurrently --group \"vitest run unit && node --test tools/release.unit.test.mjs\" \"node tools/tauri.mjs test-native\"",
 		"integration": "vitest run integration",
 		"prepare": "node -e \"const c=require('node:child_process');if(c.spawnSync('git',['rev-parse','--is-inside-work-tree'],{stdio:'ignore'}).status===0)c.execFileSync('git',['config','core.hooksPath','.githooks'])\" && node tools.mjs install",
-		"start:tauri:probe": "node tools/tauri.mjs dev --probe",
-		"make:tauri:probe": "node tools/tauri.mjs build --probe",
-		"start:tauri": "node tools/tauri.mjs dev",
-		"make:tauri": "node tools/tauri.mjs build",
-		"check:native": "node tools/tauri.mjs check",
-		"unit:native": "node tools/tauri.mjs test-native",
 		"tauri-test": "node tools/testTauri.mjs"
 	},
 	"dependencies": {

@@ -7,7 +7,12 @@ license = "MIT"
 edition = "2021"
 rust-version = "1.88"
 
+[[bin]]
+name = "dump-txt"
+path = "src/main/main.rs"
+
 [lib]
+path = "src/main/lib.rs"
 name = "dump_txt_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 

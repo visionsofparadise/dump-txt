@@ -22,10 +22,10 @@ export default defineConfig(({ mode }) => ({
 		port: 1420,
 		strictPort: true,
 		host: "127.0.0.1",
-		watch: { ignored: ["**/src-tauri/**", "**/.scratch/**"] },
+		watch: { ignored: ["**/src/main/**", "**/target/**", "**/gen/**", "**/permissions/**", "**/.scratch/**"] },
 	},
 	build: {
-		outDir: "dist-tauri",
+		outDir: "dist",
 		emptyOutDir: true,
 		target: ["chrome111", "safari16.4"],
 		rollupOptions: { input: mode === "probe" ? "probe.html" : "index.html" },

@@ -12,10 +12,10 @@ const directory = fileURLToPath(new URL("../", import.meta.url));
 const [command, ...arguments_] = process.argv.slice(2);
 const probe = arguments_.includes("--probe");
 const automation = arguments_.includes("--automation");
-const supported = new Set(["dev", "build", "check", "test-native"]);
+const supported = new Set(["dev", "build", "check", "fix", "test-native"]);
 
 if (!supported.has(command) || arguments_.some((argument) => !["--probe", "--automation"].includes(argument))) {
-	throw new Error("Use dev [--probe] [--automation], build [--probe] [--automation], check or test-native");
+	throw new Error("Use dev [--probe] [--automation], build [--probe] [--automation], check, fix or test-native");
 }
 
 const environment = { ...process.env };
@@ -29,7 +29,7 @@ if (existsSync(cargoDirectory)) {
 const options = { cwd: directory, env: environment, stdio: "inherit", windowsHide: true };
 environment.TAURI_TEST_AUTOMATION = automation ? "true" : "false";
 if (command === "dev" && !probe) environment.DUMP_TXT_PROFILE ??= join(directory, ".scratch", "tauri-dev-profile");
-const cargoManifest = join(directory, "src-tauri", "Cargo.toml");
+const cargoManifest = join(directory, "Cargo.toml");
 
 function run(executable, arguments_) {
 	const result = spawnSync(executable, arguments_, options);
@@ -37,10 +37,12 @@ function run(executable, arguments_) {
 	if (result.status !== 0) process.exit(result.status ?? 1);
 }
 
-if (command === "check") {
-	run("cargo", ["fmt", "--manifest-path", cargoManifest, "--check"]);
+if (command === "check" || command === "fix") {
+	const fixing = command === "fix";
+	if (!fixing) run("cargo", ["fmt", "--manifest-path", cargoManifest, "--check"]);
 	run("cargo", [
 		"clippy",
+		...(fixing ? ["--fix", "--allow-dirty", "--allow-staged"] : []),
 		"--manifest-path",
 		cargoManifest,
 		"--all-targets",
@@ -50,6 +52,7 @@ if (command === "check") {
 		"-D",
 		"warnings",
 	]);
+	if (fixing) run("cargo", ["fmt", "--manifest-path", cargoManifest]);
 } else if (command === "test-native") {
 	run("cargo", ["test", "--manifest-path", cargoManifest, "--features", "probe"]);
 } else {
@@ -59,7 +62,7 @@ if (command === "check") {
 	if (probe)
 		nativeArguments.push(
 			"--config",
-			"src-tauri/tauri.probe.conf.json",
+			"tauri.probe.conf.json",
 			"--features",
 			automation ? "probe,automation" : "probe",
 		);
@@ -70,9 +73,7 @@ if (command === "check") {
 		);
 	if (automation) {
 		if (!probe) nativeArguments.push("--features", "automation");
-		const automationConfig = JSON.parse(
-			readFileSync(join(directory, "src-tauri", "tauri.automation.conf.json"), "utf8"),
-		);
+		const automationConfig = JSON.parse(readFileSync(join(directory, "tauri.automation.conf.json"), "utf8"));
 		automationConfig.app.security.capabilities[0] = probe ? "probe" : "main";
 		nativeArguments.push("--config", JSON.stringify(automationConfig));
 	}
@@ -91,7 +92,6 @@ if (command === "check") {
 		}
 		const executable = join(
 			directory,
-			"src-tauri",
 			"target",
 			"release",
 			process.platform === "win32" ? "dump-txt.exe" : "dump-txt",

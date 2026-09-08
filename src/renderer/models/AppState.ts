@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { pageSelectionSchema } from "./RecoveryRecord";
+import type { WindowBounds } from "./MainEventMap";
 import type { PageSelection, SessionState } from "./SessionState";
-import type { WindowBounds } from "../../shared/models/MainEventMap";
 
 const preferencesSchema = z.object({ matchCase: z.boolean(), allPages: z.boolean() });
 

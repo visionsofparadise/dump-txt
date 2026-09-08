@@ -1,0 +1,11 @@
+src/renderer/
+designs/
+tools/
+*.ts
+*.js
+*.mjs
+*.html
+*.md
+package.json
+package-lock.json
+tsconfig*.json

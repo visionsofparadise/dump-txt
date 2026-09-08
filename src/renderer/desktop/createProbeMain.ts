@@ -1,4 +1,4 @@
-import { IpcError } from "../../shared/models/IpcFailure";
+import { IpcError } from "../models/IpcFailure";
 import { contentHashOf } from "../utils/contentHashOf";
 import { probeText } from "./probeText";
 import type { Main } from "../models/Main";

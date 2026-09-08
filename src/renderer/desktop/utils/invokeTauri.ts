@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { z } from "zod";
-import { failureOf, IpcError, ipcFailureSchema } from "../../../shared/models/IpcFailure";
+import { failureOf, IpcError, ipcFailureSchema } from "../../models/IpcFailure";
 
 export async function invokeTauri<Value>(
 	command: string,

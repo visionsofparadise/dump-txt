@@ -14,10 +14,10 @@ import { PageNavigation } from "./PageNavigation";
 import { recoveryRecordSchema, type RecoveryRecord } from "./RecoveryRecord";
 import { createSessionState, snapshotView, type ViewSnapshot } from "./SessionState";
 import type { DumpContext } from "./DumpContext";
+import type { FileRead } from "./FileRead";
 import type { Main } from "./Main";
+import type { WindowBounds } from "./MainEventMap";
 import type { MainEvents } from "./MainEvents";
-import type { FileRead } from "../../shared/models/FileRead";
-import type { WindowBounds } from "../../shared/models/MainEventMap";
 
 interface PersistenceState {
 	path: string | null;

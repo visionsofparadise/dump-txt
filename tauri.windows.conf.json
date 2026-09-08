@@ -5,7 +5,7 @@
 			"webviewInstallMode": { "type": "downloadBootstrapper" },
 			"nsis": {
 				"installMode": "currentUser",
-				"installerIcon": "../assets/icon.ico",
+				"installerIcon": "assets/icon.ico",
 				"installerHooks": "./installer-hooks.nsh"
 			}
 		}

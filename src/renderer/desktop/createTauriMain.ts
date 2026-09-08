@@ -1,13 +1,13 @@
 import { EventEmitter } from "events";
 import { listen } from "@tauri-apps/api/event";
 import { z } from "zod";
-import { appPathsSchema } from "../../shared/models/AppPaths";
-import { dialogChoiceSchema } from "../../shared/models/FileDialogOptions";
-import { fileReadSchema } from "../../shared/models/FileRead";
-import { failureOf, IpcError } from "../../shared/models/IpcFailure";
-import { mainEventSchemas, type MainEventMap } from "../../shared/models/MainEventMap";
-import { textContextMenuResponseSchema } from "../../shared/models/TextContextMenuState";
-import { writeResultSchema } from "../../shared/models/WriteRequest";
+import { appPathsSchema } from "../models/AppPaths";
+import { dialogChoiceSchema } from "../models/FileDialogOptions";
+import { fileReadSchema } from "../models/FileRead";
+import { failureOf, IpcError } from "../models/IpcFailure";
+import { mainEventSchemas, type MainEventMap } from "../models/MainEventMap";
+import { textContextMenuResponseSchema } from "../models/TextContextMenuState";
+import { writeResultSchema } from "../models/WriteRequest";
 import { invokeTauri, nativeVoid } from "./utils/invokeTauri";
 import type { Main } from "../models/Main";
 

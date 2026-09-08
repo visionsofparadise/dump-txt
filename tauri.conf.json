@@ -5,7 +5,7 @@
 	"identifier": "com.visionsofparadise.dump-txt",
 	"build": {
 		"devUrl": "http://127.0.0.1:1420",
-		"frontendDist": "../dist-tauri"
+		"frontendDist": "dist"
 	},
 	"app": {
 		"windows": [
@@ -37,6 +37,6 @@
 		"homepage": "https://github.com/visionsofparadise/dump-txt",
 		"category": "Productivity",
 		"license": "MIT",
-		"icon": ["../assets/icon.png", "../assets/icon.ico", "../assets/icon.icns"]
+		"icon": ["assets/icon.png", "assets/icon.ico", "assets/icon.icns"]
 	}
 }

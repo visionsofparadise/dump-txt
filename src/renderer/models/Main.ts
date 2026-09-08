@@ -1,9 +1,9 @@
-import type { AppPaths } from "../../shared/models/AppPaths";
-import type { DialogChoice, FileDialogOptions } from "../../shared/models/FileDialogOptions";
-import type { FileRead } from "../../shared/models/FileRead";
-import type { MainEventMap } from "../../shared/models/MainEventMap";
-import type { TextContextMenuResponse, TextContextMenuState } from "../../shared/models/TextContextMenuState";
-import type { WriteRequest } from "../../shared/models/WriteRequest";
+import type { AppPaths } from "./AppPaths";
+import type { DialogChoice, FileDialogOptions } from "./FileDialogOptions";
+import type { FileRead } from "./FileRead";
+import type { MainEventMap } from "./MainEventMap";
+import type { TextContextMenuResponse, TextContextMenuState } from "./TextContextMenuState";
+import type { WriteRequest } from "./WriteRequest";
 
 export interface Main {
 	getPaths(): Promise<AppPaths>;

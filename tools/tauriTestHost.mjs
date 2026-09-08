@@ -8,7 +8,7 @@ import { createTauriCapabilities, startWdioSession } from "@wdio/tauri-service";
 export const root = fileURLToPath(new URL("../", import.meta.url));
 export const executable =
 	process.env.TAURI_TEST_BINARY ??
-	path.join(root, "src-tauri", "target", "release", process.platform === "win32" ? "dump-txt.exe" : "dump-txt");
+	path.join(root, "target", "release", process.platform === "win32" ? "dump-txt.exe" : "dump-txt");
 export const driverProvider =
 	process.env.TAURI_TEST_DRIVER ?? (process.platform === "darwin" ? "embedded" : "external");
 

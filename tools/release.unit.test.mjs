@@ -20,7 +20,7 @@ test("normalizes all five Tauri packages to the existing release contract", () =
 		["linux", "x64", "appimage", "dump.txt_0.2.0_amd64.AppImage", "dump-txt-0.2.0-linux-x86_64.AppImage"],
 		["linux", "x64", "deb", "dump-txt_0.2.0_amd64.deb", "dump-txt-0.2.0-linux-amd64.deb"],
 	]) {
-		const bundle = join(directory, "src-tauri", "target", "release", "bundle", type);
+		const bundle = join(directory, "target", "release", "bundle", type);
 		mkdirSync(bundle, { recursive: true });
 		writeFileSync(join(bundle, source), expected);
 		if (type === "appimage") continue;

@@ -48,7 +48,7 @@ jobs:
            run: rustup show
          - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
            with:
-              workspaces: src-tauri -> target
+              workspaces: . -> target
               key: ${{ matrix.artifact }}
               cache-on-failure: "true"
               save-if: ${{ github.ref == 'refs/heads/main' }}
@@ -63,10 +63,8 @@ jobs:
          - run: npm run check
          - run: npm run unit
          - run: npm run integration
-         - run: npm run check:native
-         - run: npm run unit:native
          - id: probe-build
-           run: npm run make:tauri:probe -- --automation
+           run: npm run build -- --probe --automation
          - name: Test native probe on macOS with reduced motion
            if: runner.os == 'macOS'
            env:
@@ -98,7 +96,7 @@ jobs:
          - name: Build production persistence test app
            id: persistence-build
            if: ${{ !cancelled() && steps.probe-build.outcome == 'success' }}
-           run: npm run make:tauri -- --automation
+           run: npm run build -- --automation
          - name: Test native persistence on macOS
            if: ${{ !cancelled() && steps.persistence-build.outcome == 'success' && runner.os == 'macOS' }}
            timeout-minutes: 10
@@ -119,7 +117,7 @@ jobs:
          - name: Build production packages
            id: package-build
            if: ${{ !cancelled() && steps.persistence-build.outcome == 'success' }}
-           run: npm run make
+           run: npm run build
          - name: Verify Windows install and Electron upgrade
            if: ${{ !cancelled() && steps.package-build.outcome == 'success' && runner.os == 'Windows' }}
            timeout-minutes: 15
@@ -127,13 +125,13 @@ jobs:
            run: |
               $taskInstaller = @(Get-ChildItem -LiteralPath ./out/make -Filter 'dump-txt-*-windows-x64.exe')
               if ($taskInstaller.Count -ne 1) { throw 'Expected one Windows installer.' }
-              ./tools/testTauriInstaller.ps1 -InstallerPath $taskInstaller[0].FullName -ExpectedExecutablePath ./src-tauri/target/release/dump-txt.exe
+              ./tools/testTauriInstaller.ps1 -InstallerPath $taskInstaller[0].FullName -ExpectedExecutablePath ./target/release/dump-txt.exe
          - name: Inspect Linux package dependencies
            if: ${{ !cancelled() && steps.package-build.outcome == 'success' && runner.os == 'Linux' }}
            run: |
               mkdir -p .scratch/tauri-package
-              readelf --version-info src-tauri/target/release/dump-txt > .scratch/tauri-package/elf-versions.txt
-              ldd src-tauri/target/release/dump-txt > .scratch/tauri-package/native-dependencies.txt
+              readelf --version-info target/release/dump-txt > .scratch/tauri-package/elf-versions.txt
+              ldd target/release/dump-txt > .scratch/tauri-package/native-dependencies.txt
               dpkg-deb --info out/make/dump-txt-*-linux-*.deb > .scratch/tauri-package/debian-control.txt
               dpkg-query -W libwebkit2gtk-4.1-0 libc6 > .scratch/tauri-package/host-runtime.txt
          - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
@@ -172,8 +170,8 @@ jobs:
                  .scratch/tauri-installer/
                  .scratch/tauri-package/
                  .scratch/tauri-build.json
-                 src-tauri/target/release/dump-txt
-                 src-tauri/target/release/dump-txt.exe
+                 target/release/dump-txt
+                 target/release/dump-txt.exe
               if-no-files-found: warn
 
    publish:

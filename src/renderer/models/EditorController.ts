@@ -12,7 +12,7 @@ import type { DocumentState, Page } from "./DocumentState";
 import type { EditCommand } from "./EditCommand";
 import type { History } from "./History";
 import type { PageNavigation } from "./PageNavigation";
-import type { TextContextMenuResponse, TextContextMenuState } from "../../shared/models/TextContextMenuState";
+import type { TextContextMenuResponse, TextContextMenuState } from "./TextContextMenuState";
 
 interface EditorCallbacks {
 	readonly openFind?: () => void;
