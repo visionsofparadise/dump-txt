@@ -1,8 +1,8 @@
 import { ChevronDown, ChevronUp, ChevronsDown, ChevronsUp, Plus, Trash2 } from "lucide-react";
 import { scope } from "opshot";
 import { useCallback, useEffect, useRef } from "react";
-import { MovePageIcon } from "./MovePageIcon";
 import { cn } from "../utils/cn";
+import { MovePageIcon } from "./MovePageIcon";
 import type { DumpContext } from "../models/DumpContext";
 
 interface PageBarProps {

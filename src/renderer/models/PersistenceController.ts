@@ -109,6 +109,7 @@ export class PersistenceController {
 	#settings: AppState | null = null;
 	#windowBounds: WindowBounds | null = null;
 	#unsubscribeSession: (() => void) | null = null;
+	#unsubscribeScroll: (() => void) | null = null;
 	#debounce: ReturnType<typeof setTimeout> | null = null;
 	#maximumWait: ReturnType<typeof setTimeout> | null = null;
 	#settingsTimer: ReturnType<typeof setTimeout> | null = null;
@@ -338,6 +339,7 @@ export class PersistenceController {
 
 		this.#transition = true;
 		this.#setLocked(true);
+
 		const { document, session, history, editor } = this.#context;
 		const pageId = session.view.activePageId;
 
@@ -353,10 +355,7 @@ export class PersistenceController {
 
 			if (!file) throw new Error("The selected file is missing.");
 
-			const text = new TextDecoder("utf-8")
-				.decode(file.bytes)
-				.replace(/\r\n?/gu, "\n")
-				.replace(/\f/gu, "\u240c");
+			const text = new TextDecoder("utf-8").decode(file.bytes).replace(/\r\n?/gu, "\n").replace(/\f/gu, "\u240c");
 
 			if (this.state.phase !== "failed") this.state.error = null;
 
@@ -393,6 +392,7 @@ export class PersistenceController {
 
 		this.#transition = true;
 		this.#setLocked(true);
+
 		const { document, session, editor } = this.#context;
 		const index = document.pages.findIndex((page) => page.id === session.view.activePageId);
 		const text = document.pages[index]?.text ?? "";
@@ -446,6 +446,7 @@ export class PersistenceController {
 		this.#events.off("closeRequested", this.#closeRequested);
 		this.#events.off("windowBoundsChanged", this.#boundsChanged);
 		this.#unsubscribeSession?.();
+		this.#unsubscribeScroll?.();
 		this.#context?.editor.dispose();
 		this.#context?.history.dispose();
 	}
@@ -670,6 +671,7 @@ export class PersistenceController {
 
 	#install(revision: Revision, hash: string | null, savedRevision: number): void {
 		this.#unsubscribeSession?.();
+		this.#unsubscribeScroll?.();
 		this.#context?.editor.dispose();
 		this.#context?.history.dispose();
 
@@ -727,6 +729,7 @@ export class PersistenceController {
 		this.#paused = false;
 		this.state.error = null;
 		this.#unsubscribeSession = subscribe(session, () => this.#scheduleSettings());
+		this.#unsubscribeScroll = subscribe(history.scroll.positions, () => this.#scheduleSettings());
 		editor.setLocked(this.state.locked);
 		this.state.generation++;
 		flushState(this.state);
@@ -738,7 +741,9 @@ export class PersistenceController {
 
 		if (!context || !path) throw new Error("The dump is still loading.");
 
-		const persisted = persistedPagesOf(context.document.pages, context.session.view);
+		context.editor.rememberScroll();
+
+		const persisted = persistedPagesOf(context.document.pages, context.history.scroll.capture(context.session.view));
 
 		return Object.freeze({
 			path,

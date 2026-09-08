@@ -1,6 +1,7 @@
 import { batch, flush, subscribe, type Operation } from "opshot";
 import { freezePages, type DocumentState, type PreparedEdit } from "./DocumentState";
-import { snapshotView, type SessionState, type ViewSnapshot } from "./SessionState";
+import { PageScrollState } from "./PageScrollState";
+import type { SessionState, ViewSnapshot } from "./SessionState";
 
 interface HistoryEntry {
 	readonly operations: ReadonlyArray<Operation>;
@@ -16,6 +17,7 @@ export function replayOperation(operation: Operation, direction: "before" | "aft
 }
 
 export class History {
+	readonly scroll = new PageScrollState();
 	private readonly undoEntries: Array<HistoryEntry> = [];
 	private readonly redoEntries: Array<HistoryEntry> = [];
 	private readonly unsubscribe: () => void;
@@ -30,6 +32,7 @@ export class History {
 		private readonly session: SessionState,
 		private readonly changed: () => void = () => undefined,
 	) {
+		this.scroll.restore(session.view);
 		this.unsubscribe = subscribe(document, (operations) => {
 			for (const operation of operations) {
 				if (this.pendingMeta !== null && operation.meta === this.pendingMeta) {
@@ -51,8 +54,8 @@ export class History {
 		if (this.disposed) return;
 
 		const pages = freezePages(edit.pages);
-		const before = snapshotView(edit.before);
-		const after = snapshotView(edit.after);
+		const before = this.scroll.capture(edit.before);
+		const after = this.scroll.capture(edit.after, edit.before);
 
 		flush(this.document);
 		this.pendingMeta = {};
@@ -67,6 +70,7 @@ export class History {
 			this.pendingMeta = null;
 		}
 
+		this.scroll.restore(after);
 		this.session.view = after;
 
 		const operations = Object.freeze(this.pendingOperations);
@@ -142,6 +146,7 @@ export class History {
 			for (const operation of operations) replayOperation(operation, direction);
 		}, this.replayMeta);
 		flush(this.document);
+		this.scroll.restore(entry[direction]);
 		this.session.view = entry[direction];
 		destination.push(entry);
 		this.updateStatus();

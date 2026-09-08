@@ -59,10 +59,14 @@ export function snapshotView(view: ViewSnapshot): ViewSnapshot {
 	const selections = Object.fromEntries(
 		Object.entries(view.selections).map(([pageId, selection]) => [
 			pageId,
-			Object.freeze({
-				...selection,
-				ranges: Object.freeze(selection.ranges.map((range) => Object.freeze({ ...range }))),
-			}),
+			Object.isFrozen(selection)
+				? selection
+				: Object.freeze({
+						...selection,
+						ranges: Object.isFrozen(selection.ranges)
+							? selection.ranges
+							: Object.freeze(selection.ranges.map((range) => Object.freeze({ ...range }))),
+					}),
 		]),
 	);
 	const occurrence = view.occurrence;

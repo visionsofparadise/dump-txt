@@ -6,6 +6,7 @@ import { createOccurrenceHighlights, refreshOccurrenceHighlights } from "../util
 import { findMatches } from "../utils/findMatches";
 import { participatingRanges, prepareChanges, prepareEdit } from "../utils/prepareEdit";
 import { rebuildOccurrence, selectNextOccurrence } from "../utils/selectNextOccurrence";
+import { textChangeOf } from "../utils/textChangeOf";
 import { snapshotView, type SessionState, type TextMatch, type ViewSnapshot } from "./SessionState";
 import type { DocumentState, Page } from "./DocumentState";
 import type { EditCommand } from "./EditCommand";
@@ -459,13 +460,9 @@ export class EditorController {
 		try {
 			const selection = this.#selectionFor(pageId, page.text.length);
 
-			if (this.#pageId !== pageId || this.#view.state.doc.toString() !== page.text) {
-				const changedPage = this.#pageId !== pageId;
-
+			if (this.#pageId !== pageId) {
 				this.#cancelTransition();
-
-				if (changedPage) this.#beginTransition(pageId);
-
+				this.#beginTransition(pageId);
 				this.#resetOverscroll();
 
 				this.#states.set(this.#pageId, this.#view.state);
@@ -473,6 +470,15 @@ export class EditorController {
 				this.#view.setState(this.#stateFor(pageId));
 				this.#restoreScroll(this.#entry);
 				this.#entry = "restore";
+			} else if (this.#view.state.doc.toString() !== page.text) {
+				this.#cancelTransition();
+				this.#cancelWheelScroll();
+				this.#measurement++;
+				this.#restoring = false;
+				this.#view.dispatch({
+					changes: textChangeOf(this.#view.state.doc.toString(), page.text),
+					selection,
+				});
 			} else if (!this.#view.state.selection.eq(selection)) {
 				this.#cancelTransition();
 				this.#view.dispatch({ selection });
@@ -483,6 +489,10 @@ export class EditorController {
 					this.#states.delete(cachedId);
 					this.#scrollSnapshots.delete(cachedId);
 				}
+
+			for (const id of Object.keys(this.#history.scroll.positions))
+				if (!this.#document.pages.some((candidate) => candidate.id === id))
+					Reflect.deleteProperty(this.#history.scroll.positions, id);
 
 			this.#view.dispatch({ effects: refreshOccurrenceHighlights.of() });
 		} finally {
@@ -498,6 +508,7 @@ export class EditorController {
 		this.#cancelTransition();
 
 		this.finishComposition();
+		this.#rememberSelection();
 		this.#history.closeGroup();
 		this.#history.commit(prepareEdit(command, this.#document, this.#session));
 		this.refresh();
@@ -520,6 +531,7 @@ export class EditorController {
 		}
 
 		if (transactions.some((transaction) => transaction.docChanged || transaction.selection)) {
+			this.rememberScroll();
 			this.#menuGeneration++;
 			this.#cancelWheelScroll();
 			this.#cancelTransition();
@@ -712,7 +724,8 @@ export class EditorController {
 		if (!view) return;
 
 		const measurement = ++this.#measurement;
-		const remembered = this.#session.view.selections[this.#pageId]?.scrollTop ?? 0;
+		const remembered =
+			this.#history.scroll.positions[this.#pageId] ?? this.#session.view.selections[this.#pageId]?.scrollTop ?? 0;
 		const cached = this.#scrollSnapshots.get(this.#pageId);
 		const snapshot = entry === "restore" && cached?.state.doc === view.state.doc ? cached.effect : null;
 
@@ -1152,7 +1165,7 @@ export class EditorController {
 					copy: (event) => this.#clipboard(event, false),
 					cut: (event) => this.#clipboard(event, true),
 					scroll: () => {
-						if (!this.#updating && !this.#composition && !this.#restoring) this.#rememberSelection();
+						if (!this.#updating && !this.#composition && !this.#restoring) this.rememberScroll();
 
 						return false;
 					},
@@ -1161,17 +1174,23 @@ export class EditorController {
 		});
 	}
 
+	rememberScroll(): void {
+		if (!this.#view || this.#restoring || !this.#document.pages.some((page) => page.id === this.#pageId)) return;
+
+		this.#history.scroll.positions[this.#pageId] = this.#view.scrollDOM.scrollTop - this.#pageMargin(this.#view);
+	}
+
 	#rememberSelection(): void {
 		if (!this.#view || !this.#document.pages.some((page) => page.id === this.#pageId)) return;
 
+		this.rememberScroll();
+
+		const previous = this.#session.view.selections[this.#pageId];
 		const selection = {
 			ranges: this.#view.state.selection.ranges.map(({ anchor, head }) => ({ anchor, head })),
 			mainIndex: this.#view.state.selection.mainIndex,
-			scrollTop: this.#restoring
-				? (this.#session.view.selections[this.#pageId]?.scrollTop ?? 0)
-				: this.#view.scrollDOM.scrollTop - this.#pageMargin(this.#view),
+			scrollTop: previous?.scrollTop ?? 0,
 		};
-		const previous = this.#session.view.selections[this.#pageId];
 
 		if (previous && JSON.stringify(previous) === JSON.stringify(selection)) return;
 
@@ -1239,6 +1258,7 @@ export class EditorController {
 		if (this.#locked) return true;
 
 		this.finishComposition();
+		this.#rememberSelection();
 
 		const group = `delete:${direction}:${[...participatingRanges(this.#document, this.#session.view)].map(([pageId, ranges]) => `${pageId}:${ranges.length}`).join(",")}`;
 
