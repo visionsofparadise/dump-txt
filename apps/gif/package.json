@@ -1,0 +1,29 @@
+{
+	"name": "@dump-txt/gif",
+	"version": "0.0.0",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"start": "vite --host 127.0.0.1",
+		"build": "vite build",
+		"render": "node tools/render.mjs",
+		"check": "concurrently --group \"eslint . --no-cache -f unix\" \"tsc --noEmit --pretty false\"",
+		"fix": "eslint . --fix --cache",
+		"unit": "node --test tools/*.unit.test.mjs"
+	},
+	"dependencies": {
+		"@dump-txt/ui": "*",
+		"@dump-txt/rig": "*",
+		"react": "19.2.8",
+		"react-dom": "19.2.8"
+	},
+	"devDependencies": {
+		"@types/react": "19.2.18",
+		"@types/react-dom": "19.2.7",
+		"@vitejs/plugin-react": "6.1.1",
+		"vite": "8.2.2",
+		"playwright": "1.63.0"
+	},
+	"license": "MIT",
+	"author": "Matt Cavender"
+}

@@ -1,0 +1,73 @@
+{
+	"$schema": "https://turbo.build/schema.json",
+	"globalDependencies": [
+		"package.json",
+		"eslint.config.js",
+		".gitignore",
+		".prettierrc",
+		".prettierignore",
+		".stylelintrc.json",
+		".markdownlint-cli2.jsonc",
+		".textlintrc.json",
+		".textlintignore",
+		"knip.json",
+		".jscpd.json",
+		"tsconfig.json",
+		"rust-toolchain.toml",
+		"rustfmt.toml",
+		"tools.json"
+	],
+	"globalEnv": [
+		"OS",
+		"RUNNER_OS",
+		"PROCESSOR_ARCHITECTURE",
+		"TAURI_TEST_AUTOMATION",
+		"TAURI_TEST_NATIVE_WINDOW",
+		"TAURI_TEST_EXPECT_REDUCED_MOTION",
+		"DUMP_TXT_PROFILE",
+		"RUSTFLAGS",
+		"CARGO_BUILD_TARGET"
+	],
+	"globalPassThroughEnv": [
+		"CARGO_BUILD_JOBS",
+		"CARGO_HOME",
+		"RUSTUP_HOME",
+		"TAURI_*",
+		"DUMP_TXT_*",
+		"MS_EDGE_DRIVER",
+		"DISPLAY",
+		"WAYLAND_DISPLAY",
+		"XAUTHORITY",
+		"DBUS_SESSION_BUS_ADDRESS",
+		"XDG_*"
+	],
+	"tasks": {
+		"check": {
+			"dependsOn": ["^check"],
+			"inputs": ["$TURBO_DEFAULT$"],
+			"outputs": []
+		},
+		"fix": {
+			"cache": false
+		},
+		"build": {
+			"dependsOn": ["^build", "check"],
+			"cache": false
+		},
+		"unit": {
+			"dependsOn": ["check"],
+			"cache": false
+		},
+		"integration": {
+			"dependsOn": ["check"],
+			"cache": false
+		},
+		"start": {
+			"cache": false,
+			"persistent": true
+		},
+		"tauri-test": {
+			"cache": false
+		}
+	}
+}

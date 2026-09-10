@@ -23,7 +23,7 @@ export default tseslint.config(
 
 	{
 		ignores: [
-			"designs/**",
+			"**/designs/**",
 			"**/*.config.js",
 			"**/*.config.ts",
 			"**/vite.config.*",
@@ -311,7 +311,7 @@ export default tseslint.config(
 	},
 
 	{
-		files: ["**/src/index.ts", "**/src/index.tsx"],
+		files: ["**/src/index.ts", "**/src/index.tsx", "packages/ui/src/host.ts"],
 		rules: {
 			"barrel-files/avoid-barrel-files": "off",
 			"barrel-files/avoid-re-export-all": "off",
@@ -341,10 +341,10 @@ export default tseslint.config(
 
 	{
 		files: [
-			"tools/testTauri.mjs",
-			"tools/testTauriPersistence.mjs",
-			"tools/testWindowChrome.mjs",
-			"tools/nativeWindow.mjs",
+			"**/tools/testTauri.mjs",
+			"**/tools/testTauriPersistence.mjs",
+			"**/tools/testWindowChrome.mjs",
+			"**/tools/nativeWindow.mjs",
 		],
 		languageOptions: { globals: globals.browser },
 	},
@@ -359,4 +359,8 @@ export default tseslint.config(
 	},
 
 	eslintConfigPrettier,
+	{
+		files: ["apps/gif/tools/render.mjs", "apps/gif/tools/animationClock.mjs"],
+		languageOptions: { globals: globals.browser },
+	},
 );

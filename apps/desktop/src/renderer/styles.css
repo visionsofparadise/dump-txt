@@ -1,0 +1,27 @@
+@import "tailwindcss";
+
+@import "@dump-txt/ui/styles.css";
+
+html,
+body,
+#root {
+	height: 100%;
+	margin: 0;
+}
+
+:root {
+	color-scheme: light dark;
+}
+
+:root[data-theme="light"] {
+	color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+	color-scheme: dark;
+}
+
+body {
+	overflow: hidden;
+	background: light-dark(#fafafa, #2c2c2c);
+}

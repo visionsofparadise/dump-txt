@@ -1,0 +1,22 @@
+{
+	"name": "@dump-txt/rig",
+	"version": "0.0.0",
+	"private": true,
+	"type": "module",
+	"license": "MIT",
+	"author": "Matt Cavender",
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"scripts": {
+		"check": "concurrently --group \"eslint . --no-cache -f unix\" \"tsc --noEmit --pretty false\"",
+		"fix": "eslint . --fix --cache",
+		"unit": "vitest run"
+	},
+	"dependencies": {
+		"@dump-txt/ui": "*"
+	},
+	"devDependencies": {
+		"vitest": "5.0.0"
+	}
+}

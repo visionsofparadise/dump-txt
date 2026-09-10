@@ -1,0 +1,104 @@
+html,
+body,
+#root {
+	margin: 0;
+	width: 100%;
+	height: 100%;
+	overflow: hidden;
+}
+
+.demo-desktop {
+	position: relative;
+	width: 960px;
+	height: 720px;
+	overflow: hidden;
+	isolation: isolate;
+	color: #fff;
+	font-family: Arial, sans-serif;
+	color-scheme: light;
+}
+
+.demo-desktop::before {
+	content: "";
+	position: absolute;
+	inset: 0;
+	z-index: -1;
+	transform: translateZ(0);
+	background:
+		radial-gradient(ellipse at 105% 115%, #edab83 0 24%, transparent 24.2%),
+		radial-gradient(ellipse at 100% 110%, #e3c49b 0 43%, transparent 43.2%),
+		radial-gradient(ellipse at -15% -20%, #a9c9c0 0 43%, transparent 43.2%),
+		linear-gradient(135deg, #547f86, #8eafa8 55%, #c2cdb9);
+}
+
+.desktop-icon {
+	position: absolute;
+	left: 18px;
+	top: 42px;
+	display: grid;
+	justify-items: center;
+	gap: 8px;
+	width: 80px;
+	padding: 10px 0;
+	border: 0;
+	background: transparent;
+	color: inherit;
+	font: inherit;
+	font-size: 12px;
+	outline: none;
+	text-shadow: 0 1px 3px #213c49;
+}
+
+.desktop-icon img {
+	width: 40px;
+	height: 40px;
+}
+
+.demo-window {
+	position: absolute;
+	left: 112px;
+	top: 36px;
+	width: 800px;
+	height: 592px;
+	border-radius: 8px;
+	overflow: hidden;
+	box-shadow:
+		0 12px 40px #0005,
+		0 0 0 1px #ffffff16;
+}
+
+.demo-pointer {
+	position: absolute;
+	top: 0;
+	left: 0;
+	z-index: 1000;
+	pointer-events: none;
+	filter: drop-shadow(0 1px 2px #0008);
+}
+
+.demo-pointer path {
+	fill: #fff;
+	stroke: #131b20;
+	stroke-width: 1.5px;
+	stroke-linejoin: round;
+}
+
+.demo-pointer[data-pressed="true"]::before {
+	content: "";
+	position: absolute;
+	width: 32px;
+	height: 32px;
+	left: -13px;
+	top: -13px;
+	border-radius: 50%;
+	background: #ffffff35;
+}
+
+.demo-desktop .cm-cursorLayer {
+	animation: none !important;
+	opacity: 1 !important;
+}
+
+.demo-desktop .cm-content {
+	caret-color: transparent;
+}

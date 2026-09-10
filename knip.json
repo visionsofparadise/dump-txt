@@ -1,14 +1,31 @@
 {
 	"$schema": "https://unpkg.com/knip@6/schema.json",
-	"project": ["src/**/*.{ts,tsx,css}", "*.config.ts"],
-	"entry": ["src/renderer/probe.tsx"],
-	"vite": { "config": ["vite.*.config.ts"] },
-	"ignoreBinaries": ["styling-lint"],
-	"ignoreDependencies": [
-		"prettier",
-		"@commitlint/cli",
-		"events",
-		"textlint-filter-rule-comments",
-		"textlint-rule-no-dead-link"
-	]
+	"workspaces": {
+		".": {
+			"entry": [".githooks/pre-push.mjs"],
+			"ignoreDependencies": [
+				"prettier",
+				"@commitlint/cli",
+				"textlint-filter-rule-comments",
+				"textlint-rule-no-dead-link"
+			]
+		},
+		"apps/desktop": {
+			"project": ["src/**/*.{ts,tsx,css}", "*.config.ts"],
+			"entry": ["src/renderer/probe.tsx", "tools/*.mjs"],
+			"vite": {
+				"config": ["vite.*.config.ts"]
+			},
+			"ignoreDependencies": ["events"]
+		},
+		"packages/ui": {
+			"project": ["src/**/*.{ts,tsx}", "*.config.ts"],
+			"ignoreDependencies": ["events"]
+		},
+		"apps/gif": {
+			"entry": ["tools/*.mjs"],
+			"project": ["src/**/*.{ts,tsx}"]
+		}
+	},
+	"ignoreBinaries": ["styling-lint", "ffmpeg"]
 }

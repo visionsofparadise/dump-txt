@@ -1,0 +1,49 @@
+{
+	"name": "@dump-txt/ui",
+	"version": "0.0.0",
+	"private": true,
+	"type": "module",
+	"license": "MIT",
+	"author": "Matt Cavender",
+	"exports": {
+		".": "./src/index.ts",
+		"./host": "./src/host.ts",
+		"./styles.css": "./src/styles.css"
+	},
+	"scripts": {
+		"check": "concurrently --group \"eslint . --no-cache -f unix\" \"tsc --noEmit --pretty false\" \"tsc --noEmit --pretty false -p tsconfig.node.json\"",
+		"fix": "eslint . --fix --cache",
+		"unit": "vitest run unit",
+		"integration": "vitest run integration"
+	},
+	"dependencies": {
+		"@codemirror/commands": "6.11.0",
+		"@codemirror/state": "6.7.4",
+		"@codemirror/view": "6.43.11",
+		"@radix-ui/react-dialog": "1.1.23",
+		"@radix-ui/react-dropdown-menu": "2.1.24",
+		"class-variance-authority": "0.7.1",
+		"clsx": "2.1.1",
+		"events": "3.3.0",
+		"lucide-react": "1.41.0",
+		"opshot": "0.5.3",
+		"tailwind-merge": "3.6.0",
+		"zod": "4.5.4"
+	},
+	"peerDependencies": {
+		"react": "19.2.8",
+		"react-dom": "19.2.8"
+	},
+	"devDependencies": {
+		"@testing-library/react": "16.3.3",
+		"@testing-library/user-event": "14.6.7",
+		"@types/react": "19.2.18",
+		"@types/react-dom": "19.2.7",
+		"@vitejs/plugin-react": "6.1.1",
+		"jsdom": "30.0.1",
+		"vite": "8.2.2",
+		"vitest": "5.0.0",
+		"react": "19.2.8",
+		"react-dom": "19.2.8"
+	}
+}
