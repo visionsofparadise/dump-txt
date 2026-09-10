@@ -47,6 +47,22 @@ jobs:
               sudo apt-get update
               sudo apt-get install -y ffmpeg
          - run: npm run render --workspace @dump-txt/gif
+         - name: Collect failed loop frames
+           if: failure()
+           run: |
+              mkdir -p .scratch/demo-failure
+              mapfile -t frames < <(find apps/gif/.scratch -path '*/frames/*.png' | sort)
+              if ((${#frames[@]})); then
+                 cp "${frames[0]}" .scratch/demo-failure/first.png
+                 cp "${frames[-1]}" .scratch/demo-failure/last.png
+              fi
+         - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+           if: failure()
+           with:
+              name: demonstration-failure
+              path: .scratch/demo-failure
+              include-hidden-files: true
+              if-no-files-found: ignore
          - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
            with:
               name: demonstration
