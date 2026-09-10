@@ -1,0 +1,14 @@
+{
+  "releaseSha": "73db06c163b369f6ff647f2a1ed219e256cfcc34",
+  "generatorSha": "ca15d1c9574fbe1460a77845a6eaff03ee051f42",
+  "sourceDirty": false,
+  "generatorDirty": false,
+  "width": 960,
+  "height": 720,
+  "fps": 20,
+  "frames": 1585,
+  "duration": 79.25,
+  "sha256": "97b563871526793a50ee60fb06f1571ef70e376d8e56faa96e7c65c80635f96f",
+  "loopVerified": true,
+  "releaseTag": "v0.3.2"
+}
