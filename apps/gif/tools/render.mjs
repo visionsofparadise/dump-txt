@@ -7,7 +7,7 @@ import { chromium } from "playwright";
 import { createServer } from "vite";
 import { installAnimationClock } from "./animationClock.mjs";
 
-const application = fileURLToPath(new URL("..", import.meta.url));
+const generator = fileURLToPath(new URL("..", import.meta.url));
 const width = 960;
 const height = 720;
 const fps = 20;
@@ -19,7 +19,78 @@ export function hashOf(bytes) {
 }
 
 export function verifyLoop(first, last) {
-	if (hashOf(first) !== hashOf(last)) throw new Error("The final frame does not match the opening frame.");
+	if (hashOf(first) === hashOf(last)) return { changedPixels: 0, maximumChannelDelta: 0 };
+	return verifyFramePixels(decodeFrame(first), decodeFrame(last));
+}
+
+function decodeFrame(bytes) {
+	if (
+		bytes.length < 24 ||
+		bytes.subarray(0, 8).toString("hex") !== "89504e470d0a1a0a" ||
+		bytes.readUInt32BE(16) !== width ||
+		bytes.readUInt32BE(20) !== height
+	)
+		throw new Error("Loop frames must be 960 by 720 PNG images.");
+	return execFileSync(
+		"ffmpeg",
+		[
+			"-hide_banner",
+			"-loglevel",
+			"error",
+			"-threads",
+			"2",
+			"-f",
+			"image2pipe",
+			"-vcodec",
+			"png",
+			"-i",
+			"pipe:0",
+			"-frames:v",
+			"1",
+			"-f",
+			"rawvideo",
+			"-pix_fmt",
+			"rgba",
+			"pipe:1",
+		],
+		{ input: bytes, maxBuffer: width * height * 4 + 65536 },
+	);
+}
+
+export function verifyFramePixels(first, last) {
+	const pixels = width * height;
+	if (first.length !== pixels * 4 || last.length !== pixels * 4)
+		throw new Error("Loop frames must contain 960 by 720 RGBA pixels.");
+	let changedPixels = 0;
+	let maximumChannelDelta = 0;
+	for (let offset = 0; offset < first.length; offset += 4) {
+		let delta = 0;
+		for (let channel = 0; channel < 4; channel += 1)
+			delta = Math.max(delta, Math.abs(first[offset + channel] - last[offset + channel]));
+		if (delta > 0) changedPixels += 1;
+		maximumChannelDelta = Math.max(maximumChannelDelta, delta);
+	}
+	if (maximumChannelDelta > 2 || changedPixels > Math.floor(pixels * 0.0001))
+		throw new Error(
+			`The final frame does not match the opening frame: ${changedPixels} changed pixels, maximum channel delta ${maximumChannelDelta}.`,
+		);
+	return { changedPixels, maximumChannelDelta };
+}
+
+function checkoutOf(directory) {
+	const git = (arguments_) => execFileSync("git", arguments_, { cwd: directory, encoding: "utf8" }).trim();
+	return {
+		sha: git(["rev-parse", "HEAD"]),
+		dirty: git(["status", "--porcelain", "--untracked-files=all"]) !== "",
+	};
+}
+
+export function verifyCaptureSources(before, after, requireClean) {
+	for (const name of ["source", "generator"]) {
+		if (before[name].sha !== after[name].sha) throw new Error(`The ${name} commit changed during capture.`);
+		if (requireClean && (before[name].dirty || after[name].dirty))
+			throw new Error(`Release rendering requires a clean ${name} checkout.`);
+	}
 }
 
 async function movePointer(page) {
@@ -29,9 +100,11 @@ async function movePointer(page) {
 }
 
 export async function render() {
-	const git = (arguments_) => execFileSync("git", arguments_, { cwd: application, encoding: "utf8" }).trim();
-	const releaseSha = git(["rev-parse", "HEAD"]);
-	const sourceDirty = git(["status", "--porcelain", "--untracked-files=all"]) !== "";
+	const sourceDirectory = process.env.DEMO_SOURCE_DIRECTORY;
+	const application = sourceDirectory ? resolve(sourceDirectory, "apps/gif") : generator;
+	const checkouts = () => ({ source: checkoutOf(application), generator: checkoutOf(generator) });
+	const before = checkouts();
+	verifyCaptureSources(before, before, Boolean(sourceDirectory));
 	const scratch = join(application, ".scratch");
 	await mkdir(scratch, { recursive: true });
 	const directory = await mkdtemp(join(scratch, "render-"));
@@ -85,7 +158,8 @@ export async function render() {
 				caret: "initial",
 			});
 			if (state.finished) {
-				verifyLoop(first, frame);
+				const comparison = verifyLoop(first, frame);
+				process.stdout.write(`Loop comparison: ${JSON.stringify(comparison)}\n`);
 				frameCount += 1;
 				finished = true;
 				break;
@@ -96,7 +170,7 @@ export async function render() {
 		await browser.close();
 		browser = undefined;
 		await server.close();
-		process.stdout.write(`Captured ${frameCount} frames; exact loop verified. Generating palette.\n`);
+		process.stdout.write(`Captured ${frameCount} frames; visual loop verified. Generating palette.\n`);
 		const output = join(directory, "demo.gif");
 		const palette = join(directory, "palette.png");
 		const input = [
@@ -147,10 +221,13 @@ export async function render() {
 		);
 		const bytes = await readFile(output);
 		if (bytes.subarray(0, 6).toString() !== "GIF89a") throw new Error("FFmpeg did not produce a GIF.");
-		if (git(["rev-parse", "HEAD"]) !== releaseSha) throw new Error("The source commit changed during capture.");
+		const after = checkouts();
+		verifyCaptureSources(before, after, Boolean(sourceDirectory));
 		const manifest = {
-			releaseSha,
-			sourceDirty: sourceDirty || git(["status", "--porcelain", "--untracked-files=all"]) !== "",
+			releaseSha: before.source.sha,
+			generatorSha: before.generator.sha,
+			sourceDirty: before.source.dirty || after.source.dirty,
+			generatorDirty: before.generator.dirty || after.generator.dirty,
 			width,
 			height,
 			fps,

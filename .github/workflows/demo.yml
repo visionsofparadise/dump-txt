@@ -33,6 +33,12 @@ jobs:
            with:
               node-version: 24
               cache: npm
+         - name: Check out recording tools
+           uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+           with:
+              ref: ${{ github.sha }}
+              path: .scratch/generator
+              persist-credentials: false
          - name: Verify released source
            env:
               GH_TOKEN: ${{ github.token }}
@@ -43,10 +49,15 @@ jobs:
            run: |
               npm install -g npm@12
               npm ci --ignore-scripts
+              cd .scratch/generator
+              npm ci --ignore-scripts
               npx playwright install --with-deps chromium
               sudo apt-get update
               sudo apt-get install -y ffmpeg
-         - run: npm run render --workspace @dump-txt/gif
+         - name: Render the released UI
+           env:
+              DEMO_SOURCE_DIRECTORY: ${{ github.workspace }}
+           run: node .scratch/generator/apps/gif/tools/render.mjs
          - name: Collect failed loop frames
            if: failure()
            run: |
