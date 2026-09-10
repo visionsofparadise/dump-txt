@@ -1,6 +1,6 @@
 [package]
 name = "dump-txt"
-version = "0.3.1"
+version = "0.3.2"
 description = "A minimal desktop scratchpad with pages"
 authors = ["Matt Cavender"]
 license = "MIT"
