@@ -1,5 +1,12 @@
 import type { ChromeContext } from "@dump-txt/ui";
 
+export class DemoStopped extends Error {
+	constructor() {
+		super("The demonstration stopped.");
+		this.name = "DemoStopped";
+	}
+}
+
 export interface DemoRigOptions {
 	readonly origin?: { readonly x: number; readonly y: number };
 	readonly stage: HTMLElement;
@@ -9,12 +16,22 @@ export interface DemoRigOptions {
 
 export class DemoRig {
 	readonly #options: DemoRigOptions;
+	readonly #pending = new Set<(error: Error) => void>();
 	#position: { readonly x: number; readonly y: number };
+	#stopped = false;
 
 	constructor(options: DemoRigOptions) {
 		this.#options = options;
-		this.#position = options.origin ?? { x: 0, y: 0 };
+		this.#position = this.origin;
 		this.#draw();
+	}
+
+	get origin(): { readonly x: number; readonly y: number } {
+		return this.#options.origin ?? { x: 0, y: 0 };
+	}
+
+	get stopped(): boolean {
+		return this.#stopped;
 	}
 
 	get context(): ChromeContext {
@@ -31,8 +48,29 @@ export class DemoRig {
 		return document.pages.find((page) => page.id === session.view.activePageId)?.text ?? "";
 	}
 
-	wait(milliseconds: number): Promise<void> {
-		return new Promise((resolve) => setTimeout(resolve, milliseconds));
+	stop(): void {
+		this.#stopped = true;
+
+		for (const reject of this.#pending) reject(new DemoStopped());
+
+		this.#pending.clear();
+	}
+
+	async wait(milliseconds: number): Promise<void> {
+		this.#assertRunning();
+
+		await new Promise<void>((resolve, reject) => {
+			const timeout = setTimeout(() => {
+				this.#pending.delete(cancel);
+				resolve();
+			}, milliseconds);
+			const cancel = (error: Error) => {
+				clearTimeout(timeout);
+				reject(error);
+			};
+
+			this.#pending.add(cancel);
+		});
 	}
 
 	element(selector: string): HTMLElement {
@@ -44,6 +82,8 @@ export class DemoRig {
 	}
 
 	async move(target: string | { readonly x: number; readonly y: number }, duration = 450): Promise<void> {
+		this.#assertRunning();
+
 		const origin = this.#position;
 		const stage = this.#options.stage.getBoundingClientRect();
 		const bounds = typeof target === "string" ? this.element(target).getBoundingClientRect() : null;
@@ -55,8 +95,18 @@ export class DemoRig {
 					: target;
 		const started = performance.now();
 
-		await new Promise<void>((resolve) => {
+		await new Promise<void>((resolve, reject) => {
+			const cancel = (error: Error) => {
+				reject(error);
+			};
 			const frame = () => {
+				if (this.#stopped) {
+					this.#pending.delete(cancel);
+					reject(new DemoStopped());
+
+					return;
+				}
+
 				const progress = Math.min(1, (performance.now() - started) / duration);
 				const eased = progress * progress * (3 - 2 * progress);
 
@@ -67,14 +117,19 @@ export class DemoRig {
 				this.#draw();
 
 				if (progress < 1) requestAnimationFrame(frame);
-				else resolve();
+				else {
+					this.#pending.delete(cancel);
+					resolve();
+				}
 			};
 
+			this.#pending.add(cancel);
 			requestAnimationFrame(frame);
 		});
 	}
 
 	async click(selector: string): Promise<void> {
+		this.#assertRunning();
 		await this.move(selector);
 
 		const element = this.element(selector);
@@ -90,6 +145,7 @@ export class DemoRig {
 	}
 
 	async type(text: string, interval = 45): Promise<void> {
+		this.#assertRunning();
 		this.context.editor.focus();
 
 		for (const character of text) {
@@ -100,6 +156,7 @@ export class DemoRig {
 	}
 
 	async paste(text: string): Promise<void> {
+		this.#assertRunning();
 		this.context.editor.focus();
 		this.context.editor.apply({ type: "paste", text });
 		this.context.editor.revealSelection();
@@ -107,6 +164,8 @@ export class DemoRig {
 	}
 
 	async key(key: string, modifiers: KeyboardEventInit = {}): Promise<void> {
+		this.#assertRunning();
+
 		const target = this.#options.stage.ownerDocument.activeElement ?? this.element(".cm-content");
 
 		target.dispatchEvent(
@@ -116,6 +175,7 @@ export class DemoRig {
 	}
 
 	async wheel(deltaY: number, modifiers: WheelEventInit = {}, selector = ".cm-scroller"): Promise<void> {
+		this.#assertRunning();
 		await this.move(selector);
 		this.element(selector).dispatchEvent(
 			new WheelEvent("wheel", { bubbles: true, cancelable: true, deltaY, ...modifiers }),
@@ -124,6 +184,8 @@ export class DemoRig {
 	}
 
 	async select(text: string): Promise<void> {
+		this.#assertRunning();
+
 		const anchor = this.text.indexOf(text);
 
 		if (anchor < 0) throw new Error(`Demo selection is missing: ${text}`);
@@ -167,6 +229,10 @@ export class DemoRig {
 
 	assert(condition: boolean, message: string): void {
 		if (!condition) throw new Error(message);
+	}
+
+	#assertRunning(): void {
+		if (this.#stopped) throw new DemoStopped();
 	}
 
 	#draw(): void {

@@ -25,6 +25,9 @@
 		"apps/gif": {
 			"entry": ["tools/*.mjs"],
 			"project": ["src/**/*.{ts,tsx}"]
+		},
+		"packages/rig": {
+			"project": ["src/**/*.{ts,tsx}", "*.config.ts"]
 		}
 	},
 	"ignoreBinaries": ["styling-lint", "ffmpeg"]

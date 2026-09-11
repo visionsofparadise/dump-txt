@@ -66,39 +66,3 @@ body,
 		0 12px 40px #0005,
 		0 0 0 1px #ffffff16;
 }
-
-.demo-pointer {
-	position: absolute;
-	top: 0;
-	left: 0;
-	z-index: 1000;
-	pointer-events: none;
-	filter: drop-shadow(0 1px 2px #0008);
-}
-
-.demo-pointer path {
-	fill: #fff;
-	stroke: #131b20;
-	stroke-width: 1.5px;
-	stroke-linejoin: round;
-}
-
-.demo-pointer[data-pressed="true"]::before {
-	content: "";
-	position: absolute;
-	width: 32px;
-	height: 32px;
-	left: -13px;
-	top: -13px;
-	border-radius: 50%;
-	background: #ffffff35;
-}
-
-.demo-desktop .cm-cursorLayer {
-	animation: none !important;
-	opacity: 1 !important;
-}
-
-.demo-desktop .cm-content {
-	caret-color: transparent;
-}

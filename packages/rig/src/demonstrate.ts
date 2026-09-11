@@ -1,4 +1,4 @@
-import type { DemoRig } from "@dump-txt/rig";
+import type { DemoRig } from "./DemoRig";
 
 const notes = "Today\n\n- Sketch the Atlas launch\n- Send the draft on Friday\n- Keep the useful bits together";
 const draft = [
@@ -130,7 +130,7 @@ async function editTogether(rig: DemoRig): Promise<void> {
 	await rig.click('[aria-label="Close find"]');
 }
 
-async function returnLater(rig: DemoRig): Promise<void> {
+async function returnLater(rig: DemoRig, options: DemonstrationOptions): Promise<void> {
 	await explain(rig, "Delete a page. Ctrl + Z brings it back.");
 	await rig.click('[aria-label="Delete page"]');
 	await rig.wait(600);
@@ -143,6 +143,14 @@ async function returnLater(rig: DemoRig): Promise<void> {
 	await rig.wheel(-100, { ctrlKey: true });
 	await rig.wait(700);
 	await rig.wheel(100, { ctrlKey: true });
+
+	if (!options.reopen) {
+		await explain(rig, "Saved as you go. Come back anytime.");
+		await rig.wait(1800);
+
+		return;
+	}
+
 	await explain(rig, "Saved as you go. Close it. Come back anytime.");
 	await rig.wait(1000);
 
@@ -170,14 +178,18 @@ async function closeLoop(rig: DemoRig): Promise<void> {
 	rig.assert(rig.context.document.pages.length === 1 && rig.text === "", "The loop must end with one empty page.");
 	rig.context.editor.select([{ anchor: 0, head: 0 }]);
 	rig.context.editor.focus();
-	await rig.move({ x: 820, y: 650 });
+	await rig.move(rig.origin);
 	await rig.wait(1000);
 }
 
-export async function demonstrate(rig: DemoRig): Promise<void> {
+export interface DemonstrationOptions {
+	readonly reopen: boolean;
+}
+
+export async function demonstrate(rig: DemoRig, options: DemonstrationOptions): Promise<void> {
 	await captureThoughts(rig);
 	await navigateNotes(rig);
 	await editTogether(rig);
-	await returnLater(rig);
+	await returnLater(rig, options);
 	await closeLoop(rig);
 }
