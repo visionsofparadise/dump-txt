@@ -13,8 +13,9 @@
 		"integration": "vitest run --environment jsdom integration"
 	},
 	"dependencies": {
-		"@dump-txt/ui": "*",
 		"@dump-txt/rig": "*",
+		"@dump-txt/ui": "*",
+		"motion": "13.2.0",
 		"react": "19.2.8",
 		"react-dom": "19.2.8"
 	},

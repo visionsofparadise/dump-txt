@@ -1,3 +1,4 @@
+import type { Variants } from "motion/react";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -7,15 +8,65 @@ import type { Platform } from "./utils/platformOf";
 
 vi.mock("./utils/gpuCompositingOf", () => ({ gpuCompositingOf: vi.fn() }));
 
+class MockIntersectionObserver implements IntersectionObserver {
+	static instances: Array<MockIntersectionObserver> = [];
+
+	readonly root = null;
+	readonly rootMargin = "";
+	readonly scrollMargin = "";
+	readonly thresholds: ReadonlyArray<number> = [];
+
+	constructor(private readonly callback: IntersectionObserverCallback) {
+		MockIntersectionObserver.instances.push(this);
+	}
+
+	observe(): void {}
+
+	unobserve(): void {}
+
+	disconnect(): void {}
+
+	takeRecords(): Array<IntersectionObserverEntry> {
+		return [];
+	}
+
+	static intersect(target: Element, isIntersecting: boolean): void {
+		const entry = { target, isIntersecting } as IntersectionObserverEntry;
+
+		for (const instance of MockIntersectionObserver.instances) instance.callback([entry], instance);
+	}
+}
+
+const testVariants: Variants = {
+	hidden: { opacity: 0, x: 24 },
+	visible: { opacity: 1, x: 0, transition: { duration: 0.03 } },
+};
+
 const unmounts: Array<() => void> = [];
 
-async function mount(platform: Platform) {
+async function until<T>(read: () => T | null | undefined | false): Promise<T> {
+	const deadline = Date.now() + 5000;
+
+	for (;;) {
+		const value = read();
+
+		if (value) return value;
+
+		if (Date.now() > deadline) throw new Error("The condition was never met.");
+
+		await new Promise((resolve) => {
+			setTimeout(resolve, 10);
+		});
+	}
+}
+
+async function mount(platform: Platform, variants: Variants = testVariants) {
 	const container = document.createElement("div");
 	const root = createRoot(container);
 
 	document.body.append(container);
 	await act(async () => {
-		root.render(<AppBox platform={platform} />);
+		root.render(<AppBox platform={platform} variants={variants} />);
 	});
 	unmounts.push(() => {
 		root.unmount();
@@ -28,7 +79,7 @@ async function mount(platform: Platform) {
 	const posted = vi.spyOn(frame.contentWindow, "postMessage");
 	const render = async (next: Platform) => {
 		await act(async () => {
-			root.render(<AppBox platform={next} />);
+			root.render(<AppBox platform={next} variants={variants} />);
 		});
 	};
 
@@ -37,6 +88,7 @@ async function mount(platform: Platform) {
 
 beforeEach(() => {
 	vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+	vi.stubGlobal("IntersectionObserver", MockIntersectionObserver);
 	vi.mocked(gpuCompositingOf).mockReturnValue(false);
 });
 
@@ -95,5 +147,21 @@ describe("AppBox", () => {
 		const { container } = await mount("windows");
 
 		expect(container.querySelector("#appbox")?.getAttribute("data-gpu-compositing")).toBe("false");
+	});
+
+	it("holds the app hidden by its entrance variants until it intersects the viewport, then reveals it", async () => {
+		const { container } = await mount("windows");
+		const app = container.querySelector("#app");
+
+		if (!app) throw new Error("The app element is not mounted.");
+
+		expect(app instanceof HTMLElement && app.style.opacity).toBe("0");
+
+		await act(async () => {
+			MockIntersectionObserver.intersect(app, true);
+		});
+		await until(() => app instanceof HTMLElement && app.style.opacity === "1");
+
+		expect(app instanceof HTMLElement && app.style.opacity).toBe("1");
 	});
 });
