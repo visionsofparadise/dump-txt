@@ -9,7 +9,8 @@
 		"build": "vite build",
 		"check": "concurrently --group \"eslint . --no-cache -f unix\" \"tsc --noEmit --pretty false\"",
 		"fix": "eslint . --fix --cache",
-		"unit": "vitest run src && node --test tools/*.unit.test.mjs"
+		"unit": "vitest run --dir src unit && node --test tools/*.unit.test.mjs",
+		"integration": "vitest run --environment jsdom integration"
 	},
 	"dependencies": {
 		"@dump-txt/ui": "*",
@@ -21,6 +22,7 @@
 		"@types/react": "19.2.18",
 		"@types/react-dom": "19.2.7",
 		"@vitejs/plugin-react": "6.1.1",
+		"jsdom": "30.0.1",
 		"vite": "8.2.2",
 		"vitest": "5.0.0"
 	},

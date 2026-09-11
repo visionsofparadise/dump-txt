@@ -250,6 +250,11 @@ a {
 	min-height: 0;
 }
 
+.appbox-stage {
+	position: relative;
+	height: 100%;
+}
+
 #appbox {
 	position: relative;
 	height: 100%;
