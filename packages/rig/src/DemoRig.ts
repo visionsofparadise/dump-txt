@@ -166,7 +166,9 @@ export class DemoRig {
 	async key(key: string, modifiers: KeyboardEventInit = {}): Promise<void> {
 		this.#assertRunning();
 
-		const target = this.#options.stage.ownerDocument.activeElement ?? this.element(".cm-content");
+		const { stage } = this.#options;
+		const active = stage.ownerDocument.activeElement;
+		const target = active && stage.contains(active) ? active : this.element(".cm-content");
 
 		target.dispatchEvent(
 			new KeyboardEvent("keydown", { key, code: key, bubbles: true, cancelable: true, ...modifiers }),

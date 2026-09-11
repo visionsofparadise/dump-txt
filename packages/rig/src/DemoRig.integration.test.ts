@@ -18,7 +18,18 @@ function createRig(options: { readonly origin?: { readonly x: number; readonly y
 	stage.append(pointer);
 	document.body.append(stage);
 
-	return { rig: new DemoRig({ ...options, stage, pointer, context: () => context }), typed };
+	return { rig: new DemoRig({ ...options, stage, pointer, context: () => context }), stage, typed };
+}
+
+function recordKeys(...elements: Array<HTMLElement>) {
+	const received: Array<{ readonly target: EventTarget | null; readonly key: string; readonly ctrlKey: boolean }> = [];
+
+	for (const element of elements)
+		element.addEventListener("keydown", (event) => {
+			if (event.target === element) received.push({ target: event.target, key: event.key, ctrlKey: event.ctrlKey });
+		});
+
+	return received;
 }
 
 describe("DemoRig", () => {
@@ -84,6 +95,55 @@ describe("DemoRig", () => {
 		rig.stop();
 
 		await expect(call(rig)).rejects.toBeInstanceOf(DemoStopped);
+	});
+
+	it("sends a key to the focused element inside the stage", async () => {
+		const { rig, stage } = createRig();
+		const content = document.createElement("div");
+		const field = document.createElement("input");
+
+		content.className = "cm-content";
+		stage.append(content, field);
+		field.focus();
+
+		const received = recordKeys(content, field);
+		const keying = rig.key("d", { ctrlKey: true });
+
+		await vi.advanceTimersByTimeAsync(350);
+		await keying;
+
+		expect(received).toEqual([{ target: field, key: "d", ctrlKey: true }]);
+	});
+
+	it.each<[string, () => void]>([
+		[
+			"an element outside the stage",
+			() => {
+				const download = document.createElement("a");
+
+				download.href = "#download";
+				document.body.prepend(download);
+				download.focus();
+			},
+		],
+		["nothing", () => undefined],
+	])("sends a key to the editor content while focus is on %s", async (_focus, focusOutside) => {
+		const { rig, stage } = createRig();
+		const content = document.createElement("div");
+
+		content.className = "cm-content";
+		stage.append(content);
+		focusOutside();
+
+		const outside = document.activeElement;
+		const received = recordKeys(content, document.body);
+		const keying = rig.key("z", { ctrlKey: true });
+
+		await vi.advanceTimersByTimeAsync(350);
+		await keying;
+
+		expect(outside && stage.contains(outside)).toBe(false);
+		expect(received).toEqual([{ target: content, key: "z", ctrlKey: true }]);
 	});
 
 	it("types no further characters once stopped mid-string", async () => {
