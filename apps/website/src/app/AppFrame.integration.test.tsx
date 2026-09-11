@@ -299,7 +299,9 @@ describe("AppFrame", { timeout: 30_000 }, () => {
 
 		expect(stage().inert).toBe(false);
 
-		content.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", shiftKey: true, bubbles: true, cancelable: true }));
+		content.dispatchEvent(
+			new KeyboardEvent("keydown", { key: "Tab", shiftKey: true, bubbles: true, cancelable: true }),
+		);
 
 		expect(stage().inert).toBe(true);
 		expect(reached).not.toHaveBeenCalled();

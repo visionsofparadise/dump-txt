@@ -99,7 +99,8 @@ export function AppFrame() {
 
 		const isHeldElsewhere = (target: Element) =>
 			element.contains(target) &&
-			(isFocusOutside(element.ownerDocument, element) || (frame !== null && isFocusOutside(frame.ownerDocument, frame)));
+			(isFocusOutside(element.ownerDocument, element) ||
+				(frame !== null && isFocusOutside(frame.ownerDocument, frame)));
 
 		view.HTMLElement.prototype.focus = function focusUnlessHeldElsewhere(options?: FocusOptions) {
 			if (!isHeldElsewhere(this)) focus.call(this, options);
