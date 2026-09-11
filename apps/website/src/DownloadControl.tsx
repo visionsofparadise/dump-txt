@@ -1,4 +1,4 @@
-import { motion, type Variants } from "motion/react";
+import { motion, type MotionProps } from "motion/react";
 import { downloadOptionsOf, megabytesOf } from "./utils/downloadOptionsOf";
 import type { Platform } from "./utils/platformOf";
 
@@ -8,7 +8,7 @@ interface DownloadControlProps {
 	readonly optionId: string;
 	readonly onPlatformChange: (platform: Platform) => void;
 	readonly onOptionChange: (optionId: string) => void;
-	readonly variants: Variants;
+	readonly entrance: MotionProps;
 }
 
 const platformIds: ReadonlyArray<Platform> = ["windows", "macos", "linux"];
@@ -42,7 +42,7 @@ export function DownloadControl({
 	optionId,
 	onPlatformChange,
 	onOptionChange,
-	variants,
+	entrance,
 }: DownloadControlProps) {
 	const { group, options } = downloadOptionsOf(manifest, platform);
 	const option = options.find((candidate) => candidate.id === optionId) ?? options[0];
@@ -50,7 +50,7 @@ export function DownloadControl({
 	if (!option) throw new Error(`No download is available for ${platform}.`);
 
 	return (
-		<motion.div id="controls" variants={variants} initial="hidden" whileInView="visible" viewport={{ once: true }}>
+		<motion.div id="controls" {...entrance}>
 			<div className="download-group" role="group" aria-label={`Platform and ${group.toLowerCase()}`}>
 				<span className="radio-group" role="radiogroup" aria-label="Platform">
 					{platformIds.map((id) => (

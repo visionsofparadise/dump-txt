@@ -1,7 +1,10 @@
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { gpuCompositingOf } from "./utils/gpuCompositingOf";
 import { Website } from "./Website";
+
+vi.mock("./utils/gpuCompositingOf", () => ({ gpuCompositingOf: vi.fn() }));
 
 class MockIntersectionObserver implements IntersectionObserver {
 	static instances: Array<MockIntersectionObserver> = [];
@@ -54,6 +57,8 @@ const manifest: ReleaseManifest = {
 
 const unmounts: Array<() => void> = [];
 
+const matchingQueries = new Set<string>();
+
 async function until<T>(read: () => T | null | undefined | false): Promise<T> {
 	const deadline = Date.now() + 5000;
 
@@ -70,6 +75,20 @@ async function until<T>(read: () => T | null | undefined | false): Promise<T> {
 	}
 }
 
+async function pause(milliseconds: number): Promise<void> {
+	await new Promise((resolve) => {
+		setTimeout(resolve, milliseconds);
+	});
+}
+
+function elementOf(container: HTMLElement, selector: string): HTMLElement {
+	const element = container.querySelector(selector);
+
+	if (!(element instanceof HTMLElement)) throw new Error(`The ${selector} element is not mounted.`);
+
+	return element;
+}
+
 async function mount() {
 	const container = document.createElement("div");
 	const root = createRoot(container);
@@ -82,7 +101,25 @@ async function mount() {
 		root.unmount();
 	});
 
-	return { container };
+	const showApplicationHeader = async () => {
+		const frameDocument = container.querySelector("iframe")?.contentDocument;
+
+		if (!frameDocument) throw new Error("The application frame is not mounted.");
+
+		await act(async () => {
+			frameDocument.replaceChildren(frameDocument.createElement("header"));
+		});
+	};
+
+	return { container, showApplicationHeader };
+}
+
+async function revealed(section: HTMLElement): Promise<void> {
+	await until(() => {
+		MockIntersectionObserver.intersect(section, true);
+
+		return section.style.opacity === "1";
+	});
 }
 
 beforeEach(() => {
@@ -91,50 +128,132 @@ beforeEach(() => {
 	vi.stubGlobal("releaseManifest", manifest);
 	vi.stubGlobal(
 		"matchMedia",
-		vi.fn(() => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() })),
+		vi.fn((query: string) => ({
+			matches: matchingQueries.has(query),
+			addEventListener: vi.fn(),
+			removeEventListener: vi.fn(),
+		})),
 	);
+	vi.mocked(gpuCompositingOf).mockReturnValue(false);
+	Object.defineProperty(document, "fonts", { configurable: true, value: { ready: Promise.resolve() } });
+	Object.defineProperty(HTMLImageElement.prototype, "decode", {
+		configurable: true,
+		value: async () => undefined,
+	});
 });
 
 afterEach(async () => {
 	for (const unmount of unmounts.splice(0)) await act(unmount);
 
 	document.body.replaceChildren();
+	matchingQueries.clear();
+	Reflect.deleteProperty(document, "fonts");
+	Reflect.deleteProperty(HTMLImageElement.prototype, "decode");
 	vi.restoreAllMocks();
 	vi.unstubAllGlobals();
 });
 
 describe("Website", () => {
-	it("holds the headline hidden until it intersects the viewport, then reveals it with a fade", async () => {
+	it("layers four tiles of the sky beneath the hills, each from the responsive sources", async () => {
 		const { container } = await mount();
-		const headline = container.querySelector("#headline");
+		const tiles = container.querySelectorAll("#bg > #sky > img");
+		const hills = elementOf(container, "#bg > #hills");
 
-		if (!(headline instanceof HTMLElement)) throw new Error("The headline element is not mounted.");
+		expect(tiles).toHaveLength(4);
 
-		expect(headline.style.opacity).toBe("0");
-		expect(headline.style.transform).toBe("");
+		for (const tile of tiles) expect(tile.getAttribute("srcset")).toMatch(/1280w, .+1920w, .+3840w$/u);
 
-		await act(async () => {
-			MockIntersectionObserver.intersect(headline, true);
-		});
-		await until(() => headline.style.opacity === "1");
-
-		expect(headline.style.opacity).toBe("1");
-		expect(headline.style.transform).toBe("");
+		expect(hills.getAttribute("srcset")).toMatch(/1280w, .+1920w, .+3840w$/u);
+		expect(hills.previousElementSibling?.id).toBe("sky");
 	});
 
-	it("holds the GitHub link hidden until it intersects the viewport, then reveals it", async () => {
-		const { container } = await mount();
-		const github = container.querySelector("#github");
+	it("holds every section hidden until the background images decode and the application header shows", async () => {
+		let releaseImages = () => {};
+		const images = new Promise<void>((resolve) => {
+			releaseImages = resolve;
+		});
 
-		if (!(github instanceof HTMLElement)) throw new Error("The GitHub link is not mounted.");
+		Object.defineProperty(HTMLImageElement.prototype, "decode", { configurable: true, value: async () => images });
+
+		const { container, showApplicationHeader } = await mount();
+		const headline = elementOf(container, "#headline");
+
+		MockIntersectionObserver.intersect(headline, true);
+		await pause(100);
+
+		expect(headline.style.opacity).toBe("0");
+
+		await act(async () => {
+			releaseImages();
+		});
+		MockIntersectionObserver.intersect(headline, true);
+		await pause(100);
+
+		expect(headline.style.opacity).toBe("0");
+
+		await showApplicationHeader();
+		await revealed(headline);
+
+		expect(headline.style.opacity).toBe("1");
+	});
+
+	it("reveals the GitHub link once the page is ready and the link is in view", async () => {
+		const { container, showApplicationHeader } = await mount();
+		const github = elementOf(container, "#github");
 
 		expect(github.style.opacity).toBe("0");
 
-		await act(async () => {
-			MockIntersectionObserver.intersect(github, true);
-		});
-		await until(() => github.style.opacity === "1");
+		await showApplicationHeader();
+		await revealed(github);
 
 		expect(github.style.opacity).toBe("1");
+	});
+
+	it("slides the app in from the left and tilts the box in on a desktop with a GPU", async () => {
+		vi.mocked(gpuCompositingOf).mockReturnValue(true);
+
+		const { container, showApplicationHeader } = await mount();
+		const app = elementOf(container, "#app");
+		const box = elementOf(container, "#appbox");
+
+		expect(app.style.transform).toBe("translateX(-160px)");
+		expect(box.style.transform).toBe("perspective(2400px) rotateY(0deg)");
+
+		await showApplicationHeader();
+		await revealed(app);
+		await until(() => box.style.transform === "perspective(2400px) rotateY(-9deg)");
+
+		expect(box.style.transform).toBe("perspective(2400px) rotateY(-9deg)");
+	});
+
+	it("raises the app from below without a tilt on a narrow viewport", async () => {
+		matchingQueries.add("(max-width: 999px)");
+		vi.mocked(gpuCompositingOf).mockReturnValue(true);
+
+		const { container, showApplicationHeader } = await mount();
+		const app = elementOf(container, "#app");
+		const box = elementOf(container, "#appbox");
+
+		expect(app.style.transform).toBe("translateY(28px)");
+
+		await showApplicationHeader();
+		await revealed(app);
+
+		expect(box.style.transform).toBe("");
+	});
+
+	it("shows each section at once under reduced motion", async () => {
+		matchingQueries.add("(prefers-reduced-motion: reduce)");
+
+		const { container, showApplicationHeader } = await mount();
+		const headline = elementOf(container, "#headline");
+
+		await showApplicationHeader();
+
+		const startedAt = Date.now();
+
+		await revealed(headline);
+
+		expect(Date.now() - startedAt).toBeLessThan(1000);
 	});
 });

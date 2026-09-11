@@ -1,4 +1,4 @@
-import type { Variants } from "motion/react";
+import type { MotionProps, Variants } from "motion/react";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -37,9 +37,19 @@ class MockIntersectionObserver implements IntersectionObserver {
 	}
 }
 
-const testVariants: Variants = {
-	hidden: { opacity: 0, x: 24 },
-	visible: { opacity: 1, x: 0, transition: { duration: 0.03 } },
+const testEntrance: MotionProps = {
+	variants: {
+		hidden: { opacity: 0, x: 24 },
+		visible: { opacity: 1, x: 0, transition: { duration: 0.03 } },
+	},
+	initial: "hidden",
+	whileInView: "visible",
+	viewport: { once: true, amount: 0.15 },
+};
+
+const testTiltVariants: Variants = {
+	hidden: { transform: "perspective(2400px) rotateY(0deg)" },
+	visible: { transform: "perspective(2400px) rotateY(-9deg)", transition: { duration: 0.03 } },
 };
 
 const unmounts: Array<() => void> = [];
@@ -60,13 +70,21 @@ async function until<T>(read: () => T | null | undefined | false): Promise<T> {
 	}
 }
 
-async function mount(platform: Platform, variants: Variants = testVariants) {
+async function mount(platform: Platform, onApplicationReady: () => void = () => undefined) {
 	const container = document.createElement("div");
 	const root = createRoot(container);
+	const element = (next: Platform) => (
+		<AppBox
+			platform={next}
+			entrance={testEntrance}
+			tiltVariants={testTiltVariants}
+			onApplicationReady={onApplicationReady}
+		/>
+	);
 
 	document.body.append(container);
 	await act(async () => {
-		root.render(<AppBox platform={platform} variants={variants} />);
+		root.render(element(platform));
 	});
 	unmounts.push(() => {
 		root.unmount();
@@ -79,11 +97,19 @@ async function mount(platform: Platform, variants: Variants = testVariants) {
 	const posted = vi.spyOn(frame.contentWindow, "postMessage");
 	const render = async (next: Platform) => {
 		await act(async () => {
-			root.render(<AppBox platform={next} variants={variants} />);
+			root.render(element(next));
 		});
 	};
 
 	return { container, frame, posted, render };
+}
+
+function elementOf(container: HTMLElement, selector: string): HTMLElement {
+	const element = container.querySelector(selector);
+
+	if (!(element instanceof HTMLElement)) throw new Error(`The ${selector} element is not mounted.`);
+
+	return element;
 }
 
 beforeEach(() => {
@@ -96,6 +122,7 @@ afterEach(async () => {
 	for (const unmount of unmounts.splice(0)) await act(unmount);
 
 	document.body.replaceChildren();
+	vi.useRealTimers();
 	vi.restoreAllMocks();
 	vi.unstubAllGlobals();
 });
@@ -149,19 +176,83 @@ describe("AppBox", () => {
 		expect(container.querySelector("#appbox")?.getAttribute("data-gpu-compositing")).toBe("false");
 	});
 
-	it("holds the app hidden by its entrance variants until it intersects the viewport, then reveals it", async () => {
+	it("holds the app hidden by its entrance until it intersects the viewport, then reveals it", async () => {
 		const { container } = await mount("windows");
-		const app = container.querySelector("#app");
+		const app = elementOf(container, "#app");
 
-		if (!app) throw new Error("The app element is not mounted.");
-
-		expect(app instanceof HTMLElement && app.style.opacity).toBe("0");
+		expect(app.style.opacity).toBe("0");
 
 		await act(async () => {
 			MockIntersectionObserver.intersect(app, true);
 		});
-		await until(() => app instanceof HTMLElement && app.style.opacity === "1");
+		await until(() => app.style.opacity === "1");
 
-		expect(app instanceof HTMLElement && app.style.opacity).toBe("1");
+		expect(app.style.opacity).toBe("1");
+	});
+
+	it("tilts the box in with the app when a GPU context is detected", async () => {
+		vi.mocked(gpuCompositingOf).mockReturnValue(true);
+
+		const { container } = await mount("windows");
+		const app = elementOf(container, "#app");
+		const box = elementOf(container, "#appbox");
+
+		expect(box.style.transform).toBe("perspective(2400px) rotateY(0deg)");
+
+		await act(async () => {
+			MockIntersectionObserver.intersect(app, true);
+		});
+		await until(() => box.style.transform === "perspective(2400px) rotateY(-9deg)");
+
+		expect(box.style.transform).toBe("perspective(2400px) rotateY(-9deg)");
+	});
+
+	it("leaves the box untilted by the entrance when no GPU context is detected", async () => {
+		const { container } = await mount("windows");
+		const app = elementOf(container, "#app");
+		const box = elementOf(container, "#appbox");
+
+		await act(async () => {
+			MockIntersectionObserver.intersect(app, true);
+		});
+		await until(() => app.style.opacity === "1");
+
+		expect(box.style.transform).toBe("");
+	});
+
+	it("reports the application ready once the frame document shows its header", async () => {
+		const onApplicationReady = vi.fn();
+		const { frame } = await mount("windows", onApplicationReady);
+
+		await new Promise((resolve) => {
+			setTimeout(resolve, 100);
+		});
+
+		expect(onApplicationReady).not.toHaveBeenCalled();
+
+		frame.contentDocument?.replaceChildren(frame.contentDocument.createElement("header"));
+		await until(() => onApplicationReady.mock.calls.length > 0);
+
+		expect(onApplicationReady).toHaveBeenCalledOnce();
+	});
+
+	it("reports the application ready after four seconds when the frame never shows its header", async () => {
+		vi.useFakeTimers({ toFake: ["requestAnimationFrame", "cancelAnimationFrame", "performance"] });
+
+		const onApplicationReady = vi.fn();
+
+		await mount("windows", onApplicationReady);
+
+		await act(async () => {
+			vi.advanceTimersByTime(3900);
+		});
+
+		expect(onApplicationReady).not.toHaveBeenCalled();
+
+		await act(async () => {
+			vi.advanceTimersByTime(200);
+		});
+
+		expect(onApplicationReady).toHaveBeenCalledOnce();
 	});
 });

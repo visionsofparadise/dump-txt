@@ -1,4 +1,4 @@
-import type { Variants } from "motion/react";
+import type { MotionProps } from "motion/react";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -53,9 +53,14 @@ const manifest: ReleaseManifest = {
 	},
 };
 
-const testVariants: Variants = {
-	hidden: { opacity: 0, y: 24 },
-	visible: { opacity: 1, y: 0, transition: { duration: 0.03 } },
+const testEntrance: MotionProps = {
+	variants: {
+		hidden: { opacity: 0, y: 24 },
+		visible: { opacity: 1, y: 0, transition: { duration: 0.03 } },
+	},
+	initial: "hidden",
+	whileInView: "visible",
+	viewport: { once: true, amount: 0.15 },
 };
 
 const unmounts: Array<() => void> = [];
@@ -89,7 +94,7 @@ async function mount() {
 				optionId="x64"
 				onPlatformChange={() => undefined}
 				onOptionChange={() => undefined}
-				variants={testVariants}
+				entrance={testEntrance}
 			/>,
 		);
 	});
@@ -118,7 +123,7 @@ afterEach(async () => {
 });
 
 describe("DownloadControl", () => {
-	it("holds the controls hidden by its entrance variants until it intersects the viewport, then reveals it", async () => {
+	it("holds the controls hidden by its entrance until it intersects the viewport, then reveals it", async () => {
 		const { controls } = await mount();
 
 		if (!(controls instanceof HTMLElement)) throw new Error("The controls element is not an HTMLElement.");
