@@ -113,6 +113,44 @@ describe("FrameWindow", () => {
 		expect(posted).toHaveBeenLastCalledWith({ type: "open" }, window.location.origin);
 	});
 
+	it("marks a playback remounted once a visitor's close unmounts its application and forgets it when the host is replaced", () => {
+		const frameWindow = new FrameWindow();
+		const playback = stubPlayback();
+		const next = stubPlayback();
+
+		frameWindow.attach(playback);
+		frameWindow.hostCallbacksOf(true).onMinimize?.();
+		frameWindow.receiveReport(minimized, true, () => true);
+		frameWindow.receiveReport(open, true, () => true);
+
+		expect(frameWindow.isRemounted(playback)).toBe(false);
+
+		frameWindow.recordClick({ isTrusted: false });
+		frameWindow.hostCallbacksOf(true).onClose?.();
+		frameWindow.receiveReport(closed, true, () => false);
+		frameWindow.receiveReport(open, true, () => true);
+
+		expect(frameWindow.isRemounted(playback)).toBe(false);
+
+		frameWindow.recordClick({ isTrusted: true });
+		frameWindow.hostCallbacksOf(true).onClose?.();
+
+		expect(frameWindow.isRemounted(playback)).toBe(false);
+
+		frameWindow.receiveReport(closed, true, () => false);
+		frameWindow.receiveReport(open, true, () => true);
+		runFrames();
+
+		expect(frameWindow.isRemounted(playback)).toBe(true);
+		expect(playback.resume).toHaveBeenCalledTimes(2);
+
+		frameWindow.detach();
+		frameWindow.attach(next);
+
+		expect(frameWindow.isRemounted(playback)).toBe(false);
+		expect(frameWindow.isRemounted(next)).toBe(false);
+	});
+
 	it("keeps playing through a visitor's maximize and remembers the reported maximized window", () => {
 		const frameWindow = new FrameWindow();
 		const playback = stubPlayback();
@@ -175,6 +213,7 @@ describe("FrameWindow", () => {
 		expect(playback.pause).toHaveBeenCalledOnce();
 		expect(playback.resume).not.toHaveBeenCalled();
 		expect(replace).not.toHaveBeenCalled();
+		expect(frameWindow.isRemounted(playback)).toBe(false);
 		expect(posted).toHaveBeenLastCalledWith({ type: "close", isDemonstration: false }, window.location.origin);
 	});
 });

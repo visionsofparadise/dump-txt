@@ -1,5 +1,5 @@
 import { webcrypto } from "node:crypto";
-import { createPlayback, type PlaybackOptions } from "@dump-txt/rig";
+import { createPlayback, demonstrate, DemoRig, type PlaybackOptions } from "@dump-txt/rig";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vitest";
@@ -16,6 +16,7 @@ interface StubPlayback {
 	readonly options: PlaybackOptions;
 	readonly finish: () => void;
 	readonly fail: (error: Error) => void;
+	readonly resume: Mock<() => void>;
 	readonly dispose: Mock<() => void>;
 }
 
@@ -122,6 +123,17 @@ function platformMessage(platform: string, origin = window.location.origin): Mes
 	return new MessageEvent("message", { data: { type: "platform", platform }, origin });
 }
 
+async function reportWindow(state: string, isMaximized: boolean): Promise<void> {
+	await act(async () => {
+		window.dispatchEvent(
+			new MessageEvent("message", {
+				data: { type: "window", state, isMaximized },
+				origin: window.location.origin,
+			}),
+		);
+	});
+}
+
 beforeEach(() => {
 	playbacks = [];
 	vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
@@ -141,9 +153,10 @@ beforeEach(() => {
 			finish = resolve;
 			fail = reject;
 		});
+		const resume = vi.fn<() => void>();
 		const dispose = vi.fn<() => void>();
 
-		playbacks.push({ options, finish, fail, dispose });
+		playbacks.push({ options, finish, fail, resume, dispose });
 
 		return {
 			ready: true,
@@ -152,7 +165,7 @@ beforeEach(() => {
 			play: () => played,
 			stop: vi.fn(),
 			pause: vi.fn(),
-			resume: vi.fn(),
+			resume,
 			dispose,
 		};
 	});
@@ -364,20 +377,10 @@ describe("AppFrame", { timeout: 30_000 }, () => {
 		const { container, overlay } = await mount();
 		const maximizeLabel = () =>
 			container.querySelector('[aria-label="Maximize"], [aria-label="Restore window"]')?.getAttribute("aria-label");
-		const report = async (state: string, isMaximized: boolean) => {
-			await act(async () => {
-				window.dispatchEvent(
-					new MessageEvent("message", {
-						data: { type: "window", state, isMaximized },
-						origin: window.location.origin,
-					}),
-				);
-			});
-		};
 
 		expect(maximizeLabel()).toBe("Maximize");
 
-		await report("open", true);
+		await reportWindow("open", true);
 		await until(() => maximizeLabel() === "Restore window");
 
 		const editor = container.querySelector(".cm-editor");
@@ -391,11 +394,117 @@ describe("AppFrame", { timeout: 30_000 }, () => {
 			return current !== editor && current;
 		});
 		await until(() => maximizeLabel() === "Restore window");
-		await report("closed", true);
+		await reportWindow("closed", true);
 		await until(() => container.querySelector(".cm-editor") === null);
-		await report("open", true);
+		await reportWindow("open", true);
 		await until(() => container.querySelector(".cm-editor"));
 		await until(() => maximizeLabel() === "Restore window");
+	});
+
+	it("restarts at once on a fresh host without logging when a playback remounted after a visitor's close rejects", async () => {
+		const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+		const { container, context, stage } = await mount();
+		const [playback] = playbacks;
+		const demonstrated = context();
+		const missing = new Error("Demo target is missing: .find-panel label:last-of-type input");
+
+		await act(async () => {
+			demonstrated.editor.apply({ type: "insert", text: "demonstrated" });
+		});
+		await until(() => pageTextOf(demonstrated) === "demonstrated");
+		await reportWindow("closed", false);
+		await until(() => container.querySelector(".cm-editor") === null);
+		await reportWindow("open", false);
+		await until(() => playback?.resume.mock.calls.length);
+
+		const remounted = context();
+		const editor = container.querySelector(".cm-editor");
+		const rig = new DemoRig({ stage: stage(), pointer: document.createElement("div"), context: () => remounted });
+		const wait = vi.spyOn(rig, "wait");
+
+		await until(() => pageTextOf(remounted) === "demonstrated");
+
+		expect(remounted).not.toBe(demonstrated);
+
+		vi.mocked(demonstrate).mockRejectedValueOnce(missing);
+
+		await expect(playback?.options.script(rig)).rejects.toBe(missing);
+
+		vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+
+		await act(async () => {
+			playback?.fail(missing);
+		});
+		await act(async () => {
+			await vi.advanceTimersByTimeAsync(0);
+		});
+
+		expect(createPlayback).toHaveBeenCalledTimes(2);
+		expect(playback?.dispose).toHaveBeenCalled();
+
+		vi.useRealTimers();
+
+		const fresh = await until(() => {
+			const current = playbacks[1]?.options.context();
+
+			return current !== remounted && current;
+		});
+
+		await until(() => {
+			const current = container.querySelector(".cm-editor");
+
+			return current !== editor && current;
+		});
+
+		expect(pageTextOf(fresh)).toBe("");
+		expect(wait).not.toHaveBeenCalled();
+		expect(error).not.toHaveBeenCalled();
+	});
+
+	it("logs and restarts on a fresh host after the failure delay when an uninterrupted playback rejects", async () => {
+		const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+		const { container, context, stage } = await mount();
+		const [playback] = playbacks;
+		const demonstrated = context();
+		const editor = container.querySelector(".cm-editor");
+		const missing = new Error("Demo target is missing: .find-panel label:last-of-type input");
+		const rig = new DemoRig({ stage: stage(), pointer: document.createElement("div"), context: () => demonstrated });
+		const wait = vi.spyOn(rig, "wait").mockResolvedValue();
+
+		vi.mocked(demonstrate).mockRejectedValueOnce(missing);
+
+		await playback?.options.script(rig);
+
+		expect(error).toHaveBeenCalledExactlyOnceWith(missing);
+		expect(wait).toHaveBeenCalledExactlyOnceWith(1000);
+
+		vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+
+		await act(async () => {
+			playback?.fail(missing);
+		});
+		await act(async () => {
+			await vi.advanceTimersByTimeAsync(990);
+		});
+
+		expect(error).toHaveBeenCalledTimes(2);
+		expect(error).toHaveBeenLastCalledWith(missing);
+		expect(createPlayback).toHaveBeenCalledOnce();
+
+		await act(async () => {
+			await vi.advanceTimersByTimeAsync(10);
+		});
+
+		expect(createPlayback).toHaveBeenCalledTimes(2);
+		expect(playback?.dispose).toHaveBeenCalled();
+
+		vi.useRealTimers();
+
+		await until(() => {
+			const current = container.querySelector(".cm-editor");
+
+			return current !== editor && current;
+		});
 	});
 
 	it("carries the visitor's text across a platform message after takeover", async () => {

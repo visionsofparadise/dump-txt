@@ -169,7 +169,7 @@ export function AppFrame() {
 				try {
 					await demonstrate(rig, { reopen: page !== null });
 				} catch (error: unknown) {
-					if (error instanceof DemoStopped) throw error;
+					if (error instanceof DemoStopped || frameWindow.isRemounted(current)) throw error;
 
 					console.error(error);
 					await rig.wait(failedLoopDelay);
@@ -198,6 +198,12 @@ export function AppFrame() {
 			},
 			(error: unknown) => {
 				if (error instanceof DemoStopped) return;
+
+				if (frameWindow.isRemounted(current)) {
+					replay(0);
+
+					return;
+				}
 
 				console.error(error);
 				replay(failedLoopDelay);

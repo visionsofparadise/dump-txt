@@ -10,6 +10,7 @@ function postRequest(request: WindowRequest): void {
 
 export class FrameWindow {
 	#playback: DemoPlayback | null = null;
+	#remounted: DemoPlayback | null = null;
 	#restart: (() => void) | null = null;
 	#isHeld = false;
 	#isClosedByDemonstration = false;
@@ -49,6 +50,10 @@ export class FrameWindow {
 		return this.#playback === playback;
 	}
 
+	isRemounted(playback: DemoPlayback): boolean {
+		return this.#remounted === playback;
+	}
+
 	attach(playback: DemoPlayback): void {
 		this.#playback = playback;
 
@@ -58,6 +63,7 @@ export class FrameWindow {
 	detach(): void {
 		this.#playback?.dispose();
 		this.#playback = null;
+		this.#remounted = null;
 		this.#restart = null;
 
 		if (!this.#isClosedByDemonstration) return;
@@ -82,7 +88,11 @@ export class FrameWindow {
 		if (report.state === "open") {
 			this.#isClosedByDemonstration = false;
 			this.#release(isMounted);
-		} else if (isDemonstrating && !this.#isClosedByDemonstration) this.#hold();
+		} else if (isDemonstrating && !this.#isClosedByDemonstration) {
+			if (report.state === "closed") this.#remounted = this.#playback;
+
+			this.#hold();
+		}
 	}
 
 	#hold(): void {
