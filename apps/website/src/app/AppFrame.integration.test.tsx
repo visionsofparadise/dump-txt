@@ -16,8 +16,6 @@ interface StubPlayback {
 	readonly options: PlaybackOptions;
 	readonly finish: () => void;
 	readonly fail: (error: Error) => void;
-	readonly pause: Mock<() => void>;
-	readonly resume: Mock<() => void>;
 	readonly dispose: Mock<() => void>;
 }
 
@@ -124,17 +122,6 @@ function platformMessage(platform: string, origin = window.location.origin): Mes
 	return new MessageEvent("message", { data: { type: "platform", platform }, origin });
 }
 
-async function reportWindow(state: string, isMaximized: boolean): Promise<void> {
-	await act(async () => {
-		window.dispatchEvent(
-			new MessageEvent("message", {
-				data: { type: "window", state, isMaximized },
-				origin: window.location.origin,
-			}),
-		);
-	});
-}
-
 beforeEach(() => {
 	playbacks = [];
 	vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
@@ -154,11 +141,9 @@ beforeEach(() => {
 			finish = resolve;
 			fail = reject;
 		});
-		const pause = vi.fn<() => void>();
-		const resume = vi.fn<() => void>();
 		const dispose = vi.fn<() => void>();
 
-		playbacks.push({ options, finish, fail, pause, resume, dispose });
+		playbacks.push({ options, finish, fail, dispose });
 
 		return {
 			ready: true,
@@ -166,8 +151,8 @@ beforeEach(() => {
 			error: null,
 			play: () => played,
 			stop: vi.fn(),
-			pause,
-			resume,
+			pause: vi.fn(),
+			resume: vi.fn(),
 			dispose,
 		};
 	});
@@ -379,10 +364,20 @@ describe("AppFrame", { timeout: 30_000 }, () => {
 		const { container, overlay } = await mount();
 		const maximizeLabel = () =>
 			container.querySelector('[aria-label="Maximize"], [aria-label="Restore window"]')?.getAttribute("aria-label");
+		const report = async (state: string, isMaximized: boolean) => {
+			await act(async () => {
+				window.dispatchEvent(
+					new MessageEvent("message", {
+						data: { type: "window", state, isMaximized },
+						origin: window.location.origin,
+					}),
+				);
+			});
+		};
 
 		expect(maximizeLabel()).toBe("Maximize");
 
-		await reportWindow("open", true);
+		await report("open", true);
 		await until(() => maximizeLabel() === "Restore window");
 
 		const editor = container.querySelector(".cm-editor");
@@ -396,41 +391,11 @@ describe("AppFrame", { timeout: 30_000 }, () => {
 			return current !== editor && current;
 		});
 		await until(() => maximizeLabel() === "Restore window");
-		await reportWindow("closed", true);
+		await report("closed", true);
 		await until(() => container.querySelector(".cm-editor") === null);
-		await reportWindow("open", true);
+		await report("open", true);
 		await until(() => container.querySelector(".cm-editor"));
 		await until(() => maximizeLabel() === "Restore window");
-	});
-
-	it("keeps the demonstration's application and its open find panel through a visitor's close and open", async () => {
-		const { container, context, stage } = await mount();
-		const [playback] = playbacks;
-		const demonstrated = context();
-
-		await act(async () => {
-			demonstrated.editor.openFind();
-		});
-
-		const panel = await until(() => container.querySelector(".find-panel"));
-		const editor = container.querySelector(".cm-editor");
-
-		await reportWindow("closed", false);
-
-		expect(stage().dataset.window).toBe("closed");
-		expect(container.querySelector(".find-panel")).toBe(panel);
-		expect(container.querySelector(".cm-editor")).toBe(editor);
-		expect(playback?.pause).toHaveBeenCalledOnce();
-		expect(playback?.resume).not.toHaveBeenCalled();
-
-		await reportWindow("open", false);
-
-		expect(stage().dataset.window).toBe("open");
-		expect(container.querySelector(".find-panel")).toBe(panel);
-		expect(container.querySelector(".cm-editor")).toBe(editor);
-		expect(context()).toBe(demonstrated);
-		expect(playback?.resume).toHaveBeenCalledOnce();
-		expect(createPlayback).toHaveBeenCalledOnce();
 	});
 
 	it("carries the visitor's text across a platform message after takeover", async () => {

@@ -232,14 +232,8 @@ export function AppFrame() {
 
 	return (
 		<>
-			<div
-				ref={stage}
-				className={mode === "demonstrating" ? "appbox-stage demo-stage" : "appbox-stage"}
-				data-window={windowState}
-			>
-				{(mode === "demonstrating" || windowState !== "closed") && (
-					<App key={hostGeneration} main={main} ref={attachContext} />
-				)}
+			<div ref={stage} className={mode === "demonstrating" ? "appbox-stage demo-stage" : "appbox-stage"}>
+				{windowState !== "closed" && <App key={hostGeneration} main={main} ref={attachContext} />}
 			</div>
 			{mode === "demonstrating" && <button className="appbox-takeover" type="button" aria-label="Try dump.txt" />}
 		</>
