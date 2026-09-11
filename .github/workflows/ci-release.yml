@@ -204,10 +204,11 @@ jobs:
               result=$(node apps/desktop/tools/release.mjs publish artifacts)
               printf '%s\n' "$result"
               printf 'result=%s\n' "$result" >> "$GITHUB_OUTPUT"
-         - name: Generate the published release demonstration
+         - name: Generate the published release demonstration and website
            if: steps.release.outputs.result == 'published'
            env:
               GH_TOKEN: ${{ github.token }}
            run: |
               tag=$(node -p "'v' + JSON.parse(require('node:fs').readFileSync('apps/desktop/package.json', 'utf8')).version")
               gh workflow run demo.yml --repo "$GITHUB_REPOSITORY" --ref main -f "tag=$tag"
+              gh workflow run website.yml --repo "$GITHUB_REPOSITORY" --ref main -f "tag=$tag"
