@@ -36,10 +36,18 @@ export const SaveStatus = scope(({ context }: SaveStatusProps) => {
 				<button className="panel-button" disabled={persistenceState.locked} onClick={retry}>
 					Retry
 				</button>
-				<button className="panel-button" disabled={persistenceState.locked || !capabilities.saveAs} onClick={saveAs}>
+				<button
+					className="panel-button"
+					disabled={persistenceState.locked || !capabilities.saveAs}
+					onClick={saveAs}
+				>
 					Save As…
 				</button>
-				<button className="panel-button" disabled={persistenceState.locked || !capabilities.openDump} onClick={open}>
+				<button
+					className="panel-button"
+					disabled={persistenceState.locked || !capabilities.openDump}
+					onClick={open}
+				>
 					Open…
 				</button>
 			</div>
