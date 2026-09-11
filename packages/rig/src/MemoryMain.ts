@@ -1,5 +1,5 @@
 import { contentHashOf, IpcError } from "@dump-txt/ui/host";
-import type { AppState, Main, MainEventMap, WriteRequest } from "@dump-txt/ui/host";
+import type { AppState, Main, MainCapabilities, MainEventMap, WriteRequest } from "@dump-txt/ui/host";
 
 export interface MemoryMainOptions {
 	readonly onClose?: () => void;
@@ -8,10 +8,12 @@ export interface MemoryMainOptions {
 	readonly font?: string;
 	readonly textSize?: number;
 	readonly platform?: Main["platform"];
+	readonly capabilities?: MainCapabilities;
 }
 
 export class MemoryMain implements Main {
 	readonly platform: Main["platform"];
+	readonly capabilities: MainCapabilities | undefined;
 	readonly #files = new Map<string, Uint8Array>();
 	readonly #listeners: {
 		[Channel in keyof MainEventMap]: Set<(...parameters: MainEventMap[Channel]) => void>;
@@ -38,6 +40,7 @@ export class MemoryMain implements Main {
 
 	constructor(options: MemoryMainOptions = {}) {
 		this.platform = options.platform ?? "windows";
+		this.capabilities = options.capabilities;
 		this.#onClose = options.onClose;
 		this.#theme = options.theme ?? "dark";
 

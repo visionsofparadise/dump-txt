@@ -1,12 +1,14 @@
 import type { AppPaths } from "./AppPaths";
 import type { DialogChoice, FileDialogOptions } from "./FileDialogOptions";
 import type { FileRead } from "./FileRead";
+import type { MainCapabilities } from "./MainCapabilities";
 import type { MainEventMap } from "./MainEventMap";
 import type { TextContextMenuResponse, TextContextMenuState } from "./TextContextMenuState";
 import type { WriteRequest } from "./WriteRequest";
 
 export interface Main {
 	readonly platform?: "windows" | "macos" | "linux";
+	readonly capabilities?: MainCapabilities;
 
 	getPaths(): Promise<AppPaths>;
 

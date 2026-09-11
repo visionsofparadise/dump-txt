@@ -1,6 +1,7 @@
 import { FolderOpen, Keyboard, Menu as MenuIcon, PanelBottom, Redo2, Save, Search, X, Undo2 } from "lucide-react";
 import { scope } from "opshot";
 import { useCallback } from "react";
+import { capabilitiesOf } from "../../models/MainCapabilities";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -20,6 +21,7 @@ interface MenuProps {
 
 export const Menu = scope(({ context }: MenuProps) => {
 	const { session, editor, history, persistence, persistenceState, chrome } = context;
+	const capabilities = capabilitiesOf(context.main);
 
 	const menuChanged = useCallback(
 		(value: boolean) => {
@@ -31,16 +33,16 @@ export const Menu = scope(({ context }: MenuProps) => {
 	);
 
 	const openFile = useCallback(() => {
-		if (persistence.state.locked) return;
+		if (persistence.state.locked || !capabilities.openDump) return;
 
 		void persistence.open().catch(() => undefined);
-	}, [persistence]);
+	}, [capabilities.openDump, persistence]);
 
 	const saveAs = useCallback(() => {
-		if (persistence.state.locked) return;
+		if (persistence.state.locked || !capabilities.saveAs) return;
 
 		void persistence.saveAs().catch(() => undefined);
-	}, [persistence]);
+	}, [capabilities.saveAs, persistence]);
 
 	const undo = useCallback(() => {
 		if (persistence.state.locked) return;
@@ -61,8 +63,10 @@ export const Menu = scope(({ context }: MenuProps) => {
 	}, [editor, persistence]);
 
 	const close = useCallback(() => {
+		if (!capabilities.close) return;
+
 		void persistence.close().catch(() => undefined);
-	}, [persistence]);
+	}, [capabilities.close, persistence]);
 
 	const openKeybinds = useCallback(() => {
 		chrome.keybindsOpen = true;
@@ -103,12 +107,12 @@ export const Menu = scope(({ context }: MenuProps) => {
 				align={context.main.platform === "macos" ? "end" : "start"}
 				onCloseAutoFocus={restoreFocus}
 			>
-				<DropdownMenuItem onSelect={openFile} disabled={persistenceState.locked}>
+				<DropdownMenuItem onSelect={openFile} disabled={persistenceState.locked || !capabilities.openDump}>
 					<FolderOpen size={16} aria-hidden />
 					<span>Open…</span>
 					<span className="menu-shortcut">Ctrl+O</span>
 				</DropdownMenuItem>
-				<DropdownMenuItem onSelect={saveAs} disabled={persistenceState.locked}>
+				<DropdownMenuItem onSelect={saveAs} disabled={persistenceState.locked || !capabilities.saveAs}>
 					<Save size={16} aria-hidden />
 					<span>Save As…</span>
 					<span className="menu-shortcut">Ctrl+Shift+S</span>
@@ -144,7 +148,7 @@ export const Menu = scope(({ context }: MenuProps) => {
 					<span>Keybinds</span>
 				</DropdownMenuItem>
 				<DropdownMenuSeparator />
-				<DropdownMenuItem onSelect={close} disabled={persistenceState.locked}>
+				<DropdownMenuItem onSelect={close} disabled={persistenceState.locked || !capabilities.close}>
 					<X size={16} aria-hidden />
 					<span>Close</span>
 				</DropdownMenuItem>

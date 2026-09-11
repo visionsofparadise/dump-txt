@@ -9,6 +9,7 @@ import { App } from "./App";
 import type { AppState } from "../models/AppState";
 import type { ChromeContext } from "../models/ChromeContext";
 import type { Main } from "../models/Main";
+import type { MainCapabilities } from "../models/MainCapabilities";
 
 let main: Main;
 
@@ -16,11 +17,16 @@ function hash(bytes: Uint8Array): string {
 	return createHash("sha256").update(bytes).digest("hex");
 }
 
-async function fixture(text = "first\n\f\nsecond\n\f\nthird", platform: Main["platform"] = "windows") {
+async function fixture(
+	text = "first\n\f\nsecond\n\f\nthird",
+	platform: Main["platform"] = "windows",
+	capabilities?: MainCapabilities,
+) {
 	const files = new Map([["/app/dump.txt", new TextEncoder().encode(text)]]);
 	const closed = vi.fn();
 	main = {
 		platform,
+		capabilities,
 		getPaths: async () => ({ userData: "/app", restoredFilePath: null }),
 		readFile: async (path) => {
 			const bytes = files.get(path);
@@ -543,5 +549,55 @@ describe("scratchpad interface", () => {
 		});
 		expect(screen.queryByRole("option", { name: "Stale family" })).toBeNull();
 		expect(screen.getByRole("option", { name: "Arial" })).toBeTruthy();
+	});
+
+	it("disables every action a restricted host cannot honour", async () => {
+		const capabilities: MainCapabilities = {
+			openDump: false,
+			saveAs: false,
+			importPage: false,
+			exportPage: false,
+			fonts: false,
+			minimize: false,
+			maximize: false,
+			close: false,
+		};
+		const { user } = await fixture(undefined, "windows", capabilities);
+
+		await user.click(screen.getByRole("button", { name: "App menu" }));
+		expect((await screen.findByRole("menuitem", { name: /Open…/u })).getAttribute("data-disabled")).toBe("");
+		expect(screen.getByRole("menuitem", { name: /Save As…/u }).getAttribute("data-disabled")).toBe("");
+		expect(screen.getByRole("menuitem", { name: /Import page…/u }).getAttribute("data-disabled")).toBe("");
+		expect(screen.getByRole("menuitem", { name: /Export page…/u }).getAttribute("data-disabled")).toBe("");
+		expect(screen.getByRole("menuitem", { name: /Font…/u }).getAttribute("data-disabled")).toBe("");
+		expect(screen.getByRole("menuitem", { name: /^Close/u }).getAttribute("data-disabled")).toBe("");
+		await user.keyboard("{Escape}");
+		expect(screen.getByRole("button", { name: "Minimize" }).hasAttribute("disabled")).toBe(true);
+		expect(screen.getByRole("button", { name: "Maximize" }).hasAttribute("disabled")).toBe(true);
+		expect(screen.getByRole("button", { name: "Close window" }).hasAttribute("disabled")).toBe(true);
+		await user.click(screen.getByRole("button", { name: "App menu" }));
+		await user.click(await screen.findByRole("menuitem", { name: "Keybinds" }));
+		await screen.findByRole("dialog", { name: "Keybinds" });
+		expect(screen.queryByRole("region", { name: "File" })).toBeNull();
+	});
+
+	it("leaves every action enabled when the host declares no capabilities", async () => {
+		const { user } = await fixture();
+
+		await user.click(screen.getByRole("button", { name: "App menu" }));
+		expect((await screen.findByRole("menuitem", { name: /Open…/u })).getAttribute("data-disabled")).toBeNull();
+		expect(screen.getByRole("menuitem", { name: /Save As…/u }).getAttribute("data-disabled")).toBeNull();
+		expect(screen.getByRole("menuitem", { name: /Import page…/u }).getAttribute("data-disabled")).toBeNull();
+		expect(screen.getByRole("menuitem", { name: /Export page…/u }).getAttribute("data-disabled")).toBeNull();
+		expect(screen.getByRole("menuitem", { name: /Font…/u }).getAttribute("data-disabled")).toBeNull();
+		expect(screen.getByRole("menuitem", { name: /^Close/u }).getAttribute("data-disabled")).toBeNull();
+		await user.keyboard("{Escape}");
+		expect(screen.getByRole("button", { name: "Minimize" }).hasAttribute("disabled")).toBe(false);
+		expect(screen.getByRole("button", { name: "Maximize" }).hasAttribute("disabled")).toBe(false);
+		expect(screen.getByRole("button", { name: "Close window" }).hasAttribute("disabled")).toBe(false);
+		await user.click(screen.getByRole("button", { name: "App menu" }));
+		await user.click(await screen.findByRole("menuitem", { name: "Keybinds" }));
+		await screen.findByRole("dialog", { name: "Keybinds" });
+		expect(screen.queryByRole("region", { name: "File" })).not.toBeNull();
 	});
 });

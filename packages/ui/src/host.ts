@@ -9,6 +9,8 @@ export type { FileRead } from "./models/FileRead";
 export { ipcFailureSchema, IpcError, failureOf } from "./models/IpcFailure";
 export type { IpcFailure } from "./models/IpcFailure";
 export type { Main } from "./models/Main";
+export { capabilitiesOf, fullCapabilities } from "./models/MainCapabilities";
+export type { MainCapabilities } from "./models/MainCapabilities";
 export { mainEventSchemas } from "./models/MainEventMap";
 export type { WindowBounds, MainEventMap } from "./models/MainEventMap";
 export { pageSelectionSchema, recoveryRecordSchema } from "./models/RecoveryRecord";

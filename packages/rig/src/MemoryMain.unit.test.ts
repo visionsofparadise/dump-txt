@@ -1,6 +1,7 @@
 import { appStateSchema, contentHashOf } from "@dump-txt/ui/host";
 import { describe, expect, it, vi } from "vitest";
 import { MemoryMain } from "./MemoryMain";
+import type { MainCapabilities } from "@dump-txt/ui/host";
 
 describe("MemoryMain", () => {
 	it("initializes a valid profile and keeps text between mounts", async () => {
@@ -90,5 +91,23 @@ describe("MemoryMain", () => {
 
 		expect(onClose).toHaveBeenCalledOnce();
 		expect(new TextDecoder().decode((await main.readFile("/saved.txt"))?.bytes)).toBe("saved");
+	});
+
+	it("exposes constructed capabilities and leaves them undefined otherwise", () => {
+		const capabilities: MainCapabilities = {
+			openDump: false,
+			saveAs: false,
+			importPage: true,
+			exportPage: true,
+			fonts: false,
+			minimize: false,
+			maximize: false,
+			close: false,
+		};
+		const restricted = new MemoryMain({ capabilities });
+		const unrestricted = new MemoryMain();
+
+		expect(restricted.capabilities).toBe(capabilities);
+		expect(unrestricted.capabilities).toBeUndefined();
 	});
 });

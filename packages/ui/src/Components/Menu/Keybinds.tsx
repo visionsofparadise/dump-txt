@@ -1,6 +1,7 @@
 import { Keyboard, X } from "lucide-react";
 import { scope } from "opshot";
 import { useCallback } from "react";
+import { capabilitiesOf } from "../../models/MainCapabilities";
 import { Dialog, DialogContent, DialogTitle } from "../UI/Dialog";
 import type { ChromeContext } from "../../models/ChromeContext";
 
@@ -64,6 +65,20 @@ interface KeybindsProps {
 export const Keybinds = scope(({ context }: KeybindsProps) => {
 	const { chrome, editor } = context;
 	const primaryModifier = context.main.platform === "macos" ? "Command" : "Ctrl";
+	const capabilities = capabilitiesOf(context.main);
+	const visibleGroups = groups
+		.map((group) =>
+			group.title === "File"
+				? {
+						...group,
+						bindings: group.bindings.filter(
+							([label]) =>
+								(label !== "Open" || capabilities.openDump) && (label !== "Save As" || capabilities.saveAs),
+						),
+					}
+				: group,
+		)
+		.filter((group) => group.bindings.length > 0);
 
 	const openChanged = useCallback(
 		(open: boolean) => {
@@ -102,7 +117,7 @@ export const Keybinds = scope(({ context }: KeybindsProps) => {
 					</button>
 				</header>
 				<div className="keybinds-list" role="region" aria-label="Keyboard shortcuts">
-					{groups.map((group) => (
+					{visibleGroups.map((group) => (
 						<section key={group.title} aria-label={group.title}>
 							<h2>{group.title}</h2>
 							<dl>

@@ -10,6 +10,7 @@ import {
 	type Ref,
 	type RefObject,
 } from "react";
+import { capabilitiesOf } from "../models/MainCapabilities";
 import { Menu } from "./Menu";
 import { ChromeDialogs } from "./Menu/ChromeDialogs";
 import { DownBar } from "./Page/DownBar";
@@ -35,6 +36,7 @@ interface EditorStyle extends CSSProperties {
 export const Layout = scope(({ ref, surface, context: dumpContext }: LayoutProps) => {
 	const { session, editor, persistence } = dumpContext;
 	const platform = dumpContext.main.platform ?? "windows";
+	const capabilities = capabilitiesOf(dumpContext.main);
 
 	const [chrome] = useState(() =>
 		createMutableState<ChromeState>({ menuOpen: false, fontPickerOpen: false, keybindsOpen: false }),
@@ -80,13 +82,13 @@ export const Layout = scope(({ ref, surface, context: dumpContext }: LayoutProps
 			let command: (() => void) | undefined;
 
 			if (control && !event.altKey) {
-				if (key === "o" && !event.shiftKey)
+				if (key === "o" && !event.shiftKey && capabilities.openDump)
 					command = () => {
 						void persistence.open().catch(() => undefined);
 					};
 				else if (key === "n")
 					command = () => editor.apply({ type: "insertPage", position: event.shiftKey ? "above" : "below" });
-				else if (key === "s" && event.shiftKey)
+				else if (key === "s" && event.shiftKey && capabilities.saveAs)
 					command = () => {
 						void persistence.saveAs().catch(() => undefined);
 					};
@@ -138,7 +140,7 @@ export const Layout = scope(({ ref, surface, context: dumpContext }: LayoutProps
 		element?.addEventListener("keydown", keydown);
 
 		return () => element?.removeEventListener("keydown", keydown);
-	}, [chrome, editor, persistence, surface]);
+	}, [capabilities, chrome, editor, persistence, surface]);
 
 	return (
 		<main className="dump-app" data-platform={platform} style={appearance}>
