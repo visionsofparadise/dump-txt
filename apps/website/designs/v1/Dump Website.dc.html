@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+html,body{margin:0;background:#0f1a2a;font-family:system-ui,sans-serif;}
+a{color:inherit}a:hover{color:inherit}
+</style>
+</helmet>
+
+<div style="padding:40px; display:flex; gap:40px; align-items:flex-start; flex-wrap:wrap;">
+  <div data-screen-label="Desktop" style="position:relative; width:1440px; height:900px; flex:none; border-radius:6px; overflow:hidden; font-family:'Instrument Serif',serif; color:#fafafa;">
+    <div style="position:absolute; inset:0; background:url(uploads/bliss-like-web.webp) center/cover; filter:{{ bgFilter }};"></div>
+    <h1 style="position:absolute; top:88px; left:80px; margin:0; width:600px; font-size:124px; line-height:.9; letter-spacing:-.02em; font-weight:400; text-shadow:{{ shadow }};"><span style="position:relative; z-index:2; display:block;">Dump te<span style="margin-left:.03em;">x</span><span style="margin-left:.045em;">t,</span></span><em style="position:relative; z-index:1; display:block; font-size:112px; font-style:italic; color:#e6e6e6;">think <span style="letter-spacing:.02em;">less.</span></em></h1>
+    <div style="position:absolute; left:80px; top:560px; display:flex; flex-direction:column; gap:14px; width:520px; font-family:'IBM Plex Mono',monospace;">
+      <div style="display:flex; align-items:center; width:max-content; height:52px; background:#fafafa; border-radius:3px; color:#1a1a1a; font-size:13px; box-shadow:{{ shadow }};">
+        <span style="padding:0 16px; color:#9a9a9a; font-size:11px; text-transform:uppercase; letter-spacing:.12em;">OS</span>
+        <span style="display:flex; align-items:center; gap:2px;">
+          <span style="padding:8px 12px; text-decoration:underline; text-underline-offset:5px; text-decoration-thickness:2px;">Windows</span>
+          <span style="padding:8px 12px; color:#8a8a8a;">macOS</span>
+          <span style="padding:8px 12px; color:#8a8a8a;">Linux</span>
+        </span>
+        <span style="width:1px; height:28px; background:#e6e6e6; margin-left:8px;"></span>
+        <span style="padding:0 16px; color:#9a9a9a; font-size:11px; text-transform:uppercase; letter-spacing:.12em;">Arch</span>
+        <span style="display:flex; align-items:center; gap:2px; padding-right:8px;">
+          <span style="padding:8px 12px; text-decoration:underline; text-underline-offset:5px; text-decoration-thickness:2px;">x64</span>
+        </span>
+      </div>
+      <a href="#" style="display:inline-flex; align-items:center; justify-content:space-between; gap:24px; width:max-content; min-width:300px; align-self:flex-start; white-space:nowrap; height:56px; padding:0 22px; box-sizing:border-box; border-radius:3px; background:#1a1a1a; color:#fafafa; text-decoration:none; font-size:14px; letter-spacing:.02em; box-shadow:{{ shadow }};">
+        <span>Download for Windows →</span>
+        <span style="font-size:11px; color:#9a9a9a;">v1.2 · 4 MB</span>
+      </a>
+    </div>
+    <a href="#" aria-label="GitHub" style="position:absolute; left:80px; bottom:56px; display:grid; place-items:center; width:40px; height:40px; color:#fafafa; text-decoration:none; filter:{{ dropShadow }};"><svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.1.79-.25.79-.56v-2.17c-3.2.7-3.87-1.36-3.87-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.7 1.25 3.35.96.1-.75.4-1.25.73-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.78 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.25 5.67.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5z"/></svg></a>
+    <div style="position:absolute; right:64px; top:56px; width:656px; height:788px; transform:{{ tilt }}; transform-origin:right center;">
+      <dc-import name="DumpMock" shadow="{{ shadowWindow }}" style="position:absolute; inset:0;" hint-size="100%,100%"></dc-import>
+    </div>
+  </div>
+
+  <div data-screen-label="Mobile" style="position:relative; isolation:isolate; width:390px; height:1120px; flex:none; border-radius:6px; overflow:hidden; font-family:'Instrument Serif',serif; color:#fafafa; display:flex; flex-direction:column; align-items:center; justify-content:space-between; padding:96px 20px 40px; box-sizing:border-box; gap:88px;">
+    <div style="position:absolute; inset:0; z-index:-1; background:url(uploads/bliss-like-web.webp) 42% 45% / auto 140% no-repeat; filter:{{ bgFilter }};"></div>
+    <h1 style="margin:0 auto; width:max-content; text-align:left; font-size:64px; line-height:.9; letter-spacing:-.02em; font-weight:400; text-shadow:{{ shadowSm }};"><span style="position:relative; z-index:2; display:block;">Dump te<span style="margin-left:.03em;">x</span><span style="margin-left:.045em;">t,</span></span><em style="position:relative; z-index:1; display:block; font-size:58px; color:#e6e6e6;">think <span style="letter-spacing:.02em;">less.</span></em></h1>
+    <div style="position:relative; width:100%; height:460px; flex:none;">
+      <dc-import name="DumpMock" shadow="{{ shadowWindow }}" style="position:absolute; inset:0;" hint-size="100%,100%"></dc-import>
+    </div>
+    <div style="width:100%; display:flex; flex-direction:column; gap:10px; font-family:'IBM Plex Mono',monospace;">
+      <div style="display:flex; align-items:center; justify-content:center; height:44px; background:#fafafa; border-radius:3px; color:#1a1a1a; font-size:12px; box-shadow:{{ shadow }};">
+        <span style="display:flex; gap:2px; padding:0 6px;">
+          <span style="padding:6px 8px; text-decoration:underline; text-underline-offset:4px; text-decoration-thickness:2px;">Windows</span>
+          <span style="padding:6px 8px; color:#8a8a8a;">macOS</span>
+          <span style="padding:6px 8px; color:#8a8a8a;">Linux</span>
+        </span>
+        <span style="width:1px; height:22px; background:#e6e6e6;"></span>
+        <span style="display:flex; gap:2px; padding:0 6px;">
+          <span style="padding:6px 8px; text-decoration:underline; text-underline-offset:4px; text-decoration-thickness:2px;">x64</span>
+        </span>
+      </div>
+      <a href="#" style="display:flex; align-items:center; justify-content:center; height:52px; border-radius:3px; background:#1a1a1a; color:#fafafa; text-decoration:none; font-size:14px; letter-spacing:.02em; box-shadow:{{ shadow }};">Download for Windows →</a>
+    </div>
+    <a href="#" aria-label="GitHub" style="display:grid; place-items:center; width:44px; height:44px; margin-top:-24px; color:#fafafa; text-decoration:none; filter:{{ dropShadowSm }};"><svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.1.79-.25.79-.56v-2.17c-3.2.7-3.87-1.36-3.87-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.7 1.25 3.35.96.1-.75.4-1.25.73-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.78 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.25 5.67.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5z"/></svg></a>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;bgSaturation&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:130,&quot;min&quot;:0,&quot;max&quot;:200,&quot;step&quot;:5,&quot;unit&quot;:&quot;%&quot;,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Background&quot;},&quot;shadowY&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:4,&quot;min&quot;:0,&quot;max&quot;:24,&quot;step&quot;:1,&quot;unit&quot;:&quot;px&quot;,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Shadow · key&quot;},&quot;shadowBlur&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:5,&quot;min&quot;:0,&quot;max&quot;:40,&quot;step&quot;:1,&quot;unit&quot;:&quot;px&quot;,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Shadow · key&quot;},&quot;shadowOpacity&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:90,&quot;min&quot;:0,&quot;max&quot;:100,&quot;step&quot;:5,&quot;unit&quot;:&quot;%&quot;,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Shadow · key&quot;},&quot;ambientY&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:12,&quot;min&quot;:0,&quot;max&quot;:48,&quot;step&quot;:1,&quot;unit&quot;:&quot;px&quot;,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Shadow · ambient&quot;},&quot;ambientBlur&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:32,&quot;min&quot;:0,&quot;max&quot;:96,&quot;step&quot;:2,&quot;unit&quot;:&quot;px&quot;,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Shadow · ambient&quot;},&quot;ambientOpacity&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:25,&quot;min&quot;:0,&quot;max&quot;:100,&quot;step&quot;:5,&quot;unit&quot;:&quot;%&quot;,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Shadow · ambient&quot;},&quot;tilt&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Desktop&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    const tilt = this.props.tilt ?? true;
+    const p = this.props;
+    const y = p.shadowY ?? 4, blur = p.shadowBlur ?? 6, a = (p.shadowOpacity ?? 35) / 100;
+    const y2 = p.ambientY ?? 12, blur2 = p.ambientBlur ?? 32, a2 = (p.ambientOpacity ?? 25) / 100;
+    const k = 0.8; // mobile scale
+    const mk = (s) => `0 ${Math.round(y*s)}px ${Math.round(blur*s)}px rgba(0,0,0,${a}), 0 ${Math.round(y2*s)}px ${Math.round(blur2*s)}px rgba(0,0,0,${a2})`;
+    const drop = (s) => `drop-shadow(0 ${Math.round(y*s)}px ${Math.round(blur*s)}px rgba(0,0,0,${a})) drop-shadow(0 ${Math.round(y2*s)}px ${Math.round(blur2*s)}px rgba(0,0,0,${a2}))`;
+    return {
+      tilt: tilt ? "perspective(2400px) rotateY(-7deg)" : "none",
+      bgFilter: `saturate(${p.bgSaturation ?? 130}%)`,
+      shadow: mk(1), shadowSm: mk(k), dropShadow: drop(1), dropShadowSm: drop(k),
+      shadowWindow: `${mk(1)}, 0 32px 80px rgba(0,0,0,${a2})`,
+    };
+  }
+}
+</script>
+</body>
+</html>
