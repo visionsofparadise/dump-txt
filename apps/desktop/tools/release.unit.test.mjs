@@ -29,6 +29,8 @@ test("normalizes all six Tauri packages to the existing release contract", () =>
 		assert.equal(readFileSync(join(directory, "out", "make", expected), "utf8"), expected);
 		if (type === "dmg" || type === "nsis") rmSync(join(bundle, source));
 	}
+	for (const name of artifactNamesOf("0.2.0"))
+		assert.equal(readFileSync(join(directory, "out", "make", name), "utf8"), name);
 	writeChecksums(join(directory, "out", "make"), "0.2.0");
 });
 
