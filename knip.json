@@ -27,7 +27,7 @@
 			"project": ["src/**/*.{ts,tsx}"]
 		},
 		"apps/website": {
-			"entry": ["tools/*.mjs"],
+			"entry": ["tools/*.mjs", "src/app/index.tsx"],
 			"project": ["src/**/*.{ts,tsx}"]
 		},
 		"packages/rig": {

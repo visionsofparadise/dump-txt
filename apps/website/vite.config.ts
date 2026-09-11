@@ -1,4 +1,5 @@
 import { existsSync, readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import react from "@vitejs/plugin-react";
 import { defineConfig, type Plugin } from "vite";
 
@@ -18,5 +19,13 @@ const releaseManifest: Plugin = {
 export default defineConfig({
 	plugins: [react(), releaseManifest],
 	server: { host: "127.0.0.1" },
-	build: { outDir: "dist" },
+	build: {
+		outDir: "dist",
+		rolldownOptions: {
+			input: {
+				index: fileURLToPath(new URL("index.html", import.meta.url)),
+				app: fileURLToPath(new URL("app.html", import.meta.url)),
+			},
+		},
+	},
 });
