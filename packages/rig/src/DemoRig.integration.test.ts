@@ -42,7 +42,7 @@ function place(element: HTMLElement, bounds: DOMRect): HTMLElement {
 	return element;
 }
 
-function createSurfaces() {
+function createSurfaces(isTilesKeyTarget = true) {
 	const stage = document.createElement("div");
 	const pointer = document.createElement("div");
 	const frame = document.createElement("iframe");
@@ -59,7 +59,7 @@ function createSurfaces() {
 
 	const surfaces: ReadonlyArray<DemoSurface> = [
 		{ root: frameDocument, pointOf: ({ x, y }) => ({ x: 300 + x / 2, y: 200 + y / 2 }) },
-		{ root: tiles, pointOf: (point) => point },
+		{ root: tiles, pointOf: (point) => point, isKeyTarget: isTilesKeyTarget },
 	];
 	const selections: Array<string> = [];
 	const editor = {
@@ -356,5 +356,108 @@ describe("DemoRig", () => {
 
 		expect(frameDocument.activeElement).toBe(frameDocument.body);
 		expect(received).toEqual([{ key: "z", framed: true }]);
+	});
+
+	it("sends a key to the editor content while focus rests in a surface that takes no keys", async () => {
+		const { rig, frameDocument, tiles } = createSurfaces(false);
+		const content = frameDocument.createElement("div");
+		const tile = document.createElement("button");
+
+		content.className = "cm-content";
+		frameDocument.body.append(content);
+		tiles.append(tile);
+
+		const received = recordKeys(content, tile);
+
+		tile.focus();
+
+		const keying = rig.key("f", { ctrlKey: true });
+
+		await vi.advanceTimersByTimeAsync(350);
+		await keying;
+
+		expect(document.activeElement).toBe(tile);
+		expect(received).toEqual([{ target: content, key: "f", ctrlKey: true }]);
+	});
+
+	it("holds a pending wait while paused and finishes it with its remaining time after resume", async () => {
+		const { rig } = createRig();
+		const finished = vi.fn();
+
+		void rig.wait(1000).then(finished);
+		await vi.advanceTimersByTimeAsync(400);
+		rig.pause();
+		await vi.advanceTimersByTimeAsync(5000);
+
+		expect(finished).not.toHaveBeenCalled();
+
+		rig.resume();
+		await vi.advanceTimersByTimeAsync(599);
+
+		expect(finished).not.toHaveBeenCalled();
+
+		await vi.advanceTimersByTimeAsync(1);
+
+		expect(finished).toHaveBeenCalledOnce();
+	});
+
+	it("starts a wait requested while paused only once resumed", async () => {
+		const { rig } = createRig();
+		const finished = vi.fn();
+
+		rig.pause();
+		void rig.wait(300).then(finished);
+		await vi.advanceTimersByTimeAsync(1000);
+
+		expect(finished).not.toHaveBeenCalled();
+
+		rig.resume();
+		await vi.advanceTimersByTimeAsync(300);
+
+		expect(finished).toHaveBeenCalledOnce();
+	});
+
+	it("holds the pointer while paused and finishes its move with the remaining time after resume", async () => {
+		const { rig, stage } = createRig();
+		const pointer = stage.firstElementChild;
+
+		if (!(pointer instanceof HTMLElement)) throw new Error("The pointer is missing.");
+
+		const moving = rig.move({ x: 100, y: 0 }, 1000);
+
+		await vi.advanceTimersByTimeAsync(500);
+		rig.pause();
+
+		const held = pointer.style.transform;
+
+		await vi.advanceTimersByTimeAsync(3000);
+
+		expect(pointer.style.transform).toBe(held);
+		expect(held).not.toBe("translate(0px, 0px)");
+
+		rig.resume();
+		await vi.advanceTimersByTimeAsync(400);
+
+		expect(pointer.style.transform).not.toBe("translate(100px, 0px)");
+
+		await vi.advanceTimersByTimeAsync(200);
+		await moving;
+
+		expect(pointer.style.transform).toBe("translate(100px, 0px)");
+	});
+
+	it("rejects a paused wait and a paused move when stopped", async () => {
+		const { rig } = createRig();
+
+		rig.pause();
+
+		const waiting = expect(rig.wait(100)).rejects.toBeInstanceOf(DemoStopped);
+		const moving = expect(rig.move({ x: 10, y: 10 })).rejects.toBeInstanceOf(DemoStopped);
+
+		await vi.advanceTimersByTimeAsync(100);
+		rig.stop();
+
+		await waiting;
+		await moving;
 	});
 });

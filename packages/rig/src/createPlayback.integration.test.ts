@@ -138,6 +138,29 @@ describe("createPlayback", () => {
 		expect(playback.finished).toBe(false);
 	});
 
+	it("holds the running script while paused and continues it with the remaining time after resume", async () => {
+		stubFonts()();
+
+		const playback = createPlayback(createOptions({ script: (rig) => rig.wait(1000) }));
+		const playing = playback.play();
+
+		await vi.advanceTimersByTimeAsync(300);
+		playback.pause();
+		await vi.advanceTimersByTimeAsync(5000);
+
+		expect(playback.finished).toBe(false);
+
+		playback.resume();
+		await vi.advanceTimersByTimeAsync(699);
+
+		expect(playback.finished).toBe(false);
+
+		await vi.advanceTimersByTimeAsync(1);
+		await playing;
+
+		expect(playback.finished).toBe(true);
+	});
+
 	it("plays across surfaces once fonts load in every surface document", async () => {
 		const releasePage = stubFonts();
 		const stage = createStage();

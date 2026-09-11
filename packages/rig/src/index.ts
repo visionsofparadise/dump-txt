@@ -11,3 +11,4 @@ export { createPlayback } from "./createPlayback";
 export type { DemoPlayback, PlaybackOptions } from "./createPlayback";
 
 export { BrowserMain } from "./BrowserMain";
+export type { BrowserMainOptions } from "./BrowserMain";

@@ -7,18 +7,54 @@ const browserCapabilities: MainCapabilities = {
 	importPage: true,
 	exportPage: true,
 	fonts: false,
-	minimize: false,
-	maximize: false,
-	close: false,
+	minimize: true,
+	maximize: true,
+	close: true,
 };
 
 const exportsPath = "/memory/exports/";
 
+export interface BrowserMainOptions extends Omit<MemoryMainOptions, "capabilities"> {
+	readonly onMinimize?: () => void;
+	readonly onToggleMaximize?: () => void;
+}
+
 export class BrowserMain extends MemoryMain {
+	readonly decorations: Main["decorations"] = "drawn";
+	readonly #onMinimize: (() => void) | undefined;
+	readonly #onToggleMaximize: (() => void) | undefined;
+	#maximized = false;
 	#transfers = 0;
 
-	constructor(options: Omit<MemoryMainOptions, "capabilities"> = {}) {
-		super({ ...options, capabilities: browserCapabilities });
+	constructor(options: BrowserMainOptions = {}) {
+		const { onMinimize, onToggleMaximize, ...memoryOptions } = options;
+
+		super({ ...memoryOptions, capabilities: browserCapabilities });
+		this.#onMinimize = onMinimize;
+		this.#onToggleMaximize = onToggleMaximize;
+	}
+
+	override get maximized(): boolean {
+		return this.#maximized;
+	}
+
+	setMaximized(maximized: boolean): void {
+		if (maximized === this.#maximized) return;
+
+		this.#maximized = maximized;
+		this.emit("maximizedChanged", maximized);
+	}
+
+	override minimize(): Promise<void> {
+		this.#onMinimize?.();
+
+		return Promise.resolve();
+	}
+
+	override toggleMaximize(): Promise<void> {
+		this.#onToggleMaximize?.();
+
+		return Promise.resolve();
 	}
 
 	override showOpenDialog(): ReturnType<Main["showOpenDialog"]> {

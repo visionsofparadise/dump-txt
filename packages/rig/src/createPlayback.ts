@@ -17,6 +17,10 @@ export interface DemoPlayback {
 
 	stop(): void;
 
+	pause(): void;
+
+	resume(): void;
+
 	dispose(): void;
 }
 
@@ -99,6 +103,12 @@ export function createPlayback(options: PlaybackOptions): DemoPlayback {
 		},
 		stop() {
 			rig.stop();
+		},
+		pause() {
+			rig.pause();
+		},
+		resume() {
+			rig.resume();
 		},
 		dispose() {
 			rig.stop();

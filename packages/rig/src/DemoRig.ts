@@ -10,6 +10,7 @@ export class DemoStopped extends Error {
 export interface DemoSurface {
 	readonly root: Document | Element;
 	readonly pointOf: (point: { readonly x: number; readonly y: number }) => { readonly x: number; readonly y: number };
+	readonly isKeyTarget?: boolean;
 }
 
 export interface DemoRigOptions {
@@ -20,6 +21,11 @@ export interface DemoRigOptions {
 	readonly surfaces?: ReadonlyArray<DemoSurface>;
 }
 
+interface Hold {
+	readonly pause: () => void;
+	readonly resume: () => void;
+}
+
 function viewOf(element: Element): Window & typeof globalThis {
 	return element.ownerDocument.defaultView ?? window;
 }
@@ -28,8 +34,10 @@ export class DemoRig {
 	readonly #options: DemoRigOptions;
 	readonly #surfaces: ReadonlyArray<DemoSurface>;
 	readonly #pending = new Set<(error: Error) => void>();
+	readonly #holds = new Set<Hold>();
 	#position: { readonly x: number; readonly y: number };
 	#stopped = false;
+	#paused = false;
 
 	constructor(options: DemoRigOptions) {
 		this.#options = options;
@@ -68,20 +76,57 @@ export class DemoRig {
 		this.#pending.clear();
 	}
 
+	pause(): void {
+		if (this.#paused) return;
+
+		this.#paused = true;
+
+		for (const hold of this.#holds) hold.pause();
+	}
+
+	resume(): void {
+		if (!this.#paused) return;
+
+		this.#paused = false;
+
+		for (const hold of this.#holds) hold.resume();
+	}
+
 	async wait(milliseconds: number): Promise<void> {
 		this.#assertRunning();
 
 		await new Promise<void>((resolve, reject) => {
-			const timeout = setTimeout(() => {
+			let remaining = milliseconds;
+			let startedAt = 0;
+			let timeout: ReturnType<typeof setTimeout> | undefined;
+			const settle = () => {
 				this.#pending.delete(cancel);
-				resolve();
-			}, milliseconds);
+				this.#holds.delete(hold);
+			};
+			const start = () => {
+				startedAt = performance.now();
+				timeout = setTimeout(() => {
+					settle();
+					resolve();
+				}, remaining);
+			};
+			const hold: Hold = {
+				pause: () => {
+					clearTimeout(timeout);
+					remaining = Math.max(0, remaining - (performance.now() - startedAt));
+				},
+				resume: start,
+			};
 			const cancel = (error: Error) => {
 				clearTimeout(timeout);
+				settle();
 				reject(error);
 			};
 
 			this.#pending.add(cancel);
+			this.#holds.add(hold);
+
+			if (!this.#paused) start();
 		});
 	}
 
@@ -94,19 +139,44 @@ export class DemoRig {
 
 		const origin = this.#position;
 		const destination = typeof target === "string" ? this.#centreOf(target) : target;
-		const started = performance.now();
+		let started = performance.now();
+		let pausedAt = started;
+		let isFrameRequested = false;
 
 		await new Promise<void>((resolve, reject) => {
+			const settle = () => {
+				this.#pending.delete(cancel);
+				this.#holds.delete(hold);
+			};
 			const cancel = (error: Error) => {
+				settle();
 				reject(error);
 			};
+			const request = () => {
+				isFrameRequested = true;
+				requestAnimationFrame(frame);
+			};
+			const hold: Hold = {
+				pause: () => {
+					pausedAt = performance.now();
+				},
+				resume: () => {
+					started += performance.now() - pausedAt;
+
+					if (!isFrameRequested) request();
+				},
+			};
 			const frame = () => {
+				isFrameRequested = false;
+
 				if (this.#stopped) {
-					this.#pending.delete(cancel);
+					settle();
 					reject(new DemoStopped());
 
 					return;
 				}
+
+				if (this.#paused) return;
 
 				const progress = Math.min(1, (performance.now() - started) / duration);
 				const eased = progress * progress * (3 - 2 * progress);
@@ -117,15 +187,16 @@ export class DemoRig {
 				};
 				this.#draw();
 
-				if (progress < 1) requestAnimationFrame(frame);
+				if (progress < 1) request();
 				else {
-					this.#pending.delete(cancel);
+					settle();
 					resolve();
 				}
 			};
 
 			this.#pending.add(cancel);
-			requestAnimationFrame(frame);
+			this.#holds.add(hold);
+			request();
 		});
 	}
 
@@ -235,7 +306,9 @@ export class DemoRig {
 	}
 
 	get #activeElement(): Element | null {
-		for (const { root } of this.#surfaces) {
+		for (const { root, isKeyTarget = true } of this.#surfaces) {
+			if (!isKeyTarget) continue;
+
 			const owner = "documentElement" in root ? root : root.ownerDocument;
 			const active = owner.activeElement;
 

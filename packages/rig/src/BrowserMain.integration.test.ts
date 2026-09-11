@@ -19,17 +19,48 @@ describe("BrowserMain", () => {
 		Object.assign(URL, objectUrls);
 	});
 
-	it("declares the operations a static page can honour", () => {
-		expect(new BrowserMain().capabilities).toEqual({
+	it("declares the operations a static page can honour and draws its own window chrome", () => {
+		const main = new BrowserMain();
+
+		expect(main.capabilities).toEqual({
 			openDump: false,
 			saveAs: false,
 			importPage: true,
 			exportPage: true,
 			fonts: false,
-			minimize: false,
-			maximize: false,
-			close: false,
+			minimize: true,
+			maximize: true,
+			close: true,
 		});
+		expect(main.decorations).toBe("drawn");
+	});
+
+	it("forwards window requests to its callbacks and reports maximized changes the page makes", async () => {
+		const onMinimize = vi.fn();
+		const onToggleMaximize = vi.fn();
+		const onClose = vi.fn();
+		const main = new BrowserMain({ onMinimize, onToggleMaximize, onClose });
+		const changed = vi.fn();
+
+		main.events.on("maximizedChanged", changed);
+		await main.minimize();
+		await main.toggleMaximize();
+		await main.finishClose();
+
+		expect(onMinimize).toHaveBeenCalledOnce();
+		expect(onToggleMaximize).toHaveBeenCalledOnce();
+		expect(onClose).toHaveBeenCalledOnce();
+		expect(changed).not.toHaveBeenCalled();
+		expect(main.maximized).toBe(false);
+
+		main.setMaximized(true);
+		main.setMaximized(true);
+
+		expect(main.maximized).toBe(true);
+
+		main.setMaximized(false);
+
+		expect(changed.mock.calls).toEqual([[true], [false]]);
 	});
 
 	it("exports a page by storing its bytes and downloading them under the page name", async () => {
