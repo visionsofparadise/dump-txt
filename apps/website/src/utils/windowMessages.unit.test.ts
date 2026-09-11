@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { windowReportOf, windowRequestOf } from "./windowMessages";
+import { messagePlatformOf, windowReportOf, windowRequestOf } from "./windowMessages";
 
 describe("windowRequestOf", () => {
 	it.each([
@@ -48,5 +48,21 @@ describe("windowReportOf", () => {
 		[{ type: "minimize" }],
 	])("rejects %j", (data) => {
 		expect(windowReportOf(data)).toBeNull();
+	});
+});
+
+describe("messagePlatformOf", () => {
+	it.each(["windows", "macos", "linux"] as const)("reads a message of the %s platform", (platform) => {
+		expect(messagePlatformOf({ type: "platform", platform })).toBe(platform);
+	});
+
+	it.each([
+		[null],
+		["macos"],
+		[{ type: "platform" }],
+		[{ type: "platform", platform: "beos" }],
+		[{ type: "open", platform: "linux" }],
+	])("rejects %j", (data) => {
+		expect(messagePlatformOf(data)).toBeNull();
 	});
 });

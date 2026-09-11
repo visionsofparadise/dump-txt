@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { downloadOptionsOf, megabytesOf } from "./downloadOptionsOf";
+import { downloadOptionsOf, firstOptionIdOf, megabytesOf } from "./downloadOptionsOf";
 
 function downloadOf(name: string, bytes: number): ReleaseDownload {
 	return { name, url: `https://github.com/visionsofparadise/dump-txt/releases/download/v0.3.2/${name}`, bytes };
@@ -47,6 +47,14 @@ describe("downloadOptionsOf", () => {
 				{ id: "deb", label: "Debian", download: manifest.downloads.linux.deb },
 			],
 		});
+	});
+});
+
+describe("firstOptionIdOf", () => {
+	test("selects the first download option of each platform", () => {
+		expect(firstOptionIdOf(manifest, "windows")).toBe("x64");
+		expect(firstOptionIdOf(manifest, "macos")).toBe("arm64");
+		expect(firstOptionIdOf(manifest, "linux")).toBe("appImage");
 	});
 });
 

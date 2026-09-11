@@ -1,92 +1,19 @@
-import {
-	BrowserMain,
-	createPlayback,
-	demonstrate,
-	DemoStopped,
-	type BrowserMainOptions,
-	type DemoSurface,
-} from "@dump-txt/rig";
+import { BrowserMain, createPlayback, demonstrate, DemoStopped, type BrowserMainOptions } from "@dump-txt/rig";
 import { App, type ChromeContext } from "@dump-txt/ui";
-import { appStateSchema } from "@dump-txt/ui/host";
 import { useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
-import { pagePointOf } from "../utils/pagePointOf";
-import { platformOf, type Platform } from "../utils/platformOf";
-import { windowReportOf, type WindowState } from "../utils/windowMessages";
+import { isPlatform } from "../utils/isPlatform";
+import { platformOf } from "../utils/platformOf";
+import { messagePlatformOf, windowReportOf, type WindowState } from "../utils/windowMessages";
 import { FrameWindow } from "./models/FrameWindow";
+import { carriedOptionsOf } from "./utils/carriedOptionsOf";
 import { guardDemonstrationFocus } from "./utils/guardDemonstrationFocus";
+import { pageStageOf } from "./utils/pageStageOf";
 
 const freshOptions = { theme: "light", font: "Consolas" } as const;
 
 const failedLoopDelay = 1000;
 
-interface PageStage {
-	readonly stage: HTMLElement;
-	readonly origin: { readonly x: number; readonly y: number };
-	readonly surfaces: ReadonlyArray<DemoSurface>;
-}
-
 type HostOptions = Awaited<ReturnType<typeof carriedOptionsOf>> | typeof freshOptions;
-
-function isPlatform(value: unknown): value is Platform {
-	return value === "windows" || value === "macos" || value === "linux";
-}
-
-function messagePlatformOf(data: unknown): Platform | null {
-	if (typeof data !== "object" || data === null || !("type" in data) || !("platform" in data)) return null;
-
-	return data.type === "platform" && isPlatform(data.platform) ? data.platform : null;
-}
-
-function pageStageOf(element: HTMLElement): PageStage | null {
-	const frame = element.ownerDocument.defaultView?.frameElement;
-	const pageView = frame?.ownerDocument.defaultView;
-
-	if (!frame || !pageView || !(frame instanceof pageView.HTMLElement)) return null;
-
-	const stage = frame.ownerDocument.getElementById("pointer-stage");
-	const taskbar = frame.ownerDocument.getElementById("github");
-
-	if (!stage || !taskbar) return null;
-
-	let x = element.clientWidth * 0.85 - stage.offsetLeft;
-	let y = element.clientHeight * 0.9 - stage.offsetTop;
-	let offsetElement: Element | null = frame;
-
-	while (offsetElement instanceof pageView.HTMLElement && offsetElement !== stage.offsetParent) {
-		x += offsetElement.offsetLeft;
-		y += offsetElement.offsetTop;
-		offsetElement = offsetElement.offsetParent;
-	}
-
-	return {
-		stage,
-		origin: { x, y },
-		surfaces: [
-			{ root: element, pointOf: (point) => pagePointOf(frame, point) },
-			{ root: taskbar, pointOf: (point) => point, isKeyTarget: false },
-		],
-	};
-}
-
-async function carriedOptionsOf(main: BrowserMain, context: ChromeContext | null) {
-	await context?.persistence.flush();
-
-	const { startupSettings } = await main.getPaths();
-
-	if (!startupSettings) throw new Error("The dump settings are missing.");
-
-	const decoder = new TextDecoder();
-	const state = appStateSchema.parse(JSON.parse(decoder.decode(startupSettings.bytes)));
-	const file = await main.readFile(state.activePath);
-
-	return {
-		text: decoder.decode(file?.bytes),
-		theme: state.appearance.theme,
-		font: state.appearance.font,
-		textSize: state.appearance.textSize,
-		showStatusBar: state.appearance.showStatusBar,
-	};
-}
 
 export function AppFrame() {
 	const stage = useRef<HTMLDivElement>(null);

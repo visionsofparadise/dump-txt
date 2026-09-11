@@ -1,11 +1,4 @@
-import {
-	motion,
-	MotionConfig,
-	type MotionProps,
-	type TargetAndTransition,
-	type Transition,
-	type Variants,
-} from "motion/react";
+import { motion, MotionConfig } from "motion/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AppBox } from "./AppBox";
 import hills1280 from "./assets/hills-1280.webp";
@@ -17,16 +10,9 @@ import sky3840 from "./assets/sky-3840.webp";
 import { DownloadControl } from "./DownloadControl";
 import { useAppWindow } from "./hooks/useAppWindow";
 import { TaskbarTile } from "./TaskbarTile";
-import { downloadOptionsOf } from "./utils/downloadOptionsOf";
+import { firstOptionIdOf } from "./utils/downloadOptionsOf";
+import { entranceOf, sectionOf } from "./utils/entrance";
 import { platformOf, type Platform } from "./utils/platformOf";
-
-const easeOut = [0.16, 1, 0.3, 1] as const;
-
-const headlineEase = [0.3, 0.6, 0.2, 1] as const;
-
-const instant: Transition = { duration: 0 };
-
-const entranceViewport = { once: true, amount: 0.15 } as const;
 
 const skyTiles = [0, 1, 2, 3] as const;
 
@@ -36,68 +22,12 @@ const hillsSources = `${hills1280} 1280w, ${hills1920} 1920w, ${hills3840} 3840w
 
 const backgroundSizes = "calc(100vh * 5504 / 3072)";
 
-interface Entrance {
-	readonly app: Variants;
-	readonly tilt: Transition | null;
-	readonly controls: Variants;
-	readonly github: Variants;
-	readonly headline: Variants;
-	readonly pointer: Variants;
-}
-
-function variantsOf(hidden: TargetAndTransition, visible: TargetAndTransition, transition: Transition): Variants {
-	return { hidden, visible: { ...visible, transition } };
-}
-
-function entranceOf(isMobile: boolean, isReducedMotion: boolean): Entrance {
-	const timingOf = (transition: Transition) => (isReducedMotion ? instant : transition);
-	const riseOf = (distance: number, delay: number, duration: number) =>
-		variantsOf({ opacity: 0, y: distance }, { opacity: 1, y: 0 }, timingOf({ duration, delay, ease: easeOut }));
-	const fadeOf = (delay: number) =>
-		variantsOf({ opacity: 0 }, { opacity: 1 }, timingOf({ duration: 1.8, delay, ease: headlineEase }));
-
-	const pointerOf = (delay: number) =>
-		variantsOf({ opacity: 0 }, { opacity: 1 }, timingOf({ duration: 1.2, delay, ease: easeOut }));
-
-	if (isMobile)
-		return {
-			app: riseOf(28, 0.15, 1.2),
-			tilt: null,
-			controls: riseOf(20, 0.2, 1),
-			github: riseOf(20, 0.35, 1),
-			headline: fadeOf(0.1),
-			pointer: pointerOf(0.15),
-		};
-
-	return {
-		app: variantsOf({ opacity: 0, x: -160 }, { opacity: 1, x: 0 }, timingOf({ duration: 1.2, ease: easeOut })),
-		tilt: timingOf({ duration: 1.2, ease: easeOut }),
-		controls: riseOf(40, 0.35, 1),
-		github: riseOf(40, 0.5, 1),
-		headline: fadeOf(0.65),
-		pointer: pointerOf(0),
-	};
-}
-
-function sectionOf(variants: Variants, isEntranceReady: boolean): MotionProps {
-	return {
-		variants,
-		initial: "hidden",
-		whileInView: isEntranceReady ? "visible" : undefined,
-		viewport: entranceViewport,
-	};
-}
-
-function firstOptionIdOf(platform: Platform): string {
-	return downloadOptionsOf(releaseManifest, platform).options[0]?.id ?? "";
-}
-
 export function Website() {
 	const background = useRef<HTMLDivElement>(null);
 
 	const [platform, setPlatform] = useState(() => platformOf(navigator));
 
-	const [optionId, setOptionId] = useState(() => firstOptionIdOf(platform));
+	const [optionId, setOptionId] = useState(() => firstOptionIdOf(releaseManifest, platform));
 
 	const [entrance] = useState(() =>
 		entranceOf(matchMedia("(max-width: 999px)").matches, matchMedia("(prefers-reduced-motion: reduce)").matches),
@@ -145,7 +75,7 @@ export function Website() {
 
 	const selectPlatform = (next: Platform) => {
 		setPlatform(next);
-		setOptionId(firstOptionIdOf(next));
+		setOptionId(firstOptionIdOf(releaseManifest, next));
 	};
 
 	return (

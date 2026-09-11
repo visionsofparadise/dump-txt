@@ -1,3 +1,6 @@
+import { isPlatform } from "./isPlatform";
+import type { Platform } from "./platformOf";
+
 export type WindowState = "open" | "minimized" | "closed";
 
 export type WindowRequest =
@@ -31,4 +34,10 @@ export function windowReportOf(data: unknown): WindowReport | null {
 	return data.state === "open" || data.state === "minimized" || data.state === "closed"
 		? { type: "window", state: data.state, isMaximized: data.isMaximized }
 		: null;
+}
+
+export function messagePlatformOf(data: unknown): Platform | null {
+	if (typeof data !== "object" || data === null || !("type" in data) || !("platform" in data)) return null;
+
+	return data.type === "platform" && isPlatform(data.platform) ? data.platform : null;
 }

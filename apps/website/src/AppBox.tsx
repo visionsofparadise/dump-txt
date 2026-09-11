@@ -1,23 +1,13 @@
-import { motion, type AnimationDefinition, type MotionProps, type Transition, type Variants } from "motion/react";
+import { motion, type AnimationDefinition, type MotionProps, type Transition } from "motion/react";
 import { scope } from "opshot";
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
+import { boxVariantsOf, maximizeTransitions } from "./utils/boxVariantsOf";
 import { gpuCompositingOf } from "./utils/gpuCompositingOf";
+import { postPlatform } from "./utils/postPlatform";
 import type { AppWindowControl } from "./hooks/useAppWindow";
 import type { Platform } from "./utils/platformOf";
 
 const applicationReadyTimeout = 4000;
-
-const tiltedTransform = { transformPerspective: 2400, rotateY: -9 };
-
-const flatTransform = { transformPerspective: 2400, rotateY: 0 };
-
-const flattenTransition: Transition = { duration: 0.15 };
-
-const maximizeTransitions: Record<Platform, Transition> = {
-	windows: { duration: 0.25, ease: [0.1, 0.9, 0.2, 1] },
-	macos: { duration: 0.5, ease: [0.2, 0.8, 0.2, 1] },
-	linux: { duration: 0.25, ease: [0.4, 0, 0.2, 1] },
-};
 
 interface AppBoxProps {
 	readonly platform: Platform;
@@ -30,24 +20,6 @@ interface AppBoxProps {
 interface TileOffsetStyle extends CSSProperties {
 	readonly "--tile-x": string;
 	readonly "--tile-y": string;
-}
-
-function boxVariantsOf(isTilted: boolean, tiltTransition: Transition | null, platform: Platform): Variants {
-	const transformOf = (transform: typeof tiltedTransform) => (isTilted ? transform : {});
-	const transition = maximizeTransitions[platform];
-	const isTiltingIn = isTilted && tiltTransition !== null;
-
-	return {
-		hidden: isTiltingIn ? flatTransform : {},
-		visible: isTiltingIn ? { ...tiltedTransform, transition: tiltTransition } : {},
-		flat: { ...transformOf(flatTransform), transition: flattenTransition },
-		maximized: { ...transformOf(flatTransform), borderRadius: 0, transition },
-		tilted: { ...transformOf(tiltedTransform), borderRadius: 8, transition },
-	};
-}
-
-function postPlatform(frame: HTMLIFrameElement | null, platform: Platform): void {
-	frame?.contentWindow?.postMessage({ type: "platform", platform }, window.location.origin);
 }
 
 export const AppBox = scope(({ platform, entrance, tiltTransition, control, onApplicationReady }: AppBoxProps) => {

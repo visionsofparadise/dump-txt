@@ -34,6 +34,10 @@ export function downloadOptionsOf(
 	}
 }
 
+export function firstOptionIdOf(manifest: ReleaseManifest, platform: Platform): string {
+	return downloadOptionsOf(manifest, platform).options[0]?.id ?? "";
+}
+
 export function megabytesOf(bytes: number): number {
 	return Math.max(1, Math.round(bytes / 1_000_000));
 }
