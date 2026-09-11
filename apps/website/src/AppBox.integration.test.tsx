@@ -2,7 +2,10 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AppBox } from "./AppBox";
+import { gpuCompositingOf } from "./utils/gpuCompositingOf";
 import type { Platform } from "./utils/platformOf";
+
+vi.mock("./utils/gpuCompositingOf", () => ({ gpuCompositingOf: vi.fn() }));
 
 const unmounts: Array<() => void> = [];
 
@@ -34,6 +37,7 @@ async function mount(platform: Platform) {
 
 beforeEach(() => {
 	vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+	vi.mocked(gpuCompositingOf).mockReturnValue(false);
 });
 
 afterEach(async () => {
@@ -75,5 +79,21 @@ describe("AppBox", () => {
 		});
 
 		expect(posted).toHaveBeenCalledExactlyOnceWith({ type: "platform", platform: "linux" }, window.location.origin);
+	});
+
+	it("carries the GPU compositing marker on the box when a GPU context is detected", async () => {
+		vi.mocked(gpuCompositingOf).mockReturnValue(true);
+
+		const { container } = await mount("windows");
+
+		expect(container.querySelector("#appbox")?.getAttribute("data-gpu-compositing")).toBe("true");
+	});
+
+	it("carries the GPU compositing marker on the box when no GPU context is detected", async () => {
+		vi.mocked(gpuCompositingOf).mockReturnValue(false);
+
+		const { container } = await mount("windows");
+
+		expect(container.querySelector("#appbox")?.getAttribute("data-gpu-compositing")).toBe("false");
 	});
 });

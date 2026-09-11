@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { gpuCompositingOf } from "./utils/gpuCompositingOf";
 import type { Platform } from "./utils/platformOf";
 
 interface AppBoxProps {
@@ -14,13 +15,15 @@ export function AppBox({ platform }: AppBoxProps) {
 
 	const [initialPlatform] = useState(platform);
 
+	const [gpuCompositing] = useState(() => gpuCompositingOf(document));
+
 	useEffect(() => {
 		postPlatform(frame.current, platform);
 	}, [platform]);
 
 	return (
 		<div id="app">
-			<div id="appbox">
+			<div id="appbox" data-gpu-compositing={String(gpuCompositing)}>
 				<iframe
 					ref={frame}
 					className="appbox-frame"

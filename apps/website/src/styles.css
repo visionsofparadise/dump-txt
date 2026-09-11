@@ -259,8 +259,13 @@ a {
 		0 4px 5px rgba(0, 0, 0, 0.9),
 		0 12px 32px rgba(0, 0, 0, 0.25),
 		0 32px 80px rgba(0, 0, 0, 0.25);
-	transform: perspective(2400px) rotateY(-7deg);
-	transform-origin: right center;
+}
+
+@media (min-width: 1000px) {
+	#appbox[data-gpu-compositing="true"] {
+		transform: perspective(2400px) rotateY(-7deg);
+		transform-origin: right center;
+	}
 }
 
 .appbox-frame {
