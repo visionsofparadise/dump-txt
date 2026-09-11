@@ -19,6 +19,10 @@ body:has(.appbox-takeover) {
 	height: 100%;
 }
 
+.appbox-stage[data-window="closed"] {
+	visibility: hidden;
+}
+
 .appbox-stage.demo-stage {
 	pointer-events: none;
 }
