@@ -141,7 +141,7 @@ a {
 .page {
 	position: relative;
 	isolation: isolate;
-	min-height: 100vh;
+	min-height: 100dvh;
 	font-family: "Instrument Serif", serif;
 	color: #fafafa;
 }
@@ -191,7 +191,7 @@ a {
 	column-gap: 5vw;
 	row-gap: 48px;
 	width: 100%;
-	min-height: 100vh;
+	min-height: 100dvh;
 	margin: 0;
 	padding: 56px 4.5vw 56px 5.5vw;
 	box-sizing: border-box;
