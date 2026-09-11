@@ -3,7 +3,7 @@ import { BrowserMain } from "./BrowserMain";
 
 const objectUrls = { createObjectURL: URL.createObjectURL, revokeObjectURL: URL.revokeObjectURL };
 
-function capturedInputs(): Array<HTMLInputElement> {
+function captureInputs(): Array<HTMLInputElement> {
 	const inputs: Array<HTMLInputElement> = [];
 
 	vi.spyOn(HTMLInputElement.prototype, "click").mockImplementation(function (this: HTMLInputElement) {
@@ -59,7 +59,7 @@ describe("BrowserMain", () => {
 	});
 
 	it("resolves no choice when the file picker is dismissed", async () => {
-		const inputs = capturedInputs();
+		const inputs = captureInputs();
 		const choice = new BrowserMain().showOpenDialog();
 
 		expect(inputs).toHaveLength(1);
@@ -72,7 +72,7 @@ describe("BrowserMain", () => {
 
 	it("imports a picked file as a readable memory path", async () => {
 		const main = new BrowserMain();
-		const inputs = capturedInputs();
+		const inputs = captureInputs();
 		const pending = main.showOpenDialog();
 		const input = inputs[0]!;
 
