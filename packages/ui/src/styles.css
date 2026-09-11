@@ -86,7 +86,7 @@
 	background: var(--color-surface);
 }
 
-.dump-ui .dump-app[data-platform="linux"] {
+.dump-ui .dump-app[data-platform="linux"][data-decorations="native"] {
 	grid-template-rows: var(--spacing-bar) minmax(0, 1fr) var(--spacing-bar) var(--status-bar-height, 24px);
 }
 
@@ -126,6 +126,72 @@
 	justify-content: flex-end;
 }
 
+.dump-ui .traffic-lights {
+	height: 100%;
+	display: flex;
+	grid-column: 1;
+	grid-row: 1;
+	align-items: center;
+	gap: 8px;
+	padding-left: 12px;
+}
+
+.dump-ui .traffic-light {
+	width: 12px;
+	height: 12px;
+	padding: 0;
+	border: 0;
+	border-radius: 50%;
+	box-shadow: inset 0 0 0 0.5px rgba(0, 0, 0, 0.15);
+	-webkit-app-region: no-drag;
+}
+
+.dump-ui .traffic-light-close {
+	background: #ff5f57;
+}
+
+.dump-ui .traffic-light-minimize {
+	background: #febc2e;
+}
+
+.dump-ui .traffic-light-maximize {
+	background: #28c840;
+}
+
+.dump-ui .header-bar-controls {
+	height: 100%;
+	display: flex;
+	grid-column: 3;
+	grid-row: 1;
+	align-items: center;
+	justify-content: flex-end;
+	gap: 14px;
+	padding-right: 8px;
+}
+
+.dump-ui .header-bar-button {
+	width: 24px;
+	height: 24px;
+	padding: 0;
+	border: 0;
+	border-radius: 50%;
+	display: grid;
+	place-items: center;
+	flex: none;
+	background: light-dark(#d8d8d8, #333);
+	color: light-dark(#2e2e2e, #e6e6e6);
+	-webkit-app-region: no-drag;
+}
+
+.dump-ui .traffic-light:focus-visible,
+.dump-ui .header-bar-button:focus-visible {
+	outline-offset: 2px;
+}
+
+.dump-ui .header-bar-button:hover:not(:disabled) {
+	background: light-dark(#c8c8c8, #404040);
+}
+
 .dump-ui .window-controls {
 	height: var(--spacing-bar);
 	display: flex;
@@ -146,6 +212,18 @@
 	font-size: 12px;
 	letter-spacing: 0.14em;
 	color: light-dark(#9a9a9a, #6a6a6a);
+}
+
+.dump-ui .title-bar[data-platform="linux"] {
+	border-bottom: 1px solid light-dark(#d5d5d5, #121212);
+}
+
+.dump-ui .title-bar[data-platform="linux"] .app-name {
+	font-family: Cantarell, "Segoe UI", sans-serif;
+	font-size: 13px;
+	font-weight: 700;
+	letter-spacing: normal;
+	color: light-dark(#2e2e2e, #e6e6e6);
 }
 
 .dump-ui .chrome-button {

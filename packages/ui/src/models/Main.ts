@@ -8,6 +8,7 @@ import type { WriteRequest } from "./WriteRequest";
 
 export interface Main {
 	readonly platform?: "windows" | "macos" | "linux";
+	readonly decorations?: "native" | "drawn";
 	readonly capabilities?: MainCapabilities;
 
 	getPaths(): Promise<AppPaths>;

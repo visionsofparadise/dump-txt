@@ -5,11 +5,13 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testi
 import userEvent from "@testing-library/user-event";
 import { createRef } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { fullCapabilities } from "../models/MainCapabilities";
 import { App } from "./App";
 import type { AppState } from "../models/AppState";
 import type { ChromeContext } from "../models/ChromeContext";
 import type { Main } from "../models/Main";
 import type { MainCapabilities } from "../models/MainCapabilities";
+import type { MainEventMap } from "../models/MainEventMap";
 
 let main: Main;
 
@@ -21,11 +23,18 @@ async function fixture(
 	text = "first\n\f\nsecond\n\f\nthird",
 	platform: Main["platform"] = "windows",
 	capabilities?: MainCapabilities,
+	decorations?: Main["decorations"],
 ) {
 	const files = new Map([["/app/dump.txt", new TextEncoder().encode(text)]]);
 	const closed = vi.fn();
+	const listeners: { [Channel in keyof MainEventMap]: Set<(...parameters: MainEventMap[Channel]) => void> } = {
+		closeRequested: new Set(),
+		windowBoundsChanged: new Set(),
+		maximizedChanged: new Set(),
+	};
 	main = {
 		platform,
+		decorations,
 		capabilities,
 		getPaths: async () => ({ userData: "/app", restoredFilePath: null }),
 		readFile: async (path) => {
@@ -51,7 +60,15 @@ async function fixture(
 		finishClose: async () => {
 			closed();
 		},
-		events: { on: () => () => undefined },
+		events: {
+			on: (channel, listener) => {
+				listeners[channel].add(listener);
+
+				return () => {
+					listeners[channel].delete(listener);
+				};
+			},
+		},
 	};
 	const adapter = main;
 	const api = createRef<ChromeContext>();
@@ -68,7 +85,7 @@ async function fixture(
 			});
 		});
 	};
-	return { ...rendered, adapter, api, editor, insert, files, closed, user: userEvent.setup() };
+	return { ...rendered, adapter, api, editor, insert, files, closed, listeners, user: userEvent.setup() };
 }
 
 function press(key: string, options: KeyboardEventInit = {}) {
@@ -202,6 +219,77 @@ describe("scratchpad interface", () => {
 		await waitFor(() => expect(main.setTitle).toHaveBeenLastCalledWith("dump.txt"));
 		await user.click(menu);
 		expect(await screen.findByRole("menuitem", { name: /^Close/u })).toBeTruthy();
+	});
+
+	it.each([
+		["windows", ".window-controls", ["Minimize", "Maximize", "Close window"]],
+		["macos", ".traffic-lights", ["Close window", "Minimize", "Maximize"]],
+		["linux", ".header-bar-controls", ["Minimize", "Maximize", "Close window"]],
+	] as const)(
+		"draws window chrome for %s when the host has no native decorations",
+		async (platform, selector, labels) => {
+			const { container, insert, closed, files, listeners, user } = await fixture("", platform, undefined, "drawn");
+			const titleBar = container.querySelector<HTMLElement>(".title-bar")!;
+			const controls = titleBar.querySelector<HTMLElement>(selector)!;
+			const menu = screen.getByRole("button", { name: "App menu" });
+			const emitMaximized = async (maximized: boolean) => {
+				await act(async () => {
+					for (const listener of listeners.maximizedChanged) listener(maximized);
+				});
+			};
+
+			expect(titleBar.getAttribute("data-platform")).toBe(platform);
+			expect(container.querySelector(".dump-app")?.getAttribute("data-decorations")).toBe("drawn");
+			expect(within(titleBar).getByText("dump.txt").className).toBe("app-name");
+			expect(
+				within(controls)
+					.getAllByRole("button")
+					.map((button) => button.getAttribute("aria-label")),
+			).toEqual(labels);
+			if (platform === "linux")
+				expect(menu.previousElementSibling).toBe(screen.getByRole("button", { name: "Insert page above" }));
+			else expect(menu.closest(".title-menu")?.parentElement).toBe(titleBar);
+			if (platform === "macos") expect(titleBar.firstElementChild).toBe(controls);
+			await user.click(within(controls).getByRole("button", { name: "Minimize" }));
+			expect(main.minimize).toHaveBeenCalledOnce();
+			await user.click(within(controls).getByRole("button", { name: "Maximize" }));
+			expect(main.toggleMaximize).toHaveBeenCalledOnce();
+			await emitMaximized(true);
+			expect(within(controls).getByRole("button", { name: "Restore window" }).title).toBe("Restore window");
+			await emitMaximized(false);
+			expect(within(controls).getByRole("button", { name: "Maximize" })).toBeTruthy();
+			await insert("drawn close");
+			await user.click(within(controls).getByRole("button", { name: "Close window" }));
+			await waitFor(() => expect(closed).toHaveBeenCalledOnce());
+			expect(new TextDecoder().decode(files.get("/app/dump.txt"))).toBe("drawn close");
+		},
+	);
+
+	it.each(["macos", "linux"] as const)(
+		"keeps %s chrome native when the host declares native decorations",
+		async (platform) => {
+			const { container } = await fixture(undefined, platform, undefined, "native");
+
+			expect(container.querySelector(".dump-app")?.getAttribute("data-decorations")).toBe("native");
+			expect(container.querySelector(".traffic-lights")).toBeNull();
+			expect(container.querySelector(".header-bar-controls")).toBeNull();
+			expect(screen.queryByRole("button", { name: "Minimize" })).toBeNull();
+			expect(container.querySelector(".title-bar") === null).toBe(platform === "linux");
+		},
+	);
+
+	it.each([
+		["macos", "minimize", "Minimize"],
+		["macos", "maximize", "Maximize"],
+		["macos", "close", "Close window"],
+		["linux", "minimize", "Minimize"],
+		["linux", "maximize", "Maximize"],
+		["linux", "close", "Close window"],
+	] as const)("disables only the drawn %s button whose %s capability is false", async (platform, capability, name) => {
+		await fixture(undefined, platform, { ...fullCapabilities, [capability]: false }, "drawn");
+
+		for (const label of ["Minimize", "Maximize", "Close window"])
+			expect(screen.getByRole("button", { name: label }).hasAttribute("disabled")).toBe(label === name);
 	});
 
 	it("updates status counts and positions for typing, selections, and page navigation", async () => {

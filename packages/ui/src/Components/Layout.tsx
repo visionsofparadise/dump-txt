@@ -36,6 +36,7 @@ interface EditorStyle extends CSSProperties {
 export const Layout = scope(({ ref, surface, context: dumpContext }: LayoutProps) => {
 	const { session, editor, persistence } = dumpContext;
 	const platform = dumpContext.main.platform ?? "windows";
+	const decorations = dumpContext.main.decorations ?? "native";
 	const capabilities = capabilitiesOf(dumpContext.main);
 
 	const [chrome] = useState(() =>
@@ -143,7 +144,7 @@ export const Layout = scope(({ ref, surface, context: dumpContext }: LayoutProps
 	}, [capabilities, chrome, editor, persistence, surface]);
 
 	return (
-		<main className="dump-app" data-platform={platform} style={appearance}>
+		<main className="dump-app" data-platform={platform} data-decorations={decorations} style={appearance}>
 			<TitleBar chrome={context.chrome} onDismissMenu={dismissMenu} context={context}>
 				{platform !== "linux" && <Menu context={context} />}
 			</TitleBar>
