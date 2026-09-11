@@ -11,7 +11,7 @@ export function platformOf(navigator: Navigator): Platform {
 
 	if (/mac|iphone|ipad|ipod/iu.test(source)) return "macos";
 
-	if (/linux|android|x11|cros/iu.test(source)) return "linux";
+	if (/linux|android|x11|cros|chrom(?:e|ium) os/iu.test(source)) return "linux";
 
 	return "windows";
 }

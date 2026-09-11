@@ -24,7 +24,8 @@ describe("platformOf", () => {
 		["macOS", "macos"],
 		["Linux", "linux"],
 		["Android", "linux"],
-		["Chrome OS", "windows"],
+		["Chrome OS", "linux"],
+		["Chromium OS", "linux"],
 		["Windows", "windows"],
 	])("prefers the client hint platform %s", (hint, platform) => {
 		expect(platformOf(navigatorOf("Mozilla/5.0 (Windows NT 10.0; Win64; x64)", hint))).toBe(platform);
