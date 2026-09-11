@@ -26,6 +26,7 @@ const manifestPath = path.join(root, "tools.json");
 function platformKey() {
 	const { platform, arch } = process;
 	if (platform === "win32" && arch === "x64") return "windows-64bit";
+	if (platform === "win32" && arch === "arm64") return "windows-ARM64";
 	if (platform === "linux" && arch === "x64") return "Linux-64bit";
 	if (platform === "darwin" && arch === "arm64") return "macOS-ARM64";
 	if (platform === "darwin" && arch === "x64") return "macOS-64bit";
