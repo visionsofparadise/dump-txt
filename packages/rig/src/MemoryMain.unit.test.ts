@@ -93,6 +93,14 @@ describe("MemoryMain", () => {
 		expect(new TextDecoder().decode((await main.readFile("/saved.txt"))?.bytes)).toBe("saved");
 	});
 
+	it("carries the status bar visibility into the startup settings", async () => {
+		const main = new MemoryMain({ showStatusBar: false });
+		const paths = await main.getPaths();
+		const state = appStateSchema.parse(JSON.parse(new TextDecoder().decode(paths.startupSettings?.bytes)));
+
+		expect(state.appearance.showStatusBar).toBe(false);
+	});
+
 	it("exposes constructed capabilities and leaves them undefined otherwise", () => {
 		const capabilities: MainCapabilities = {
 			openDump: false,

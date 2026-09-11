@@ -7,6 +7,7 @@ export interface MemoryMainOptions {
 	readonly theme?: AppState["appearance"]["theme"];
 	readonly font?: string;
 	readonly textSize?: number;
+	readonly showStatusBar?: boolean;
 	readonly platform?: Main["platform"];
 	readonly capabilities?: MainCapabilities;
 }
@@ -51,7 +52,7 @@ export class MemoryMain implements Main {
 				theme: this.#theme,
 				font: options.font ?? "Consolas",
 				textSize: options.textSize ?? 11,
-				showStatusBar: true,
+				showStatusBar: options.showStatusBar ?? true,
 			},
 			findPreferences: { matchCase: false, allPages: false },
 			occurrencePreferences: { matchCase: true, allPages: false },

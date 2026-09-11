@@ -26,6 +26,7 @@ async function carriedOptionsOf(main: BrowserMain, context: ChromeContext | null
 		theme: state.appearance.theme,
 		font: state.appearance.font,
 		textSize: state.appearance.textSize,
+		showStatusBar: state.appearance.showStatusBar,
 	};
 }
 
