@@ -2,7 +2,7 @@ export { MemoryMain } from "./MemoryMain";
 export type { MemoryMainOptions } from "./MemoryMain";
 
 export { DemoRig, DemoStopped } from "./DemoRig";
-export type { DemoRigOptions } from "./DemoRig";
+export type { DemoRigOptions, DemoSurface } from "./DemoRig";
 
 export { demonstrate } from "./demonstrate";
 export type { DemonstrationOptions } from "./demonstrate";

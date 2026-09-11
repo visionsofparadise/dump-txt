@@ -6,13 +6,13 @@ import type { ChromeContext } from "@dump-txt/ui";
 
 const context = {} as unknown as ChromeContext;
 
-function stubFonts(): () => void {
+function stubFonts(owner: Document = document): () => void {
 	let release = () => {};
 	const ready = new Promise<void>((resolve) => {
 		release = resolve;
 	});
 
-	Object.defineProperty(document, "fonts", { configurable: true, value: { ready } });
+	Object.defineProperty(owner, "fonts", { configurable: true, value: { ready } });
 
 	return release;
 }
@@ -136,5 +136,63 @@ describe("createPlayback", () => {
 
 		expect(playback.error).toBeNull();
 		expect(playback.finished).toBe(false);
+	});
+
+	it("plays across surfaces once fonts load in every surface document", async () => {
+		const releasePage = stubFonts();
+		const stage = createStage();
+		const frame = document.createElement("iframe");
+		const tiles = document.createElement("div");
+
+		document.body.append(frame, tiles);
+
+		const frameDocument = frame.contentDocument;
+
+		if (!frameDocument) throw new Error("The frame document is missing.");
+
+		const releaseFrame = stubFonts(frameDocument);
+		const close = frameDocument.createElement("button");
+
+		close.setAttribute("aria-label", "Close window");
+		vi.spyOn(close, "getBoundingClientRect").mockReturnValue({
+			left: 40,
+			top: 20,
+			width: 40,
+			height: 20,
+			x: 40,
+			y: 20,
+			right: 80,
+			bottom: 40,
+			toJSON: () => ({}),
+		});
+		frameDocument.body.append(close);
+
+		const script = vi.fn((rig: Parameters<PlaybackOptions["script"]>[0]) => rig.move('[aria-label="Close window"]'));
+		const playback = createPlayback(
+			createOptions({
+				stage,
+				surfaces: [
+					{ root: frameDocument, pointOf: ({ x, y }) => ({ x: x + 300, y: y + 200 }) },
+					{ root: tiles, pointOf: (point) => point },
+				],
+				script,
+			}),
+		);
+		const playing = playback.play();
+
+		releasePage();
+		await vi.advanceTimersByTimeAsync(0);
+
+		expect(playback.ready).toBe(false);
+		expect(script).not.toHaveBeenCalled();
+
+		releaseFrame();
+		await vi.advanceTimersByTimeAsync(500);
+		await playing;
+
+		expect(playback.ready).toBe(true);
+		expect(script).toHaveBeenCalledOnce();
+		expect(frameDocument.querySelector(".demo-pointer")).toBeNull();
+		expect(stage.querySelector<HTMLElement>(".demo-pointer")?.style.transform).toBe("translate(360px, 230px)");
 	});
 });

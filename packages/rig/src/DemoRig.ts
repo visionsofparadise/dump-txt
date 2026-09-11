@@ -7,21 +7,33 @@ export class DemoStopped extends Error {
 	}
 }
 
+export interface DemoSurface {
+	readonly root: Document | Element;
+	readonly pointOf: (point: { readonly x: number; readonly y: number }) => { readonly x: number; readonly y: number };
+}
+
 export interface DemoRigOptions {
 	readonly origin?: { readonly x: number; readonly y: number };
 	readonly stage: HTMLElement;
 	readonly pointer: HTMLElement;
 	readonly context: () => ChromeContext | null;
+	readonly surfaces?: ReadonlyArray<DemoSurface>;
+}
+
+function viewOf(element: Element): Window & typeof globalThis {
+	return element.ownerDocument.defaultView ?? window;
 }
 
 export class DemoRig {
 	readonly #options: DemoRigOptions;
+	readonly #surfaces: ReadonlyArray<DemoSurface>;
 	readonly #pending = new Set<(error: Error) => void>();
 	#position: { readonly x: number; readonly y: number };
 	#stopped = false;
 
 	constructor(options: DemoRigOptions) {
 		this.#options = options;
+		this.#surfaces = options.surfaces ?? [{ root: options.stage, pointOf: (point) => point }];
 		this.#position = this.origin;
 		this.#draw();
 	}
@@ -74,25 +86,14 @@ export class DemoRig {
 	}
 
 	element(selector: string): HTMLElement {
-		const element = this.#options.stage.querySelector<HTMLElement>(selector);
-
-		if (!element) throw new Error(`Demo target is missing: ${selector}`);
-
-		return element;
+		return this.#locate(selector).element;
 	}
 
 	async move(target: string | { readonly x: number; readonly y: number }, duration = 450): Promise<void> {
 		this.#assertRunning();
 
 		const origin = this.#position;
-		const stage = this.#options.stage.getBoundingClientRect();
-		const bounds = typeof target === "string" ? this.element(target).getBoundingClientRect() : null;
-		const destination =
-			typeof target === "string" && bounds
-				? { x: bounds.left - stage.left + bounds.width / 2, y: bounds.top - stage.top + bounds.height / 2 }
-				: typeof target === "string"
-					? origin
-					: target;
+		const destination = typeof target === "string" ? this.#centreOf(target) : target;
 		const started = performance.now();
 
 		await new Promise<void>((resolve, reject) => {
@@ -166,12 +167,11 @@ export class DemoRig {
 	async key(key: string, modifiers: KeyboardEventInit = {}): Promise<void> {
 		this.#assertRunning();
 
-		const { stage } = this.#options;
-		const active = stage.ownerDocument.activeElement;
-		const target = active && stage.contains(active) ? active : this.element(".cm-content");
+		const target = this.#activeElement ?? this.element(".cm-content");
+		const view = viewOf(target);
 
 		target.dispatchEvent(
-			new KeyboardEvent("keydown", { key, code: key, bubbles: true, cancelable: true, ...modifiers }),
+			new view.KeyboardEvent("keydown", { key, code: key, bubbles: true, cancelable: true, ...modifiers }),
 		);
 		await this.wait(350);
 	}
@@ -179,9 +179,11 @@ export class DemoRig {
 	async wheel(deltaY: number, modifiers: WheelEventInit = {}, selector = ".cm-scroller"): Promise<void> {
 		this.#assertRunning();
 		await this.move(selector);
-		this.element(selector).dispatchEvent(
-			new WheelEvent("wheel", { bubbles: true, cancelable: true, deltaY, ...modifiers }),
-		);
+
+		const element = this.element(selector);
+		const view = viewOf(element);
+
+		element.dispatchEvent(new view.WheelEvent("wheel", { bubbles: true, cancelable: true, deltaY, ...modifiers }));
 		await this.wait(550);
 	}
 
@@ -192,7 +194,7 @@ export class DemoRig {
 
 		if (anchor < 0) throw new Error(`Demo selection is missing: ${text}`);
 
-		const content = this.element(".cm-content");
+		const { element: content, surface } = this.#locate(".cm-content");
 		const owner = content.ownerDocument;
 		const walker = owner.createTreeWalker(content, NodeFilter.SHOW_TEXT);
 		let node = walker.nextNode();
@@ -214,16 +216,15 @@ export class DemoRig {
 			node = walker.nextNode();
 		}
 
-		const stage = this.#options.stage.getBoundingClientRect();
-
 		await this.move(
-			bounds ? { x: bounds.left - stage.left, y: bounds.top - stage.top + bounds.height / 2 } : ".cm-content",
+			bounds ? this.#stagePointOf(surface, { x: bounds.left, y: bounds.top + bounds.height / 2 }) : ".cm-content",
 		);
 		this.#options.pointer.dataset.pressed = "true";
 		this.context.editor.select([{ anchor, head: anchor + text.length }]);
 		this.context.editor.focus();
 
-		if (bounds) await this.move({ x: bounds.right - stage.left, y: bounds.top - stage.top + bounds.height / 2 }, 250);
+		if (bounds)
+			await this.move(this.#stagePointOf(surface, { x: bounds.right, y: bounds.top + bounds.height / 2 }), 250);
 
 		delete this.#options.pointer.dataset.pressed;
 		await this.wait(700);
@@ -231,6 +232,44 @@ export class DemoRig {
 
 	assert(condition: boolean, message: string): void {
 		if (!condition) throw new Error(message);
+	}
+
+	get #activeElement(): Element | null {
+		for (const { root } of this.#surfaces) {
+			const owner = "documentElement" in root ? root : root.ownerDocument;
+			const active = owner.activeElement;
+
+			if (active && active !== owner.body && root.contains(active)) return active;
+		}
+
+		return null;
+	}
+
+	#locate(selector: string): { readonly element: HTMLElement; readonly surface: DemoSurface } {
+		for (const surface of this.#surfaces) {
+			const element = surface.root.querySelector<HTMLElement>(selector);
+
+			if (element) return { element, surface };
+		}
+
+		throw new Error(`Demo target is missing: ${selector}`);
+	}
+
+	#centreOf(selector: string): { readonly x: number; readonly y: number } {
+		const { element, surface } = this.#locate(selector);
+		const bounds = element.getBoundingClientRect();
+
+		return this.#stagePointOf(surface, { x: bounds.left + bounds.width / 2, y: bounds.top + bounds.height / 2 });
+	}
+
+	#stagePointOf(
+		surface: DemoSurface,
+		point: { readonly x: number; readonly y: number },
+	): { readonly x: number; readonly y: number } {
+		const mapped = surface.pointOf(point);
+		const stage = this.#options.stage.getBoundingClientRect();
+
+		return { x: mapped.x - stage.left, y: mapped.y - stage.top };
 	}
 
 	#assertRunning(): void {

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { DemoRig, DemoStopped } from "./DemoRig";
+import { DemoRig, DemoStopped, type DemoSurface } from "./DemoRig";
 import type { ChromeContext } from "@dump-txt/ui";
 
 function createRig(options: { readonly origin?: { readonly x: number; readonly y: number } } = {}) {
@@ -30,6 +30,59 @@ function recordKeys(...elements: Array<HTMLElement>) {
 		});
 
 	return received;
+}
+
+function rectOf(left: number, top: number, width: number, height: number): DOMRect {
+	return { left, top, width, height, x: left, y: top, right: left + width, bottom: top + height, toJSON: () => ({}) };
+}
+
+function place(element: HTMLElement, bounds: DOMRect): HTMLElement {
+	vi.spyOn(element, "getBoundingClientRect").mockReturnValue(bounds);
+
+	return element;
+}
+
+function createSurfaces() {
+	const stage = document.createElement("div");
+	const pointer = document.createElement("div");
+	const frame = document.createElement("iframe");
+	const tiles = document.createElement("div");
+
+	stage.append(pointer);
+	document.body.append(stage, frame, tiles);
+	place(stage, rectOf(100, 50, 800, 600));
+
+	const frameDocument = frame.contentDocument;
+	const frameView = frameDocument?.defaultView;
+
+	if (!frameDocument || !frameView) throw new Error("The frame document is missing.");
+
+	const surfaces: ReadonlyArray<DemoSurface> = [
+		{ root: frameDocument, pointOf: ({ x, y }) => ({ x: 300 + x / 2, y: 200 + y / 2 }) },
+		{ root: tiles, pointOf: (point) => point },
+	];
+	const selections: Array<string> = [];
+	const editor = {
+		focus: vi.fn(),
+		select: vi.fn(() => {
+			selections.push(pointer.style.transform);
+		}),
+	};
+	const context = {
+		editor,
+		document: { pages: [{ id: "page", text: "Dump text, think less." }] },
+		session: { view: { activePageId: "page" } },
+	} as unknown as ChromeContext;
+
+	return {
+		rig: new DemoRig({ stage, pointer, context: () => context, surfaces }),
+		pointer,
+		frameDocument,
+		frameView,
+		tiles,
+		editor,
+		selections,
+	};
 }
 
 describe("DemoRig", () => {
@@ -160,5 +213,148 @@ describe("DemoRig", () => {
 		await vi.advanceTimersByTimeAsync(1000);
 
 		expect(typed).toEqual(["a", "b", "c"]);
+	});
+
+	it("resolves a selector in the first surface that holds it", () => {
+		const { rig, frameDocument, tiles } = createSurfaces();
+		const framed = frameDocument.createElement("div");
+		const paged = document.createElement("div");
+		const tile = document.createElement("button");
+
+		framed.className = "target";
+		paged.className = "target";
+		tile.className = "tile";
+		frameDocument.body.append(framed);
+		tiles.append(paged, tile);
+
+		expect(rig.element(".target")).toBe(framed);
+		expect(rig.element(".tile")).toBe(tile);
+		expect(() => rig.element(".demo-stage")).toThrow("Demo target is missing: .demo-stage");
+	});
+
+	it("moves and clicks at the mapped centre of a target in each surface", async () => {
+		const { rig, pointer, frameDocument, tiles } = createSurfaces();
+		const close = frameDocument.createElement("button");
+		const tile = document.createElement("button");
+		const clicked = vi.fn();
+
+		close.setAttribute("aria-label", "Close window");
+		tile.setAttribute("aria-label", "Open dump.txt");
+		tile.addEventListener("click", clicked);
+		frameDocument.body.append(place(close, rectOf(40, 20, 40, 20)));
+		tiles.append(place(tile, rectOf(500, 600, 52, 52)));
+
+		const moving = rig.move('[aria-label="Close window"]');
+
+		await vi.advanceTimersByTimeAsync(500);
+		await moving;
+
+		expect(pointer.style.transform).toBe("translate(230px, 165px)");
+
+		const clicking = rig.click('[aria-label="Open dump.txt"]');
+
+		await vi.advanceTimersByTimeAsync(1000);
+		await clicking;
+
+		expect(pointer.style.transform).toBe("translate(426px, 576px)");
+		expect(clicked).toHaveBeenCalledOnce();
+	});
+
+	it("wheels a target in its own document at its mapped centre", async () => {
+		const { rig, pointer, frameDocument, frameView } = createSurfaces();
+		const scroller = frameDocument.createElement("div");
+		const received: Array<{ readonly deltaY: number; readonly framed: boolean }> = [];
+
+		scroller.className = "cm-scroller";
+		scroller.addEventListener("wheel", (event) => {
+			received.push({ deltaY: event.deltaY, framed: event instanceof frameView.WheelEvent });
+		});
+		frameDocument.body.append(place(scroller, rectOf(0, 100, 400, 200)));
+
+		const wheeling = rig.wheel(360);
+
+		await vi.advanceTimersByTimeAsync(1100);
+		await wheeling;
+
+		expect(pointer.style.transform).toBe("translate(300px, 250px)");
+		expect(received).toEqual([{ deltaY: 360, framed: true }]);
+	});
+
+	it("selects text between the mapped edges of its range", async () => {
+		const { rig, pointer, frameDocument, frameView, editor, selections } = createSurfaces();
+		const content = frameDocument.createElement("div");
+
+		content.className = "cm-content";
+		content.textContent = "Dump text, think less.";
+		frameDocument.body.append(content);
+		Object.defineProperty(frameView.Range.prototype, "getBoundingClientRect", {
+			configurable: true,
+			value: () => rectOf(80, 40, 60, 20),
+		});
+
+		const selecting = rig.select("think");
+
+		await vi.advanceTimersByTimeAsync(2000);
+		await selecting;
+
+		expect(selections).toEqual(["translate(240px, 175px)"]);
+		expect(editor.select).toHaveBeenCalledWith([{ anchor: 11, head: 16 }]);
+		expect(pointer.style.transform).toBe("translate(270px, 175px)");
+	});
+
+	it("sends a key to the focused element of the first surface that holds one", async () => {
+		const { rig, frameDocument, tiles } = createSurfaces();
+		const content = frameDocument.createElement("div");
+		const field = frameDocument.createElement("input");
+		const tile = document.createElement("button");
+
+		content.className = "cm-content";
+		frameDocument.body.append(content, field);
+		tiles.append(tile);
+
+		const received = recordKeys(content, field, tile);
+
+		tile.focus();
+
+		const keyingTile = rig.key("a");
+
+		await vi.advanceTimersByTimeAsync(350);
+		await keyingTile;
+		field.focus();
+		tile.focus();
+
+		const keyingField = rig.key("b");
+
+		await vi.advanceTimersByTimeAsync(350);
+		await keyingField;
+
+		expect(received).toEqual([
+			{ target: tile, key: "a", ctrlKey: false },
+			{ target: field, key: "b", ctrlKey: false },
+		]);
+	});
+
+	it("sends a key to the editor content in its own document while no surface holds focus", async () => {
+		const { rig, frameDocument, frameView } = createSurfaces();
+		const content = frameDocument.createElement("div");
+		const download = document.createElement("a");
+		const received: Array<{ readonly key: string; readonly framed: boolean }> = [];
+
+		content.className = "cm-content";
+		content.addEventListener("keydown", (event) => {
+			received.push({ key: event.key, framed: event instanceof frameView.KeyboardEvent });
+		});
+		frameDocument.body.append(content);
+		download.href = "#download";
+		document.body.prepend(download);
+		download.focus();
+
+		const keying = rig.key("z", { ctrlKey: true });
+
+		await vi.advanceTimersByTimeAsync(350);
+		await keying;
+
+		expect(frameDocument.activeElement).toBe(frameDocument.body);
+		expect(received).toEqual([{ key: "z", framed: true }]);
 	});
 });

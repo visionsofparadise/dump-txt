@@ -1,10 +1,11 @@
-import { DemoRig, DemoStopped } from "./DemoRig";
+import { DemoRig, DemoStopped, type DemoSurface } from "./DemoRig";
 import type { ChromeContext } from "@dump-txt/ui";
 
 export interface PlaybackOptions {
 	readonly stage: HTMLElement;
 	readonly context: () => ChromeContext | null;
 	readonly origin: { readonly x: number; readonly y: number };
+	readonly surfaces?: ReadonlyArray<DemoSurface>;
 	readonly script: (rig: DemoRig) => Promise<void>;
 }
 
@@ -37,19 +38,29 @@ export function createPlayback(options: PlaybackOptions): DemoPlayback {
 	pointer.append(svg);
 	options.stage.append(pointer);
 
-	const rig = new DemoRig({ stage: options.stage, pointer, context: options.context, origin: options.origin });
+	const rig = new DemoRig({
+		stage: options.stage,
+		pointer,
+		context: options.context,
+		origin: options.origin,
+		surfaces: options.surfaces,
+	});
+	const documents = new Set(
+		options.surfaces?.map(({ root }) => ("documentElement" in root ? root : root.ownerDocument)) ?? [owner],
+	);
+	const awaitFonts = () => Promise.all([...documents].map((surfaceDocument) => surfaceDocument.fonts.ready));
 	let fontsReady = false;
 	let finished = false;
 	let error: string | null = null;
 	let running: Promise<void> | null = null;
 
-	void owner.fonts.ready.then(() => {
+	void awaitFonts().then(() => {
 		fontsReady = true;
 	});
 
 	const run = async (): Promise<void> => {
 		try {
-			await owner.fonts.ready;
+			await awaitFonts();
 
 			while (!options.context()) await rig.wait(50);
 
