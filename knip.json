@@ -26,8 +26,12 @@
 			"entry": ["tools/*.mjs"],
 			"project": ["src/**/*.{ts,tsx}"]
 		},
+		"apps/website": {
+			"entry": ["tools/*.mjs"],
+			"project": ["src/**/*.{ts,tsx}"]
+		},
 		"packages/rig": {
-			"project": ["src/**/*.{ts,tsx}", "*.config.ts"]
+			"project": ["src/**/*.{ts,tsx}"]
 		}
 	},
 	"ignoreBinaries": ["styling-lint", "ffmpeg"]
