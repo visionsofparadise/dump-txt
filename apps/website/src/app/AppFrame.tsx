@@ -1,10 +1,31 @@
-import { BrowserMain, createPlayback, demonstrate, DemoStopped, type DemoPlayback } from "@dump-txt/rig";
+import {
+	BrowserMain,
+	createPlayback,
+	demonstrate,
+	DemoStopped,
+	type BrowserMainOptions,
+	type DemoSurface,
+} from "@dump-txt/rig";
 import { App, type ChromeContext } from "@dump-txt/ui";
 import { appStateSchema } from "@dump-txt/ui/host";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
+import { pagePointOf } from "../utils/pagePointOf";
 import { platformOf, type Platform } from "../utils/platformOf";
+import { windowReportOf, type WindowState } from "../utils/windowMessages";
+import { FrameWindow } from "./models/FrameWindow";
+import { guardDemonstrationFocus } from "./utils/guardDemonstrationFocus";
 
 const freshOptions = { theme: "light", font: "Consolas" } as const;
+
+const failedLoopDelay = 1000;
+
+interface PageStage {
+	readonly stage: HTMLElement;
+	readonly origin: { readonly x: number; readonly y: number };
+	readonly surfaces: ReadonlyArray<DemoSurface>;
+}
+
+type HostOptions = Awaited<ReturnType<typeof carriedOptionsOf>> | typeof freshOptions;
 
 function isPlatform(value: unknown): value is Platform {
 	return value === "windows" || value === "macos" || value === "linux";
@@ -16,10 +37,35 @@ function messagePlatformOf(data: unknown): Platform | null {
 	return data.type === "platform" && isPlatform(data.platform) ? data.platform : null;
 }
 
-function isFocusOutside(owner: Document, region: Element): boolean {
-	const active = owner.activeElement;
+function pageStageOf(element: HTMLElement): PageStage | null {
+	const frame = element.ownerDocument.defaultView?.frameElement;
+	const pageView = frame?.ownerDocument.defaultView;
 
-	return active !== null && active !== owner.body && active !== owner.documentElement && !region.contains(active);
+	if (!frame || !pageView || !(frame instanceof pageView.HTMLElement)) return null;
+
+	const stage = frame.ownerDocument.getElementById("pointer-stage");
+	const taskbar = frame.ownerDocument.getElementById("github");
+
+	if (!stage || !taskbar) return null;
+
+	let x = element.clientWidth * 0.85 - stage.offsetLeft;
+	let y = element.clientHeight * 0.9 - stage.offsetTop;
+	let offsetElement: Element | null = frame;
+
+	while (offsetElement instanceof pageView.HTMLElement && offsetElement !== stage.offsetParent) {
+		x += offsetElement.offsetLeft;
+		y += offsetElement.offsetTop;
+		offsetElement = offsetElement.offsetParent;
+	}
+
+	return {
+		stage,
+		origin: { x, y },
+		surfaces: [
+			{ root: element, pointOf: (point) => pagePointOf(frame, point) },
+			{ root: taskbar, pointOf: (point) => point, isKeyTarget: false },
+		],
+	};
 }
 
 async function carriedOptionsOf(main: BrowserMain, context: ChromeContext | null) {
@@ -47,7 +93,22 @@ export function AppFrame() {
 
 	const context = useRef<ChromeContext>(null);
 
-	const playback = useRef<DemoPlayback>(null);
+	const [isContextMounted, setContextMounted] = useState(false);
+
+	const [frameWindow] = useState(() => new FrameWindow());
+
+	const createMain = (platform: BrowserMainOptions["platform"], options: HostOptions, isDemonstrating: boolean) => {
+		const next = new BrowserMain({ platform, ...options, ...frameWindow.hostCallbacksOf(isDemonstrating) });
+
+		next.setMaximized(frameWindow.isMaximized);
+
+		return next;
+	};
+
+	const attachContext = useCallback((value: ChromeContext | null) => {
+		context.current = value;
+		setContextMounted(value !== null);
+	}, []);
 
 	const [platform, setPlatform] = useState(() => {
 		const requested = new URLSearchParams(window.location.search).get("platform");
@@ -57,27 +118,53 @@ export function AppFrame() {
 
 	const [mode, setMode] = useState<"demonstrating" | "interactive">("demonstrating");
 
-	const [main, setMain] = useState(() => new BrowserMain({ platform, ...freshOptions }));
+	const [windowState, setWindowState] = useState<WindowState>("open");
+
+	const [main, setMain] = useState(() => createMain(platform, freshOptions, true));
 
 	const [hostGeneration, setHostGeneration] = useState(0);
 
+	useEffect(() => {
+		if (isContextMounted) main.emit("maximizedChanged", main.maximized);
+	}, [isContextMounted, main]);
+
 	const replaceMain = (next: BrowserMain) => {
-		playback.current?.dispose();
-		playback.current = null;
+		frameWindow.detach();
 		setMain(next);
 		setHostGeneration((generation) => generation + 1);
 	};
 
 	const takeOver = () => {
-		replaceMain(new BrowserMain({ platform, ...freshOptions }));
+		frameWindow.stopHolding();
+		replaceMain(createMain(platform, freshOptions, false));
 		setMode("interactive");
 	};
+
+	const receiveReport = useEffectEvent((event: MessageEvent<unknown>) => {
+		const report = event.origin === window.location.origin ? windowReportOf(event.data) : null;
+
+		if (!report) return;
+
+		main.setMaximized(report.isMaximized);
+		setWindowState(report.state);
+		frameWindow.receiveReport(report, mode === "demonstrating", () => context.current !== null);
+	});
+
+	const receiveClick = useEffectEvent((event: MouseEvent) => {
+		const element = stage.current;
+
+		frameWindow.recordClick(event);
+
+		if (mode === "demonstrating" && element && event.target instanceof Node && !element.contains(event.target))
+			takeOver();
+	});
 
 	useEffect(() => {
 		const receive = (event: MessageEvent<unknown>) => {
 			const next = messagePlatformOf(event.data);
 
 			if (event.origin === window.location.origin && next) setPlatform(next);
+			else receiveReport(event);
 		};
 
 		window.addEventListener("message", receive);
@@ -88,32 +175,23 @@ export function AppFrame() {
 	}, []);
 
 	useEffect(() => {
-		const element = stage.current;
-		const view = element?.ownerDocument.defaultView;
-
-		if (mode !== "demonstrating" || !element || !view) return;
-
-		const frame = view.frameElement;
-		const focus = view.HTMLElement.prototype.focus;
-		const select = view.HTMLInputElement.prototype.select;
-
-		const isHeldElsewhere = (target: Element) =>
-			element.contains(target) &&
-			(isFocusOutside(element.ownerDocument, element) ||
-				(frame !== null && isFocusOutside(frame.ownerDocument, frame)));
-
-		view.HTMLElement.prototype.focus = function focusUnlessHeldElsewhere(options?: FocusOptions) {
-			if (!isHeldElsewhere(this)) focus.call(this, options);
+		const receive = (event: MouseEvent) => {
+			receiveClick(event);
 		};
 
-		view.HTMLInputElement.prototype.select = function selectUnlessHeldElsewhere() {
-			if (!isHeldElsewhere(this)) select.call(this);
-		};
+		window.addEventListener("click", receive, true);
 
 		return () => {
-			view.HTMLElement.prototype.focus = focus;
-			view.HTMLInputElement.prototype.select = select;
+			window.removeEventListener("click", receive, true);
 		};
+	}, []);
+
+	useEffect(() => {
+		const element = stage.current;
+
+		if (mode !== "demonstrating" || !element) return;
+
+		return guardDemonstrationFocus(element);
 	}, [mode]);
 
 	useEffect(() => {
@@ -154,23 +232,36 @@ export function AppFrame() {
 
 		if (mode !== "demonstrating" || !element) return;
 
+		const page = pageStageOf(element);
 		const current = createPlayback({
-			stage: element,
+			stage: page?.stage ?? element,
+			surfaces: page?.surfaces,
 			context: () => context.current,
-			origin: { x: element.clientWidth * 0.85, y: element.clientHeight * 0.9 },
-			script: (rig) => demonstrate(rig, { reopen: false }),
+			origin: page?.origin ?? { x: element.clientWidth * 0.85, y: element.clientHeight * 0.9 },
+			script: async (rig) => {
+				try {
+					await demonstrate(rig, { reopen: page !== null });
+				} catch (error: unknown) {
+					if (error instanceof DemoStopped) throw error;
+
+					console.error(error);
+					await rig.wait(failedLoopDelay);
+				}
+			},
 		});
 
-		playback.current = current;
+		frameWindow.attach(current);
 
 		let restart: ReturnType<typeof setTimeout> | undefined;
 
 		const replay = (delay: number) => {
-			if (playback.current !== current) return;
+			if (!frameWindow.isPlaying(current)) return;
 
 			restart = setTimeout(() => {
-				if (playback.current === current)
-					replaceMain(new BrowserMain({ platform: main.platform, ...freshOptions }));
+				if (frameWindow.isPlaying(current))
+					frameWindow.restart(() => {
+						replaceMain(createMain(main.platform, freshOptions, true));
+					});
 			}, delay);
 		};
 
@@ -182,7 +273,7 @@ export function AppFrame() {
 				if (error instanceof DemoStopped) return;
 
 				console.error(error);
-				replay(1000);
+				replay(failedLoopDelay);
 			},
 		);
 
@@ -201,7 +292,7 @@ export function AppFrame() {
 			try {
 				const options = mode === "interactive" ? await carriedOptionsOf(main, context.current) : freshOptions;
 
-				if (!transfer.signal.aborted) replaceMain(new BrowserMain({ platform, ...options }));
+				if (!transfer.signal.aborted) replaceMain(createMain(platform, options, mode === "demonstrating"));
 			} catch (error: unknown) {
 				console.error(error);
 			}
@@ -215,11 +306,9 @@ export function AppFrame() {
 	return (
 		<>
 			<div ref={stage} className={mode === "demonstrating" ? "appbox-stage demo-stage" : "appbox-stage"}>
-				<App key={hostGeneration} main={main} ref={context} />
+				{windowState !== "closed" && <App key={hostGeneration} main={main} ref={attachContext} />}
 			</div>
-			{mode === "demonstrating" && (
-				<button className="appbox-takeover" type="button" aria-label="Try dump.txt" onClick={takeOver} />
-			)}
+			{mode === "demonstrating" && <button className="appbox-takeover" type="button" aria-label="Try dump.txt" />}
 		</>
 	);
 }

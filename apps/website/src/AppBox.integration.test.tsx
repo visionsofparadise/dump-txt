@@ -1,10 +1,11 @@
-import type { MotionProps, Variants } from "motion/react";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AppBox } from "./AppBox";
+import { useAppWindow } from "./hooks/useAppWindow";
 import { gpuCompositingOf } from "./utils/gpuCompositingOf";
 import type { Platform } from "./utils/platformOf";
+import type { MotionProps, Transition } from "motion/react";
 
 vi.mock("./utils/gpuCompositingOf", () => ({ gpuCompositingOf: vi.fn() }));
 
@@ -47,12 +48,29 @@ const testEntrance: MotionProps = {
 	viewport: { once: true, amount: 0.15 },
 };
 
-const testTiltVariants: Variants = {
-	hidden: { transform: "perspective(2400px) rotateY(0deg)" },
-	visible: { transform: "perspective(2400px) rotateY(-9deg)", transition: { duration: 0.03 } },
-};
+const testTiltTransition: Transition = { duration: 0.03 };
 
 const unmounts: Array<() => void> = [];
+
+interface HarnessProps {
+	readonly platform: Platform;
+	readonly tiltTransition: Transition | null;
+	readonly onApplicationReady: () => void;
+}
+
+function Harness({ platform, tiltTransition, onApplicationReady }: HarnessProps) {
+	const control = useAppWindow(platform);
+
+	return (
+		<AppBox
+			platform={platform}
+			entrance={testEntrance}
+			tiltTransition={tiltTransition}
+			control={control}
+			onApplicationReady={onApplicationReady}
+		/>
+	);
+}
 
 async function until<T>(read: () => T | null | undefined | false): Promise<T> {
 	const deadline = Date.now() + 5000;
@@ -74,12 +92,7 @@ async function mount(platform: Platform, onApplicationReady: () => void = () => 
 	const container = document.createElement("div");
 	const root = createRoot(container);
 	const element = (next: Platform) => (
-		<AppBox
-			platform={next}
-			entrance={testEntrance}
-			tiltVariants={testTiltVariants}
-			onApplicationReady={onApplicationReady}
-		/>
+		<Harness platform={next} tiltTransition={testTiltTransition} onApplicationReady={onApplicationReady} />
 	);
 
 	document.body.append(container);
@@ -133,7 +146,7 @@ describe("AppBox", () => {
 
 		expect(frame.getAttribute("src")).toBe("app.html?platform=linux");
 		expect(frame.title).toBe("dump.txt");
-		expect(frame.closest("#appbox")?.closest("#app")).toBe(container.firstElementChild);
+		expect(frame.closest("#appbox")?.closest("#appanim")?.closest("#app")).toBe(container.firstElementChild);
 
 		await render("macos");
 
@@ -141,7 +154,7 @@ describe("AppBox", () => {
 		expect(frame.getAttribute("src")).toBe("app.html?platform=linux");
 	});
 
-	it("posts each platform change and the current platform on load to the frame at the page origin", async () => {
+	it("posts each platform change, and the current platform and window on load, to the frame at the page origin", async () => {
 		const { frame, posted, render } = await mount("windows");
 
 		await render("macos");
@@ -157,7 +170,10 @@ describe("AppBox", () => {
 			frame.dispatchEvent(new Event("load"));
 		});
 
-		expect(posted).toHaveBeenCalledExactlyOnceWith({ type: "platform", platform: "linux" }, window.location.origin);
+		expect(posted.mock.calls).toEqual([
+			[{ type: "platform", platform: "linux" }, window.location.origin],
+			[{ type: "window", state: "open", isMaximized: false }, window.location.origin],
+		]);
 	});
 
 	it("carries the GPU compositing marker on the box when a GPU context is detected", async () => {
@@ -197,7 +213,7 @@ describe("AppBox", () => {
 		const app = elementOf(container, "#app");
 		const box = elementOf(container, "#appbox");
 
-		expect(box.style.transform).toBe("perspective(2400px) rotateY(0deg)");
+		expect(box.style.transform).toBe("perspective(2400px)");
 
 		await act(async () => {
 			MockIntersectionObserver.intersect(app, true);

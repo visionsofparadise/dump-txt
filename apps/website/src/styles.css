@@ -27,6 +27,117 @@ a {
 	}
 }
 
+@keyframes win-min {
+	to {
+		transform: translate(calc(var(--tile-x) * 0.6), calc(var(--tile-y) * 0.6)) scale(0.55);
+		opacity: 0;
+	}
+}
+
+@keyframes win-restore {
+	from {
+		transform: translate(calc(var(--tile-x) * 0.6), calc(var(--tile-y) * 0.6)) scale(0.55);
+		opacity: 0;
+	}
+}
+
+@keyframes win-close {
+	to {
+		transform: scale(0.9);
+		opacity: 0;
+	}
+}
+
+@keyframes win-open {
+	from {
+		transform: scale(0.9);
+		opacity: 0;
+	}
+}
+
+@keyframes mac-min {
+	0% {
+		transform: none;
+		opacity: 1;
+	}
+
+	45% {
+		transform: translate(calc(var(--tile-x) * 0.3), calc(var(--tile-y) * 0.35)) scale(0.75, 0.9) skew(-6deg, 3deg);
+		opacity: 1;
+	}
+
+	85% {
+		opacity: 1;
+	}
+
+	100% {
+		transform: translate(var(--tile-x), var(--tile-y)) scale(0.04);
+		opacity: 0;
+	}
+}
+
+@keyframes mac-restore {
+	0% {
+		transform: translate(var(--tile-x), var(--tile-y)) scale(0.04);
+		opacity: 0;
+	}
+
+	15% {
+		opacity: 1;
+	}
+
+	55% {
+		transform: translate(calc(var(--tile-x) * 0.3), calc(var(--tile-y) * 0.35)) scale(0.75, 0.9) skew(-6deg, 3deg);
+	}
+
+	100% {
+		transform: none;
+		opacity: 1;
+	}
+}
+
+@keyframes mac-close {
+	to {
+		transform: scale(0.92);
+		opacity: 0;
+	}
+}
+
+@keyframes mac-open {
+	from {
+		transform: scale(0.96);
+		opacity: 0;
+	}
+}
+
+@keyframes gnome-min {
+	to {
+		transform: translate(var(--tile-x), var(--tile-y)) scale(0.08);
+		opacity: 0;
+	}
+}
+
+@keyframes gnome-restore {
+	from {
+		transform: translate(var(--tile-x), var(--tile-y)) scale(0.08);
+		opacity: 0;
+	}
+}
+
+@keyframes gnome-close {
+	to {
+		transform: scale(0.9);
+		opacity: 0;
+	}
+}
+
+@keyframes gnome-open {
+	from {
+		transform: scale(0.9);
+		opacity: 0;
+	}
+}
+
 .page {
 	position: relative;
 	isolation: isolate;
@@ -84,6 +195,14 @@ a {
 	margin: 0;
 	padding: 56px 4.5vw 56px 5.5vw;
 	box-sizing: border-box;
+}
+
+#pointer-stage {
+	position: absolute;
+	inset: 0;
+	z-index: 7;
+	overflow: hidden;
+	pointer-events: none;
 }
 
 #headline {
@@ -271,10 +390,61 @@ a {
 	grid-column: 1;
 	grid-row: 4;
 	justify-self: start;
+	display: flex;
+	align-items: center;
+	gap: 4px;
+}
+
+#tile {
+	position: relative;
 	display: grid;
 	place-items: center;
-	width: 44px;
-	height: 44px;
+	width: 52px;
+	height: 52px;
+	padding: 0;
+	border: 0;
+	border-radius: 4px;
+	background: rgba(250, 250, 250, 0.14);
+	box-shadow:
+		0 4px 5px rgba(0, 0, 0, 0.9),
+		0 12px 32px rgba(0, 0, 0, 0.25);
+	cursor: pointer;
+	transition:
+		background 0.3s,
+		box-shadow 0.3s;
+}
+
+#tile::after {
+	content: "";
+	position: absolute;
+	left: 16px;
+	right: 16px;
+	bottom: 3px;
+	height: 2px;
+	border-radius: 1px;
+	background: #f97316;
+	opacity: 0;
+	transition: opacity 0.3s;
+}
+
+#tile[data-window="open"]::after {
+	opacity: 1;
+}
+
+#tile[data-window="closed"] {
+	background: transparent;
+	box-shadow: none;
+}
+
+#tile:hover {
+	background: rgba(250, 250, 250, 0.3);
+}
+
+.github-link {
+	display: grid;
+	place-items: center;
+	width: 52px;
+	height: 52px;
 	color: #fafafa;
 	text-decoration: none;
 	filter: drop-shadow(0 4px 5px rgba(0, 0, 0, 0.9)) drop-shadow(0 12px 32px rgba(0, 0, 0, 0.25));
@@ -285,6 +455,78 @@ a {
 	grid-row: 1 / 5;
 	align-self: stretch;
 	min-height: 0;
+}
+
+#app[data-window="minimized"],
+#app[data-window="closed"] {
+	pointer-events: none;
+}
+
+#app[data-maximized="true"] {
+	margin: -56px -4.5vw -56px 0;
+}
+
+#appanim {
+	height: 100%;
+	transform-origin: center;
+}
+
+#appanim[data-animation="win-min"] {
+	animation: win-min 0.2s cubic-bezier(0.4, 0, 1, 1) forwards;
+}
+
+#appanim[data-animation="win-restore"] {
+	animation: win-restore 0.25s cubic-bezier(0, 0, 0.2, 1) both;
+}
+
+#appanim[data-animation="win-close"] {
+	animation: win-close 0.15s cubic-bezier(0.4, 0, 1, 1) forwards;
+}
+
+#appanim[data-animation="win-open"] {
+	animation: win-open 0.25s cubic-bezier(0, 0, 0.2, 1) both;
+}
+
+#appanim[data-animation="mac-min"] {
+	animation: mac-min 0.6s cubic-bezier(0.45, 0, 0.2, 1) forwards;
+}
+
+#appanim[data-animation="mac-restore"] {
+	animation: mac-restore 0.55s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+#appanim[data-animation="mac-hold"] {
+	visibility: hidden;
+}
+
+#appanim[data-animation="mac-close"] {
+	animation: mac-close 0.2s ease-out forwards;
+}
+
+#appanim[data-animation="mac-open"] {
+	animation: mac-open 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+#appanim[data-animation="gnome-min"] {
+	animation: gnome-min 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+#appanim[data-animation="gnome-restore"] {
+	animation: gnome-restore 0.3s cubic-bezier(0, 0, 0.2, 1) both;
+}
+
+#appanim[data-animation="gnome-close"] {
+	animation: gnome-close 0.15s ease-out forwards;
+}
+
+#appanim[data-animation="gnome-open"] {
+	animation: gnome-open 0.25s cubic-bezier(0, 0, 0.2, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	#appanim {
+		animation-duration: 0.01s !important;
+	}
 }
 
 #appbox {
@@ -314,6 +556,15 @@ a {
 	background: #fafafa;
 }
 
+.genie {
+	position: fixed;
+	inset: 0;
+	z-index: 4;
+	width: 100%;
+	height: 100%;
+	pointer-events: none;
+}
+
 @media (max-width: 999px) {
 	#hero {
 		grid-template-columns: minmax(0, 1fr);
@@ -332,6 +583,10 @@ a {
 	#app {
 		grid-column: 1;
 		grid-row: 2;
+	}
+
+	#app[data-maximized="true"] {
+		margin: 0 -20px;
 	}
 
 	#appbox {

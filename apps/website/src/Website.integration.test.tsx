@@ -217,7 +217,7 @@ describe("Website", () => {
 		const box = elementOf(container, "#appbox");
 
 		expect(app.style.transform).toBe("translateX(-160px)");
-		expect(box.style.transform).toBe("perspective(2400px) rotateY(0deg)");
+		expect(box.style.transform).toBe("perspective(2400px)");
 
 		await showApplicationHeader();
 		await revealed(app);

@@ -1,5 +1,6 @@
 import { createRoot } from "react-dom/client";
 import { Website } from "./Website";
+import "@dump-txt/rig/styles.css";
 import "./styles.css";
 
 const root = document.getElementById("root");

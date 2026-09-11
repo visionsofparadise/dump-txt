@@ -15,7 +15,9 @@
 	"dependencies": {
 		"@dump-txt/rig": "*",
 		"@dump-txt/ui": "*",
+		"modern-screenshot": "4.7.0",
 		"motion": "13.2.0",
+		"opshot": "0.5.3",
 		"react": "19.2.8",
 		"react-dom": "19.2.8"
 	},

@@ -145,7 +145,16 @@ beforeEach(() => {
 
 		playbacks.push({ options, finish, fail, dispose });
 
-		return { ready: true, finished: false, error: null, play: () => played, stop: vi.fn(), dispose };
+		return {
+			ready: true,
+			finished: false,
+			error: null,
+			play: () => played,
+			stop: vi.fn(),
+			pause: vi.fn(),
+			resume: vi.fn(),
+			dispose,
+		};
 	});
 });
 
@@ -349,6 +358,44 @@ describe("AppFrame", { timeout: 30_000 }, () => {
 
 		expect(playbacks[0]?.dispose).toHaveBeenCalled();
 		expect(createPlayback).toHaveBeenCalledTimes(2);
+	});
+
+	it("labels the maximize button restore on a host created while maximized and on a reopened window", async () => {
+		const { container, overlay } = await mount();
+		const maximizeLabel = () =>
+			container.querySelector('[aria-label="Maximize"], [aria-label="Restore window"]')?.getAttribute("aria-label");
+		const report = async (state: string, isMaximized: boolean) => {
+			await act(async () => {
+				window.dispatchEvent(
+					new MessageEvent("message", {
+						data: { type: "window", state, isMaximized },
+						origin: window.location.origin,
+					}),
+				);
+			});
+		};
+
+		expect(maximizeLabel()).toBe("Maximize");
+
+		await report("open", true);
+		await until(() => maximizeLabel() === "Restore window");
+
+		const editor = container.querySelector(".cm-editor");
+
+		await act(async () => {
+			overlay()?.click();
+		});
+		await until(() => {
+			const current = container.querySelector(".cm-editor");
+
+			return current !== editor && current;
+		});
+		await until(() => maximizeLabel() === "Restore window");
+		await report("closed", true);
+		await until(() => container.querySelector(".cm-editor") === null);
+		await report("open", true);
+		await until(() => container.querySelector(".cm-editor"));
+		await until(() => maximizeLabel() === "Restore window");
 	});
 
 	it("carries the visitor's text across a platform message after takeover", async () => {

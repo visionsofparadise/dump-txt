@@ -10,9 +10,21 @@ body,
 	position: relative;
 }
 
+body:has(.appbox-takeover) {
+	cursor: pointer;
+}
+
 .appbox-stage {
 	position: relative;
 	height: 100%;
+}
+
+.appbox-stage.demo-stage {
+	pointer-events: none;
+}
+
+.demo-stage :is(.window-controls, .traffic-lights, .header-bar-controls) button {
+	pointer-events: auto;
 }
 
 .appbox-takeover {
@@ -22,5 +34,5 @@ body,
 	padding: 0;
 	border: 0;
 	background: transparent;
-	cursor: pointer;
+	pointer-events: none;
 }

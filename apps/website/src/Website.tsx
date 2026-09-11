@@ -15,6 +15,8 @@ import sky1280 from "./assets/sky-1280.webp";
 import sky1920 from "./assets/sky-1920.webp";
 import sky3840 from "./assets/sky-3840.webp";
 import { DownloadControl } from "./DownloadControl";
+import { useAppWindow } from "./hooks/useAppWindow";
+import { TaskbarTile } from "./TaskbarTile";
 import { downloadOptionsOf } from "./utils/downloadOptionsOf";
 import { platformOf, type Platform } from "./utils/platformOf";
 
@@ -36,10 +38,11 @@ const backgroundSizes = "calc(100vh * 5504 / 3072)";
 
 interface Entrance {
 	readonly app: Variants;
-	readonly tilt: Variants;
+	readonly tilt: Transition | null;
 	readonly controls: Variants;
 	readonly github: Variants;
 	readonly headline: Variants;
+	readonly pointer: Variants;
 }
 
 function variantsOf(hidden: TargetAndTransition, visible: TargetAndTransition, transition: Transition): Variants {
@@ -53,25 +56,26 @@ function entranceOf(isMobile: boolean, isReducedMotion: boolean): Entrance {
 	const fadeOf = (delay: number) =>
 		variantsOf({ opacity: 0 }, { opacity: 1 }, timingOf({ duration: 1.8, delay, ease: headlineEase }));
 
+	const pointerOf = (delay: number) =>
+		variantsOf({ opacity: 0 }, { opacity: 1 }, timingOf({ duration: 1.2, delay, ease: easeOut }));
+
 	if (isMobile)
 		return {
 			app: riseOf(28, 0.15, 1.2),
-			tilt: {},
+			tilt: null,
 			controls: riseOf(20, 0.2, 1),
 			github: riseOf(20, 0.35, 1),
 			headline: fadeOf(0.1),
+			pointer: pointerOf(0.15),
 		};
 
 	return {
 		app: variantsOf({ opacity: 0, x: -160 }, { opacity: 1, x: 0 }, timingOf({ duration: 1.2, ease: easeOut })),
-		tilt: variantsOf(
-			{ transform: "perspective(2400px) rotateY(0deg)" },
-			{ transform: "perspective(2400px) rotateY(-9deg)" },
-			timingOf({ duration: 1.2, ease: easeOut }),
-		),
+		tilt: timingOf({ duration: 1.2, ease: easeOut }),
 		controls: riseOf(40, 0.35, 1),
 		github: riseOf(40, 0.5, 1),
 		headline: fadeOf(0.65),
+		pointer: pointerOf(0),
 	};
 }
 
@@ -103,6 +107,8 @@ export function Website() {
 
 	const [isApplicationReady, setApplicationReady] = useState(false);
 
+	const appWindow = useAppWindow(platform);
+
 	const isEntranceReady = isPageReady && isApplicationReady;
 
 	const sections = useMemo(
@@ -111,6 +117,7 @@ export function Website() {
 			controls: sectionOf(entrance.controls, isEntranceReady),
 			github: sectionOf(entrance.github, isEntranceReady),
 			headline: sectionOf(entrance.headline, isEntranceReady),
+			pointer: sectionOf(entrance.pointer, isEntranceReady),
 		}),
 		[entrance, isEntranceReady],
 	);
@@ -184,23 +191,23 @@ export function Website() {
 						onOptionChange={setOptionId}
 						entrance={sections.controls}
 					/>
-					<motion.a
-						id="github"
-						href="https://github.com/visionsofparadise/dump-txt"
-						aria-label="GitHub"
-						{...sections.github}
-					>
-						<svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-							<path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.1.79-.25.79-.56v-2.17c-3.2.7-3.87-1.36-3.87-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.7 1.25 3.35.96.1-.75.4-1.25.73-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.78 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.25 5.67.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5z" />
-						</svg>
-					</motion.a>
+					<motion.div id="github" {...sections.github}>
+						<TaskbarTile control={appWindow} />
+						<a className="github-link" href="https://github.com/visionsofparadise/dump-txt" aria-label="GitHub">
+							<svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+								<path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.1.79-.25.79-.56v-2.17c-3.2.7-3.87-1.36-3.87-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.7 1.25 3.35.96.1-.75.4-1.25.73-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.78 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.25 5.67.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5z" />
+							</svg>
+						</a>
+					</motion.div>
 					<AppBox
 						platform={platform}
 						entrance={sections.app}
-						tiltVariants={entrance.tilt}
+						tiltTransition={entrance.tilt}
+						control={appWindow}
 						onApplicationReady={markApplicationReady}
 					/>
 				</main>
+				<motion.div id="pointer-stage" {...sections.pointer} />
 			</div>
 		</MotionConfig>
 	);
