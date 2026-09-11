@@ -21,6 +21,8 @@ jobs:
             include:
                - os: windows-latest
                  artifact: windows-x64
+               - os: windows-11-arm
+                 artifact: windows-arm64
                - os: ubuntu-24.04
                  artifact: linux-x64
                - os: macos-15
@@ -60,6 +62,14 @@ jobs:
          - name: Install native WebDriver
            if: runner.os != 'macOS'
            run: cargo install tauri-driver --version 2.0.6 --locked
+         - name: Use the runner image's ARM64 Edge WebDriver
+           if: matrix.artifact == 'windows-arm64'
+           shell: pwsh
+           run: |
+              $driver = Join-Path $env:EDGEWEBDRIVER 'msedgedriver.exe'
+              if (-not (Test-Path -LiteralPath $driver)) { throw "Expected the image's Edge WebDriver at $driver." }
+              "MS_EDGE_DRIVER=$driver" | Add-Content -LiteralPath $env:GITHUB_ENV
+              $env:EDGEWEBDRIVER | Add-Content -LiteralPath $env:GITHUB_PATH
          - run: npm run check
          - run: npm run unit
          - run: npm run integration
@@ -119,7 +129,7 @@ jobs:
            if: ${{ !cancelled() && steps.persistence-build.outcome == 'success' }}
            run: npm run build
          - name: Verify Windows install and Electron upgrade
-           if: ${{ !cancelled() && steps.package-build.outcome == 'success' && runner.os == 'Windows' }}
+           if: ${{ !cancelled() && steps.package-build.outcome == 'success' && matrix.artifact == 'windows-x64' }}
            timeout-minutes: 15
            shell: pwsh
            run: |
@@ -141,6 +151,7 @@ jobs:
               name: installer-${{ matrix.artifact }}
               path: |
                  apps/desktop/out/make/dump-txt-*-windows-x64.exe
+                 apps/desktop/out/make/dump-txt-*-windows-arm64.exe
                  apps/desktop/out/make/dump-txt-*-mac-*.dmg
                  apps/desktop/out/make/dump-txt-*-linux-*.AppImage
                  apps/desktop/out/make/dump-txt-*-linux-*.deb

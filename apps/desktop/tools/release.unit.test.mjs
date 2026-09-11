@@ -9,12 +9,13 @@ const directories = [];
 const sha = "a".repeat(40);
 const other = "b".repeat(40);
 
-test("normalizes all five Tauri packages to the existing release contract", () => {
+test("normalizes all six Tauri packages to the existing release contract", () => {
 	mkdirSync(resolve(".scratch"), { recursive: true });
 	const directory = mkdtempSync(join(resolve(".scratch"), "tauri-packages-"));
 	directories.push(directory);
 	for (const [platform, architecture, type, source, expected] of [
 		["win32", "x64", "nsis", "dump.txt_0.2.0_x64-setup.exe", "dump-txt-0.2.0-windows-x64.exe"],
+		["win32", "arm64", "nsis", "dump.txt_0.2.0_arm64-setup.exe", "dump-txt-0.2.0-windows-arm64.exe"],
 		["darwin", "arm64", "dmg", "dump.txt_0.2.0_aarch64.dmg", "dump-txt-0.2.0-mac-arm64.dmg"],
 		["darwin", "x64", "dmg", "dump.txt_0.2.0_x64.dmg", "dump-txt-0.2.0-mac-x64.dmg"],
 		["linux", "x64", "appimage", "dump.txt_0.2.0_amd64.AppImage", "dump-txt-0.2.0-linux-x86_64.AppImage"],
@@ -26,7 +27,7 @@ test("normalizes all five Tauri packages to the existing release contract", () =
 		if (type === "appimage") continue;
 		normalizeTauriPackages(directory, "0.2.0", platform, architecture);
 		assert.equal(readFileSync(join(directory, "out", "make", expected), "utf8"), expected);
-		if (type === "dmg") rmSync(join(bundle, source));
+		if (type === "dmg" || type === "nsis") rmSync(join(bundle, source));
 	}
 	writeChecksums(join(directory, "out", "make"), "0.2.0");
 });
@@ -147,6 +148,7 @@ test("includes the version, platform, and architecture in every artifact name", 
 		"dump-txt-0.2.0-linux-x86_64.AppImage",
 		"dump-txt-0.2.0-mac-arm64.dmg",
 		"dump-txt-0.2.0-mac-x64.dmg",
+		"dump-txt-0.2.0-windows-arm64.exe",
 		"dump-txt-0.2.0-windows-x64.exe",
 	]);
 });

@@ -34,6 +34,7 @@ export function artifactNamesOf(version) {
 
 	return [
 		`dump-txt-${version}-windows-x64.exe`,
+		`dump-txt-${version}-windows-arm64.exe`,
 		`dump-txt-${version}-mac-arm64.dmg`,
 		`dump-txt-${version}-mac-x64.dmg`,
 		`dump-txt-${version}-linux-x86_64.AppImage`,
@@ -108,7 +109,7 @@ export function publishRelease({ repository, sha, version, directory, draftOnly 
 			"--title",
 			`dump.txt ${version}`,
 			"--notes",
-			"Windows x64 installer, macOS Apple Silicon and Intel DMGs, and Linux x64 AppImage and Debian package. SHA256SUMS covers every download. macOS builds are not Developer ID signed or notarized.",
+			"Windows x64 and ARM64 installers, macOS Apple Silicon and Intel DMGs, and Linux x64 AppImage and Debian package. SHA256SUMS covers every download. macOS builds are not Developer ID signed or notarized.",
 		]);
 
 	run([

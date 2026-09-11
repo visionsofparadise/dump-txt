@@ -4,11 +4,12 @@ import { artifactNamesOf } from "./release.mjs";
 
 export function normalizeTauriPackages(root, version, platform = process.platform, architecture = process.arch) {
 	const supported =
-		((platform === "win32" || platform === "linux") && architecture === "x64") ||
+		(platform === "win32" && ["x64", "arm64"].includes(architecture)) ||
+		(platform === "linux" && architecture === "x64") ||
 		(platform === "darwin" && ["x64", "arm64"].includes(architecture));
 	if (!supported) throw new Error(`Unsupported Tauri package target: ${platform}/${architecture}`);
 	const expected = artifactNamesOf(version).filter((name) => {
-		if (platform === "win32") return name.endsWith(".exe");
+		if (platform === "win32") return name.endsWith(`-windows-${architecture}.exe`);
 		if (platform === "darwin") return name.endsWith(`-mac-${architecture}.dmg`);
 		return name.includes("-linux-");
 	});
