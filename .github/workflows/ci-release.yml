@@ -211,4 +211,4 @@ jobs:
            run: |
               tag=$(node -p "'v' + JSON.parse(require('node:fs').readFileSync('apps/desktop/package.json', 'utf8')).version")
               gh workflow run demo.yml --repo "$GITHUB_REPOSITORY" --ref main -f "tag=$tag"
-              gh workflow run website.yml --repo "$GITHUB_REPOSITORY" --ref main -f "tag=$tag"
+              gh workflow run website.yml --repo "$GITHUB_REPOSITORY" --ref main -f "tag=$tag" -f "commit=$GITHUB_SHA"

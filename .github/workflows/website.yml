@@ -9,6 +9,10 @@ on:
             description: Published stable release tag to link (empty for the latest)
             required: false
             type: string
+         commit:
+            description: Commit to build (empty for the dispatched ref)
+            required: false
+            type: string
 
 permissions:
    contents: read
@@ -27,18 +31,18 @@ jobs:
       steps:
          - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
            with:
-              ref: main
+              ref: ${{ inputs.commit || github.sha }}
               persist-credentials: false
          - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
            with:
               node-version: 24
               cache: npm
+         - name: Pin npm 12
+           run: npm install -g npm@12
+         - name: Enforce install-script allowlist
+           run: npm config set strict-allow-scripts=true --location=project
          - name: Install dependencies
-           env:
-              npm_config_strict_allow_scripts: "true"
-           run: |
-              npm install -g npm@12
-              npm ci --ignore-scripts
+           run: npm ci --ignore-scripts
          - name: Link the release
            env:
               GH_TOKEN: ${{ github.token }}
