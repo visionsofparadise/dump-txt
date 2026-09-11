@@ -23,6 +23,7 @@ jobs:
                  artifact: windows-x64
                - os: windows-11-arm
                  artifact: windows-arm64
+                 nativeWindow: "false"
                - os: ubuntu-24.04
                  artifact: linux-x64
                - os: macos-15
@@ -32,7 +33,7 @@ jobs:
       runs-on: ${{ matrix.os }}
       timeout-minutes: 90
       env:
-         TAURI_TEST_NATIVE_WINDOW: "true"
+         TAURI_TEST_NATIVE_WINDOW: ${{ matrix.nativeWindow || 'true' }}
       steps:
          - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
            with:
