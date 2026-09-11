@@ -17,6 +17,7 @@ const releaseManifest: Plugin = {
 };
 
 export default defineConfig({
+	base: "./",
 	plugins: [react(), releaseManifest],
 	server: { host: "127.0.0.1" },
 	build: {
