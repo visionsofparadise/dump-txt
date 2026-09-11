@@ -562,7 +562,7 @@ describe("scratchpad interface", () => {
 			maximize: false,
 			close: false,
 		};
-		const { user } = await fixture(undefined, "windows", capabilities);
+		const { user, api, container } = await fixture(undefined, "windows", capabilities);
 
 		await user.click(screen.getByRole("button", { name: "App menu" }));
 		expect((await screen.findByRole("menuitem", { name: /Open…/u })).getAttribute("data-disabled")).toBe("");
@@ -575,10 +575,28 @@ describe("scratchpad interface", () => {
 		expect(screen.getByRole("button", { name: "Minimize" }).hasAttribute("disabled")).toBe(true);
 		expect(screen.getByRole("button", { name: "Maximize" }).hasAttribute("disabled")).toBe(true);
 		expect(screen.getByRole("button", { name: "Close window" }).hasAttribute("disabled")).toBe(true);
+		const keydown = vi.fn<(event: KeyboardEvent) => void>();
+		document.addEventListener("keydown", keydown);
+		press("o", { ctrlKey: true });
+		press("s", { ctrlKey: true, shiftKey: true });
+		document.removeEventListener("keydown", keydown);
+		expect(main.showOpenDialog).not.toHaveBeenCalled();
+		expect(main.showSaveDialog).not.toHaveBeenCalled();
+		expect(keydown.mock.calls[0]![0].defaultPrevented).toBe(false);
+		expect(keydown.mock.calls[1]![0].defaultPrevented).toBe(false);
 		await user.click(screen.getByRole("button", { name: "App menu" }));
 		await user.click(await screen.findByRole("menuitem", { name: "Keybinds" }));
 		await screen.findByRole("dialog", { name: "Keybinds" });
 		expect(screen.queryByRole("region", { name: "File" })).toBeNull();
+		await user.keyboard("{Escape}");
+		await waitFor(() => expect(screen.queryByRole("dialog", { name: "Keybinds" })).toBeNull());
+		await act(async () => {
+			api.current!.persistence.state.error = "Disk write failed.";
+		});
+		await waitFor(() => expect(container.querySelector(".save-error")).not.toBeNull());
+		const banner = container.querySelector<HTMLElement>(".save-error")!;
+		expect(within(banner).getByRole("button", { name: "Save As…" }).hasAttribute("disabled")).toBe(true);
+		expect(within(banner).getByRole("button", { name: "Open…" }).hasAttribute("disabled")).toBe(true);
 	});
 
 	it("leaves every action enabled when the host declares no capabilities", async () => {
