@@ -794,6 +794,7 @@ describe("recovery ordering", () => {
 	});
 
 	it("retries inaccessible recovery without losing edits accepted before access returned", async () => {
+		vi.useFakeTimers();
 		const test = await fixture("base");
 		await test.persistence.initialize();
 		insert(test.persistence, "pending");
@@ -832,6 +833,7 @@ describe("recovery ordering", () => {
 	});
 
 	it("exposes pending recovery beside undecodable backing bytes and rescues it with Save As", async () => {
+		vi.useFakeTimers();
 		const test = await fixture("base");
 		await test.persistence.initialize();
 		insert(test.persistence, "pending");
@@ -851,6 +853,7 @@ describe("recovery ordering", () => {
 		expect(new Uint8Array(await readFile(test.path))).toEqual(invalid);
 	});
 	it("loads matching recovery when the backing file cannot be read", async () => {
+		vi.useFakeTimers();
 		const test = await fixture("base");
 		await test.persistence.initialize();
 		insert(test.persistence, "pending");
@@ -869,6 +872,7 @@ describe("recovery ordering", () => {
 		expect(await diskText(destination)).toBe("pendingbase");
 	});
 	it("restores occurrence edits whose historical seed exceeds the replacement length", async () => {
+		vi.useFakeTimers();
 		const test = await fixture("longlong\n\f\nlonglong");
 		await test.persistence.initialize();
 		const context = test.persistence.context!;
@@ -897,6 +901,7 @@ describe("recovery ordering", () => {
 	it.each(["journal", "backing", "state"])(
 		"restarts after the %s boundary with the newest recoverable text",
 		async (boundary) => {
+			vi.useFakeTimers();
 			const test = await fixture("base");
 			await test.persistence.initialize();
 			insert(test.persistence, "pending");
@@ -949,6 +954,7 @@ describe("recovery ordering", () => {
 	});
 
 	it("presents conflicting recovery without overwriting either version", async () => {
+		vi.useFakeTimers();
 		const test = await fixture("base");
 		await test.persistence.initialize();
 		insert(test.persistence, "pending");
@@ -963,6 +969,7 @@ describe("recovery ordering", () => {
 	});
 
 	it("retains a missing last-opened file and pending recovery", async () => {
+		vi.useFakeTimers();
 		const test = await fixture("base");
 		await test.persistence.initialize();
 		insert(test.persistence, "pending");
@@ -978,6 +985,7 @@ describe("recovery ordering", () => {
 	});
 
 	it("preserves corrupt recovery and rejects invalid page IDs or selection bounds", async () => {
+		vi.useFakeTimers();
 		const test = await fixture("base");
 		await test.persistence.initialize();
 		insert(test.persistence, "pending");
