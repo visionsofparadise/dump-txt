@@ -610,6 +610,34 @@ describe("the current dump lifecycle", () => {
 		expect(textOf(test.persistence)).toBe("usableold");
 	});
 
+	it.each([false, true])("rescues a recreated URI with a picker hash, concurrent change=%s", async (changed) => {
+		vi.useFakeTimers();
+		const test = await fixture("scratch");
+		const reference = "content://documents/recreated";
+		const backing = join(test.directory, "saved.txt");
+		await writeFile(backing, "original");
+		test.mapDocument(reference, backing);
+		await test.persistence.initialize();
+		test.chooseOpen({ path: reference, name: "saved.txt", hash: (await test.read(reference))!.hash });
+		await test.persistence.open();
+		await rm(backing);
+		insert(test.persistence, "pending ");
+		await expect(test.persistence.flush()).rejects.toThrow();
+		const original = test.persistence.context;
+		await writeFile(backing, "");
+		const candidate = { path: reference, name: "saved.txt", hash: (await test.read(reference))!.hash };
+		test.main.showSaveDialog = async () => {
+			if (changed) await writeFile(backing, "external change");
+			return candidate;
+		};
+		await test.persistence.saveAs();
+		expect(test.persistence.context).toBe(original);
+		expect(textOf(test.persistence)).toBe("pending original");
+		expect(test.persistence.state.phase).toBe(changed ? "failed" : "ready");
+		expect(await diskText(backing)).toBe(changed ? "external change" : "pending original");
+		if (changed) expect(test.persistence.state.error).toContain("File changed outside");
+	});
+
 	it("treats Open and Save As of the same path as a flush", async () => {
 		const test = await fixture("");
 		await test.persistence.initialize();
@@ -617,10 +645,15 @@ describe("the current dump lifecycle", () => {
 		const original = test.persistence.context;
 		test.chooseOpen({ path: test.path, name: test.path.split(/[\\/]/u).at(-1)!, hash: null });
 		await test.persistence.open();
-		test.chooseSave({ path: test.path, name: test.path.split(/[\\/]/u).at(-1)!, hash: null });
+		test.chooseSave({
+			path: test.path,
+			name: test.path.split(/[\\/]/u).at(-1)!,
+			hash: (await test.read(test.path))!.hash,
+		});
 		await test.persistence.saveAs();
 		expect(test.persistence.context).toBe(original);
 		expect(original?.history.canUndo).toBe(true);
+		expect(test.persistence.state.phase).toBe("ready");
 	});
 
 	it("Save As adopts the destination while retaining history and session identity", async () => {

@@ -299,7 +299,7 @@ export class PersistenceController {
 
 			this.#setLocked(true);
 
-			if (this.state.path && sameFilePath(candidate.path, this.state.path)) {
+			if (this.state.path && sameFilePath(candidate.path, this.state.path) && candidate.hash === this.#backingHash) {
 				this.state.name = candidate.name;
 				await this.flush();
 
