@@ -12,13 +12,14 @@ const directory = fileURLToPath(new URL("../", import.meta.url));
 const arguments_ = process.argv.slice(2);
 const platform = ["android", "ios"].includes(arguments_[0]) ? arguments_.shift() : undefined;
 const command = arguments_.shift();
+const xcodeScript = platform === "ios" && command === "xcode-script";
 const probe = arguments_.includes("--probe");
 const automation = arguments_.includes("--automation");
 const supported = new Set(["dev", "build"]);
 
 if (
-	!supported.has(command) ||
-	arguments_.some((argument) => !["--probe", "--automation"].includes(argument)) ||
+	(!supported.has(command) && !xcodeScript) ||
+	(!xcodeScript && arguments_.some((argument) => !["--probe", "--automation"].includes(argument))) ||
 	(platform && (probe || automation))
 ) {
 	throw new Error("Use [android|ios] dev [--probe] [--automation] or [android|ios] build [--probe] [--automation]");
@@ -41,6 +42,11 @@ function run(executable, arguments_) {
 	const result = spawnSync(executable, arguments_, options);
 	if (result.error) throw result.error;
 	if (result.status !== 0) process.exit(result.status ?? 1);
+}
+
+if (xcodeScript) {
+	run(process.execPath, [require.resolve("@tauri-apps/cli/tauri.js"), "ios", "xcode-script", ...arguments_]);
+	process.exit(0);
 }
 
 const vite = join(require.resolve("vite/package.json"), "..", "bin", "vite.js");

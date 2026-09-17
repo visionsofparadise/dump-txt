@@ -227,12 +227,25 @@ jobs:
               java-version: 17
          - uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407
            if: matrix.artifact == 'android'
+           with:
+              packages: platform-tools
          - name: Install Android NDK
            if: matrix.artifact == 'android'
            run: |
               sdkmanager "ndk;27.2.12479018"
               echo "NDK_HOME=$ANDROID_HOME/ndk/27.2.12479018" >> "$GITHUB_ENV"
               echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
+         - name: Restore stable Android debug signing key
+           if: matrix.artifact == 'android'
+           env:
+              ANDROID_DEBUG_KEYSTORE_BASE64: ${{ secrets.ANDROID_DEBUG_KEYSTORE_BASE64 }}
+           run: |
+              test -n "$ANDROID_DEBUG_KEYSTORE_BASE64"
+              umask 077
+              mkdir -p "$HOME/.android"
+              printf '%s' "$ANDROID_DEBUG_KEYSTORE_BASE64" | base64 --decode > "$HOME/.android/debug.keystore"
+              certificate_sha256=$(keytool -exportcert -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey | sha256sum | cut -d ' ' -f 1)
+              test "$certificate_sha256" = "059e85e1a8aa67d93842ed55cd8e7a470eef3624c21f50b0527adc061c741eea"
          - name: Build Android
            if: matrix.artifact == 'android'
            run: npm run android --workspace @dump-txt/app
@@ -243,10 +256,10 @@ jobs:
          - name: Install CocoaPods
            if: matrix.artifact == 'ios'
            run: brew list cocoapods || brew install cocoapods
-         - name: Generate iOS project
+         - name: Verify committed iOS project
            if: matrix.artifact == 'ios'
            working-directory: apps/app
-           run: node ../../node_modules/@tauri-apps/cli/tauri.js ios init --ci
+           run: test -f gen/apple/project.yml && test -f gen/apple/dump-txt.xcodeproj/project.pbxproj
          - name: Build iOS simulator
            if: matrix.artifact == 'ios'
            continue-on-error: true
