@@ -1,7 +1,8 @@
 import { Keyboard, X } from "lucide-react";
 import { scope } from "opshot";
-import { useCallback } from "react";
+import { useCallback, useContext } from "react";
 import { capabilitiesOf } from "../../models/MainCapabilities";
+import { PlatformContext } from "../../models/PlatformContext";
 import { Dialog, DialogContent, DialogTitle } from "../UI/Dialog";
 import type { ChromeContext } from "../../models/ChromeContext";
 
@@ -63,8 +64,10 @@ interface KeybindsProps {
 }
 
 export const Keybinds = scope(({ context }: KeybindsProps) => {
+	const platform = useContext(PlatformContext) ?? context.main.platform;
+
 	const { chrome, editor } = context;
-	const primaryModifier = context.main.platform === "macos" ? "Command" : "Ctrl";
+	const primaryModifier = platform === "macos" ? "Command" : "Ctrl";
 	const capabilities = capabilitiesOf(context.main);
 	const visibleGroups = groups
 		.map((group) =>

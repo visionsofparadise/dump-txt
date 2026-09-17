@@ -1,5 +1,6 @@
 import { scope } from "opshot";
-import { useCallback, useEffect, type PointerEvent, type ReactNode } from "react";
+import { useCallback, useContext, useEffect, type PointerEvent, type ReactNode } from "react";
+import { PlatformContext } from "../models/PlatformContext";
 import { cn } from "../utils/cn";
 import { HeaderBarControls } from "./HeaderBarControls";
 import { TrafficLights } from "./TrafficLights";
@@ -16,7 +17,9 @@ interface TitleBarProps {
 
 export const TitleBar = scope(({ children, chrome, onDismissMenu, context }: TitleBarProps) => {
 	const { main, persistenceState } = context;
-	const platform = main.platform ?? "windows";
+
+	const platform = useContext(PlatformContext) ?? main.platform ?? "windows";
+
 	const decorations = main.decorations ?? "native";
 	const filename = persistenceState.path?.split(/[\\/]/u).at(-1) ?? "dump.txt";
 	const menuOpen = chrome?.menuOpen ?? false;

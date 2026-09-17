@@ -13,7 +13,7 @@ export interface MemoryMainOptions {
 }
 
 export class MemoryMain implements Main {
-	readonly platform: Main["platform"];
+	#platform: Main["platform"];
 	readonly capabilities: MainCapabilities | undefined;
 	readonly #files = new Map<string, Uint8Array>();
 	readonly #listeners: {
@@ -40,7 +40,7 @@ export class MemoryMain implements Main {
 	};
 
 	constructor(options: MemoryMainOptions = {}) {
-		this.platform = options.platform ?? "windows";
+		this.#platform = options.platform ?? "windows";
 		this.capabilities = options.capabilities;
 		this.#onClose = options.onClose;
 		this.#theme = options.theme ?? "dark";
@@ -65,6 +65,14 @@ export class MemoryMain implements Main {
 
 		this.#files.set(state.activePath, encoder.encode(options.text ?? ""));
 		this.#files.set("/memory/app-state.json", encoder.encode(JSON.stringify(state)));
+	}
+
+	get platform(): Main["platform"] {
+		return this.#platform;
+	}
+
+	setPlatform(platform: Main["platform"]): void {
+		this.#platform = platform;
 	}
 
 	get title(): string {

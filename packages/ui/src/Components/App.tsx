@@ -1,17 +1,19 @@
 import { useEffect, useMemo, useRef, type Ref } from "react";
 import { MainEvents } from "../models/MainEvents";
 import { PersistenceController } from "../models/PersistenceController";
+import { PlatformContext } from "../models/PlatformContext";
 import { Loader } from "./Loader";
 import type { ChromeContext } from "../models/ChromeContext";
 import type { Main } from "../models/Main";
 
 export interface AppProps {
 	readonly main: Main;
+	readonly platform?: Main["platform"];
 	readonly onReady?: () => void;
 	readonly ref?: Ref<ChromeContext>;
 }
 
-export function App({ main, onReady, ref }: AppProps) {
+export function App({ main, platform = main.platform, onReady, ref }: AppProps) {
 	const surface = useRef<HTMLDivElement>(null);
 
 	const context = useMemo(() => {
@@ -31,5 +33,9 @@ export function App({ main, onReady, ref }: AppProps) {
 		};
 	}, [context, onReady]);
 
-	return <Loader surface={surface} apiRef={ref} context={context} />;
+	return (
+		<PlatformContext value={platform}>
+			<Loader surface={surface} apiRef={ref} context={context} />
+		</PlatformContext>
+	);
 }

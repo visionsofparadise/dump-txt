@@ -1,7 +1,8 @@
 import { FolderOpen, Keyboard, Menu as MenuIcon, PanelBottom, Redo2, Save, Search, X, Undo2 } from "lucide-react";
 import { scope } from "opshot";
-import { useCallback } from "react";
+import { useCallback, useContext } from "react";
 import { capabilitiesOf } from "../../models/MainCapabilities";
+import { PlatformContext } from "../../models/PlatformContext";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -20,6 +21,8 @@ interface MenuProps {
 }
 
 export const Menu = scope(({ context }: MenuProps) => {
+	const platform = useContext(PlatformContext) ?? context.main.platform;
+
 	const { session, editor, history, persistence, persistenceState, chrome } = context;
 	const capabilities = capabilitiesOf(context.main);
 
@@ -104,7 +107,7 @@ export const Menu = scope(({ context }: MenuProps) => {
 			</DropdownMenuTrigger>
 			<DropdownMenuContent
 				container={context.surface.current}
-				align={context.main.platform === "macos" ? "end" : "start"}
+				align={platform === "macos" ? "end" : "start"}
 				onCloseAutoFocus={restoreFocus}
 			>
 				<DropdownMenuItem onSelect={openFile} disabled={persistenceState.locked || !capabilities.openDump}>

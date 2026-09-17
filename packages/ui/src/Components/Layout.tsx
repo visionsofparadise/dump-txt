@@ -1,6 +1,7 @@
 import { createMutableState, scope } from "opshot";
 import {
 	useCallback,
+	useContext,
 	useEffect,
 	useImperativeHandle,
 	useLayoutEffect,
@@ -11,6 +12,7 @@ import {
 	type RefObject,
 } from "react";
 import { capabilitiesOf } from "../models/MainCapabilities";
+import { PlatformContext } from "../models/PlatformContext";
 import { Menu } from "./Menu";
 import { ChromeDialogs } from "./Menu/ChromeDialogs";
 import { DownBar } from "./Page/DownBar";
@@ -35,7 +37,9 @@ interface EditorStyle extends CSSProperties {
 
 export const Layout = scope(({ ref, surface, context: dumpContext }: LayoutProps) => {
 	const { session, editor, persistence } = dumpContext;
-	const platform = dumpContext.main.platform ?? "windows";
+
+	const platform = useContext(PlatformContext) ?? dumpContext.main.platform ?? "windows";
+
 	const decorations = dumpContext.main.decorations ?? "native";
 	const capabilities = capabilitiesOf(dumpContext.main);
 

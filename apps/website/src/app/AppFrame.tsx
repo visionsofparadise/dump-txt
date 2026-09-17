@@ -5,15 +5,12 @@ import { isPlatform } from "../utils/isPlatform";
 import { platformOf } from "../utils/platformOf";
 import { messagePlatformOf, windowReportOf, type WindowState } from "../utils/windowMessages";
 import { FrameWindow } from "./models/FrameWindow";
-import { carriedOptionsOf } from "./utils/carriedOptionsOf";
 import { guardDemonstrationFocus } from "./utils/guardDemonstrationFocus";
 import { pageStageOf } from "./utils/pageStageOf";
 
 const freshOptions = { theme: "light", font: "Consolas" } as const;
 
 const failedLoopDelay = 1000;
-
-type HostOptions = Awaited<ReturnType<typeof carriedOptionsOf>> | typeof freshOptions;
 
 export function AppFrame() {
 	const stage = useRef<HTMLDivElement>(null);
@@ -24,7 +21,11 @@ export function AppFrame() {
 
 	const [frameWindow] = useState(() => new FrameWindow());
 
-	const createMain = (platform: BrowserMainOptions["platform"], options: HostOptions, isDemonstrating: boolean) => {
+	const createMain = (
+		platform: BrowserMainOptions["platform"],
+		options: typeof freshOptions,
+		isDemonstrating: boolean,
+	) => {
 		const next = new BrowserMain({ platform, ...options, ...frameWindow.hostCallbacksOf(isDemonstrating) });
 
 		next.setMaximized(frameWindow.isMaximized);
@@ -217,29 +218,15 @@ export function AppFrame() {
 	}, [mode, hostGeneration]);
 
 	useEffect(() => {
-		if (main.platform === platform) return;
-
-		const transfer = new AbortController();
-
-		void (async () => {
-			try {
-				const options = mode === "interactive" ? await carriedOptionsOf(main, context.current) : freshOptions;
-
-				if (!transfer.signal.aborted) replaceMain(createMain(platform, options, mode === "demonstrating"));
-			} catch (error: unknown) {
-				console.error(error);
-			}
-		})();
-
-		return () => {
-			transfer.abort();
-		};
-	}, [platform, main, mode]);
+		main.setPlatform(platform);
+	}, [platform, main]);
 
 	return (
 		<>
 			<div ref={stage} className={mode === "demonstrating" ? "appbox-stage demo-stage" : "appbox-stage"}>
-				{windowState !== "closed" && <App key={hostGeneration} main={main} ref={attachContext} />}
+				{windowState !== "closed" && (
+					<App key={hostGeneration} main={main} platform={platform} ref={attachContext} />
+				)}
 			</div>
 			{mode === "demonstrating" && <button className="appbox-takeover" type="button" aria-label="Try dump.txt" />}
 		</>

@@ -350,7 +350,8 @@ describe("AppFrame", { timeout: 30_000 }, () => {
 	});
 
 	it("starts from the platform query and follows platform messages from its own origin", async () => {
-		const { platform } = await mount("?platform=linux");
+		const { platform, context, content } = await mount("?platform=linux");
+		const original = context();
 
 		expect(platform()).toBe("linux");
 		expect(createPlayback).toHaveBeenCalledOnce();
@@ -365,12 +366,30 @@ describe("AppFrame", { timeout: 30_000 }, () => {
 		expect(platform()).toBe("linux");
 
 		await act(async () => {
-			window.dispatchEvent(platformMessage("macos"));
+			original.editor.apply({ type: "insert", text: "first page" });
+			original.editor.apply({ type: "insertPage", position: "below" });
+			original.editor.apply({ type: "insert", text: "demo in progress" });
+			original.editor.select([{ anchor: 2, head: 6 }]);
 		});
-		await until(() => platform() === "macos");
 
-		expect(playbacks[0]?.dispose).toHaveBeenCalled();
-		expect(createPlayback).toHaveBeenCalledTimes(2);
+		const activePage = original.session.view.activePageId;
+
+		for (const next of ["macos", "windows", "linux"]) {
+			await act(async () => {
+				window.dispatchEvent(platformMessage(next));
+			});
+			await until(() => platform() === next);
+
+			expect(context()).toBe(original);
+			expect(content.isConnected).toBe(true);
+			expect(original.session.view.activePageId).toBe(activePage);
+			expect(original.session.view.selections[activePage]?.ranges).toEqual([{ anchor: 2, head: 6 }]);
+			expect(pageTextOf(original)).toBe("demo in progress");
+			expect(original.document.pages).toHaveLength(2);
+		}
+
+		expect(playbacks[0]?.dispose).not.toHaveBeenCalled();
+		expect(createPlayback).toHaveBeenCalledOnce();
 	});
 
 	it("labels the maximize button restore on a host created while maximized and on a reopened window", async () => {
