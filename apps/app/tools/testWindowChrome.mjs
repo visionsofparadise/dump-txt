@@ -51,7 +51,7 @@ export async function testWindowChrome(browser, native, folder) {
 				if (!option) throw new Error(`Theme option missing: ${value}`);
 				option.dataset.chromeTest = "theme";
 			}, theme);
-			await native.click('[data-chrome-test="theme"]');
+			await native.click('[data-chrome-test="theme"]', true, '[data-chrome-test="appearance"]');
 			await waitFor(() => browser.execute((value) => document.documentElement.dataset.theme === value, theme));
 			if (await menuOpen()) await dismiss();
 			await waitFor(async () => !(await menuOpen()));

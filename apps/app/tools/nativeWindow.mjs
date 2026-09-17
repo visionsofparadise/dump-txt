@@ -253,7 +253,7 @@ export async function createNativeWindow(browser, folder) {
 		const scale = process.platform === "darwin" ? 1 : geometry.scale;
 		return { x: Math.round(bounds.clientX + geometry.x * scale), y: Math.round(bounds.clientY + geometry.y * scale) };
 	};
-	const click = async (selector, observeRenderer = true) => {
+	const click = async (selector, observeRenderer = true, submenuTrigger) => {
 		const number = ++clickNumber;
 		await browser.execute(() => {
 			if (!window.nativePointerEvents) {
@@ -280,6 +280,7 @@ export async function createNativeWindow(browser, folder) {
 			window.nativePointerEvents.length = 0;
 		});
 		const position = await point(selector);
+		if (process.platform === "darwin" && submenuTrigger) position.viaY = (await point(submenuTrigger)).y;
 		const viewport = await browser.execute(
 			(query) => ({
 				target: document.querySelector(query)?.getBoundingClientRect().toJSON(),

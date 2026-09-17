@@ -80,6 +80,9 @@ case "pointer":
         usleep(100000)
     }
     let start = CGPoint(x: request["x"] as! Double, y: request["y"] as! Double)
+    if let viaY = request["viaY"] as? Double {
+        movePointer(CGPoint(x: start.x, y: viaY))
+    }
     movePointer(start)
     pointer(start, .leftMouseDown)
     if let endX = request["endX"] as? Double, let endY = request["endY"] as? Double {
