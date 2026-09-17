@@ -251,6 +251,11 @@ pub fn renderer_ready(
     empty_request(request, || {
         state.ready.store(true, Ordering::SeqCst);
 
+        #[cfg(all(target_os = "ios", target_abi = "sim"))]
+        if let Ok(nonce) = std::env::var("DUMP_TXT_BOOT_NONCE") {
+            std::fs::write(std::env::temp_dir().join("dump-txt-renderer-ready"), nonce)?;
+        }
+
         #[cfg(mobile)]
         {
             let _ = window;

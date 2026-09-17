@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { spawn, spawnSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, writeFileSync } from "node:fs";
 import { dirname, join, relative, resolve, sep } from "node:path";
@@ -41,6 +41,7 @@ function command(executable, args, options = {}) {
 		maxBuffer: 8 * 1024 * 1024,
 		windowsHide: true,
 		input: options.input,
+		env: options.env ? { ...process.env, ...options.env } : process.env,
 	});
 	if (result.error || result.status !== 0) {
 		if (options.allowFailure) return null;
@@ -146,7 +147,16 @@ async function android() {
 	report.firstReady = true;
 	report.browser = await androidBrowserEvidence(adb, first.processId, first.logs);
 	adb(["shell", "am", "force-stop", app]);
-	runAs(["sh", "-c", `cat > ${shellQuote(document)}`], { input: sentinel });
+	const encoded = Buffer.from(sentinel, "utf8").toString("base64");
+	assert.equal(
+		runAs([
+			"sh",
+			"-c",
+			`printf %s ${shellQuote(encoded)} | base64 -d > ${shellQuote(document)} && cat ${shellQuote(document)}`,
+		]),
+		sentinel,
+		"Fixture write must finish and acknowledge the exact UTF-8 bytes before relaunch.",
+	);
 	assert.equal(runAs(["cat", document]), sentinel);
 	const second = await launch("second-launch");
 	await delay(1000);
@@ -287,6 +297,13 @@ function appBundleOf(path) {
 async function ios() {
 	assert.equal(process.platform, "darwin", "iOS probe requires macOS with Xcode.");
 	const simctl = (args, options) => command("xcrun", ["simctl", ...args], options);
+	const launchHelp = spawnSync("xcrun", ["simctl", "help", "launch"], { encoding: "utf8", timeout: 30_000 });
+	const launchUsage = `${launchHelp.stdout ?? ""}${launchHelp.stderr ?? ""}`;
+	writeFileSync(join(evidence, "simctl-launch-help.txt"), launchUsage);
+	assert(
+		launchUsage.includes("--stdout") && launchUsage.includes("--stderr"),
+		"Installed simctl must support file output capture.",
+	);
 	const bundle = appBundleOf(report.package);
 	const plist = (key) =>
 		command("/usr/libexec/PlistBuddy", ["-c", `Print :${key}`, join(bundle, "Info.plist")]).trim();
@@ -304,39 +321,36 @@ async function ios() {
 	report.device = device;
 	report.applicationId = bundleId;
 	report.package = bundle;
-	let logger;
+	let container;
 	try {
 		simctl(["boot", device]);
 		simctl(["bootstatus", device, "-b"], { timeout: 300_000 });
 		simctl(["install", device, bundle], { timeout: 120_000 });
+		container = realpathSync(simctl(["get_app_container", device, bundleId, "data"]).trim());
 		async function launch(label) {
-			let logs = "";
-			let launchError;
-			logger = spawn("xcrun", ["simctl", "launch", "--console", device, bundleId], {
-				stdio: ["ignore", "pipe", "pipe"],
+			const nonce = randomUUID();
+			const readyFile = join(container, "tmp/dump-txt-renderer-ready");
+			const stdout = join(evidence, `${label}.stdout.log`);
+			const stderr = join(evidence, `${label}.stderr.log`);
+			const result = simctl(["launch", `--stdout=${stdout}`, `--stderr=${stderr}`, device, bundleId], {
+				timeout: 45_000,
+				env: { SIMCTL_CHILD_DUMP_TXT_BOOT_NONCE: nonce },
 			});
-			logger.on("error", (error) => {
-				launchError = error;
-			});
-			logger.stdout.on("data", (bytes) => {
-				logs = (logs + bytes.toString()).slice(-2_000_000);
-			});
-			logger.stderr.on("data", (bytes) => {
-				logs = (logs + bytes.toString()).slice(-2_000_000);
-			});
-			try {
-				await until(() => {
-					if (launchError) throw launchError;
-					assert(logger.exitCode === null, `Simulator launch exited before readiness: ${logs.slice(-2000)}`);
-					return logs.includes(marker);
-				}, `${label} iOS renderer readiness`);
-			} finally {
-				writeFileSync(join(evidence, `${label}.log`), logs);
-			}
+			writeFileSync(join(evidence, `${label}.launch.log`), result);
+			const processId = Number(result.trim().match(/: (\d+)$/u)?.[1]);
+			assert(Number.isSafeInteger(processId) && processId > 0, "Simulator launch must report the app PID.");
+			report[label] = { processId, nonce, status: "launched" };
+			await until(() => {
+				assert(
+					command("/bin/ps", ["-p", String(processId), "-o", "pid="], { allowFailure: true })?.trim(),
+					"Simulator app exited before readiness.",
+				);
+				return existsSync(readyFile) && readFileSync(readyFile, "utf8") === nonce;
+			}, `${label} iOS renderer readiness`);
+			report[label].status = "ready";
 		}
 		await launch("first-launch");
 		report.firstReady = true;
-		const container = realpathSync(simctl(["get_app_container", device, bundleId, "data"]).trim());
 		const document = join(container, "Library/Application Support/dump.txt/dump.txt");
 		await until(() => existsSync(document), "iOS private document creation");
 		const canonical = realpathSync(document);
@@ -347,8 +361,6 @@ async function ios() {
 		);
 		report.document = within;
 		simctl(["terminate", device, bundleId]);
-		logger.kill("SIGTERM");
-		logger = null;
 		writeFileSync(canonical, sentinel, "utf8");
 		await launch("second-launch");
 		await delay(1000);
@@ -359,9 +371,44 @@ async function ios() {
 		simctl(["io", device, "screenshot", join(evidence, "simulator.png")]);
 		simctl(["terminate", device, bundleId]);
 	} finally {
-		logger?.kill("SIGTERM");
-		simctl(["shutdown", device], { allowFailure: true });
-		simctl(["delete", device], { allowFailure: true });
+		try {
+			simctl(["io", device, "screenshot", join(evidence, "simulator-final.png")], { allowFailure: true });
+			writeFileSync(
+				join(evidence, "app-info.log"),
+				simctl(["appinfo", device, bundleId], { allowFailure: true }) ?? "unavailable",
+			);
+			writeFileSync(
+				join(evidence, "system.log"),
+				simctl(
+					[
+						"spawn",
+						device,
+						"log",
+						"show",
+						"--last",
+						"5m",
+						"--style",
+						"compact",
+						"--predicate",
+						`process == "dump-txt"`,
+					],
+					{ allowFailure: true },
+				) ?? "unavailable",
+			);
+			if (container) {
+				const readyFile = join(container, "tmp/dump-txt-renderer-ready");
+				if (existsSync(readyFile)) writeFileSync(join(evidence, "renderer-ready.txt"), readFileSync(readyFile));
+				writeFileSync(
+					join(evidence, "container-files.log"),
+					command("/usr/bin/find", [container, "-type", "f"], { allowFailure: true }) ?? "unavailable",
+				);
+			}
+		} catch (error) {
+			report.diagnosticsError = error.message;
+		} finally {
+			simctl(["shutdown", device], { allowFailure: true });
+			simctl(["delete", device], { allowFailure: true });
+		}
 	}
 }
 
