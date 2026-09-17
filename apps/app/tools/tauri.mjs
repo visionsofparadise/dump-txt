@@ -79,6 +79,10 @@ if (command === "build") {
 	if (platform === "ios") nativeArguments.push("-t", "aarch64-sim");
 	if (probe || automation) nativeArguments.push("--no-bundle");
 	run(process.execPath, [require.resolve("@tauri-apps/cli/tauri.js"), ...nativeArguments]);
+	if (platform === "android") {
+		const { version } = JSON.parse(readFileSync(join(directory, "package.json"), "utf8"));
+		console.log("Packages:", normalizeTauriPackages(directory, version, "android", "universal"));
+	}
 	if (!platform && !probe && !automation) {
 		const { version } = JSON.parse(readFileSync(join(directory, "package.json"), "utf8"));
 		console.log("Packages:", normalizeTauriPackages(directory, version));

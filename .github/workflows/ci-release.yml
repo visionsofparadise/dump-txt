@@ -60,6 +60,44 @@ jobs:
            run: |
               sudo apt-get update
               sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev libfontconfig1-dev libfreetype6-dev webkit2gtk-driver xvfb fonts-dejavu openbox x11-utils xdotool imagemagick
+         - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961
+           if: matrix.artifact == 'linux-x64'
+           with:
+              distribution: temurin
+              java-version: 17
+         - uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407
+           if: matrix.artifact == 'linux-x64'
+           with:
+              packages: platform-tools
+         - name: Install Android NDK
+           if: matrix.artifact == 'linux-x64'
+           run: |
+              sdkmanager "ndk;27.2.12479018"
+              echo "NDK_HOME=$ANDROID_HOME/ndk/27.2.12479018" >> "$GITHUB_ENV"
+              echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
+         - name: Restore stable Android debug signing key
+           if: matrix.artifact == 'linux-x64' && github.event_name != 'pull_request'
+           env:
+              ANDROID_DEBUG_KEYSTORE_BASE64: ${{ secrets.ANDROID_DEBUG_KEYSTORE_BASE64 }}
+           run: |
+              test -n "$ANDROID_DEBUG_KEYSTORE_BASE64"
+              umask 077
+              mkdir -p "$HOME/.android"
+              printf '%s' "$ANDROID_DEBUG_KEYSTORE_BASE64" | base64 --decode > "$HOME/.android/debug.keystore"
+              chmod 600 "$HOME/.android/debug.keystore"
+              certificate_sha256=$(keytool -exportcert -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey | sha256sum | cut -d ' ' -f 1)
+              test "$certificate_sha256" = "059e85e1a8aa67d93842ed55cd8e7a470eef3624c21f50b0527adc061c741eea"
+         - uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90
+           if: matrix.artifact == 'mac-arm64'
+           with:
+              xcode-version: latest-stable
+         - name: Install CocoaPods
+           if: matrix.artifact == 'mac-arm64'
+           run: brew list cocoapods || brew install cocoapods
+         - name: Verify committed iOS project
+           if: matrix.artifact == 'mac-arm64'
+           working-directory: apps/app
+           run: test -f gen/apple/project.yml && test -f gen/apple/dump-txt.xcodeproj/project.pbxproj
          - name: Install native WebDriver
            if: runner.os != 'macOS'
            run: cargo install tauri-driver --version 2.0.6 --locked
@@ -129,6 +167,40 @@ jobs:
            id: package-build
            if: ${{ !cancelled() && steps.persistence-build.outcome == 'success' }}
            run: npm run build
+         - name: Build Android APK
+           id: android-build
+           if: ${{ !cancelled() && steps.package-build.outcome == 'success' && matrix.artifact == 'linux-x64' }}
+           run: npm run android --workspace @dump-txt/app
+         - name: Enable Android emulator acceleration
+           if: ${{ !cancelled() && steps.android-build.outcome == 'success' && matrix.artifact == 'linux-x64' }}
+           run: |
+              echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+              sudo udevadm control --reload-rules
+              sudo udevadm trigger --name-match=kvm
+         - name: Test Android boot and file persistence
+           if: ${{ !cancelled() && steps.android-build.outcome == 'success' && matrix.artifact == 'linux-x64' }}
+           timeout-minutes: 15
+           uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
+           env:
+              MOBILE_REQUIRE_ANDROID_USER_AGENT: "1"
+              MOBILE_REQUIRE_RENDERER_TEXT: "1"
+              MOBILE_REQUIRE_EDITOR_AUTOSAVE: "1"
+           with:
+              api-level: 34
+              target: google_apis
+              arch: x86_64
+              profile: pixel_7
+              avd-name: dump-txt-ci
+              emulator-options: -no-window -gpu swiftshader -no-snapshot -noaudio -no-boot-anim
+              script: node apps/app/tools/testMobileBoot.mjs android apps/app/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk
+         - name: Build iOS simulator
+           id: ios-build
+           if: ${{ !cancelled() && steps.package-build.outcome == 'success' && matrix.artifact == 'mac-arm64' }}
+           run: npm run ios --workspace @dump-txt/app
+         - name: Test iOS boot and file persistence
+           if: ${{ !cancelled() && steps.ios-build.outcome == 'success' && matrix.artifact == 'mac-arm64' }}
+           timeout-minutes: 15
+           run: node apps/app/tools/testMobileBoot.mjs ios apps/app/gen/apple/build/arm64-sim/dump-txt.app
          - name: Verify Windows install and Electron upgrade
            if: ${{ !cancelled() && steps.package-build.outcome == 'success' && matrix.artifact == 'windows-x64' }}
            timeout-minutes: 15
@@ -156,6 +228,7 @@ jobs:
                  apps/app/out/make/dump-txt-*-mac-*.dmg
                  apps/app/out/make/dump-txt-*-linux-*.AppImage
                  apps/app/out/make/dump-txt-*-linux-*.deb
+                 apps/app/out/make/dump-txt-*-android-universal.apk
               if-no-files-found: error
          - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
            if: always()
@@ -183,105 +256,11 @@ jobs:
                  apps/app/.scratch/tauri-installer/
                  apps/app/.scratch/tauri-package/
                  apps/app/.scratch/tauri-build.json
+                 apps/app/.scratch/mobile-boot/
+                 apps/app/gen/apple/build/arm64-sim/
                  apps/app/target/release/dump-txt
                  apps/app/target/release/dump-txt.exe
               if-no-files-found: warn
-
-   mobile:
-      if: github.event_name == 'workflow_dispatch'
-      strategy:
-         fail-fast: false
-         matrix:
-            include:
-               - os: ubuntu-24.04
-                 artifact: android
-               - os: macos-15
-                 artifact: ios
-      runs-on: ${{ matrix.os }}
-      timeout-minutes: 90
-      steps:
-         - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-           with:
-              persist-credentials: false
-         - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
-           with:
-              node-version: 24
-              cache: npm
-         - name: Pin npm 12
-           run: npm install -g npm@12
-         - name: Enforce install-script allowlist
-           run: npm config set strict-allow-scripts=true --location=project
-         - name: Install pinned Rust toolchain
-           run: rustup show
-         - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
-           with:
-              workspaces: apps/app -> target
-              key: mobile-${{ matrix.artifact }}
-              cache-on-failure: "true"
-              save-if: ${{ github.ref == 'refs/heads/main' }}
-         - run: npm ci
-         - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961
-           if: matrix.artifact == 'android'
-           with:
-              distribution: temurin
-              java-version: 17
-         - uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407
-           if: matrix.artifact == 'android'
-           with:
-              packages: platform-tools
-         - name: Install Android NDK
-           if: matrix.artifact == 'android'
-           run: |
-              sdkmanager "ndk;27.2.12479018"
-              echo "NDK_HOME=$ANDROID_HOME/ndk/27.2.12479018" >> "$GITHUB_ENV"
-              echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
-         - name: Restore stable Android debug signing key
-           if: matrix.artifact == 'android'
-           env:
-              ANDROID_DEBUG_KEYSTORE_BASE64: ${{ secrets.ANDROID_DEBUG_KEYSTORE_BASE64 }}
-           run: |
-              test -n "$ANDROID_DEBUG_KEYSTORE_BASE64"
-              umask 077
-              mkdir -p "$HOME/.android"
-              printf '%s' "$ANDROID_DEBUG_KEYSTORE_BASE64" | base64 --decode > "$HOME/.android/debug.keystore"
-              certificate_sha256=$(keytool -exportcert -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey | sha256sum | cut -d ' ' -f 1)
-              test "$certificate_sha256" = "059e85e1a8aa67d93842ed55cd8e7a470eef3624c21f50b0527adc061c741eea"
-         - name: Build Android
-           if: matrix.artifact == 'android'
-           run: npm run android --workspace @dump-txt/app
-         - uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90
-           if: matrix.artifact == 'ios'
-           with:
-              xcode-version: latest-stable
-         - name: Install CocoaPods
-           if: matrix.artifact == 'ios'
-           run: brew list cocoapods || brew install cocoapods
-         - name: Verify committed iOS project
-           if: matrix.artifact == 'ios'
-           working-directory: apps/app
-           run: test -f gen/apple/project.yml && test -f gen/apple/dump-txt.xcodeproj/project.pbxproj
-         - name: Build iOS simulator
-           if: matrix.artifact == 'ios'
-           continue-on-error: true
-           run: npm run ios --workspace @dump-txt/app
-         - name: Record generated mobile outputs
-           if: always()
-           shell: bash
-           run: |
-              mkdir -p .scratch/mobile-probe
-              for tree in apps/app/gen/android/app/build/outputs apps/app/gen/apple; do
-                 if [ -d "$tree" ]; then find "$tree" -type f -exec ls -l {} \;; fi
-              done > .scratch/mobile-probe/files.txt
-         - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-           if: always()
-           with:
-              name: mobile-probe-${{ matrix.artifact }}
-              include-hidden-files: true
-              path: |
-                 .scratch/mobile-probe/
-                 apps/app/gen/android/app/build/outputs/
-                 apps/app/gen/apple/
-              if-no-files-found: error
 
    publish:
       needs: build

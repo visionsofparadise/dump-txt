@@ -9,11 +9,12 @@ const directories = [];
 const sha = "a".repeat(40);
 const other = "b".repeat(40);
 
-test("normalizes all six Tauri packages to the existing release contract", () => {
+test("normalizes all seven Tauri packages to the existing release contract", () => {
 	mkdirSync(resolve(".scratch"), { recursive: true });
 	const directory = mkdtempSync(join(resolve(".scratch"), "tauri-packages-"));
 	directories.push(directory);
 	for (const [platform, architecture, type, source, expected] of [
+		["android", "universal", "apk", "app-universal-debug.apk", "dump-txt-0.2.0-android-universal.apk"],
 		["win32", "x64", "nsis", "dump.txt_0.2.0_x64-setup.exe", "dump-txt-0.2.0-windows-x64.exe"],
 		["win32", "arm64", "nsis", "dump.txt_0.2.0_arm64-setup.exe", "dump-txt-0.2.0-windows-arm64.exe"],
 		["darwin", "arm64", "dmg", "dump.txt_0.2.0_aarch64.dmg", "dump-txt-0.2.0-mac-arm64.dmg"],
@@ -21,7 +22,10 @@ test("normalizes all six Tauri packages to the existing release contract", () =>
 		["linux", "x64", "appimage", "dump.txt_0.2.0_amd64.AppImage", "dump-txt-0.2.0-linux-x86_64.AppImage"],
 		["linux", "x64", "deb", "dump-txt_0.2.0_amd64.deb", "dump-txt-0.2.0-linux-amd64.deb"],
 	]) {
-		const bundle = join(directory, "target", "release", "bundle", type);
+		const bundle =
+			platform === "android"
+				? join(directory, "gen", "android", "app", "build", "outputs", "apk", "universal", "debug")
+				: join(directory, "target", "release", "bundle", type);
 		mkdirSync(bundle, { recursive: true });
 		writeFileSync(join(bundle, source), expected);
 		if (type === "appimage") continue;
@@ -146,6 +150,7 @@ test("rejects malformed versions without accessing files or running commands", (
 
 test("includes the version, platform, and architecture in every artifact name", () => {
 	assert.deepEqual(artifactNamesOf("0.2.0"), [
+		"dump-txt-0.2.0-android-universal.apk",
 		"dump-txt-0.2.0-linux-amd64.deb",
 		"dump-txt-0.2.0-linux-x86_64.AppImage",
 		"dump-txt-0.2.0-mac-arm64.dmg",
@@ -191,4 +196,16 @@ test("rejects corrupted downloads while holding a release for review", () => {
 	const { publish, calls } = fixture({ corrupt: true });
 	assert.throws(() => publish(true), /checksum verification/u);
 	assert.ok(!calls.some((call) => call[1] === "edit"));
+});
+
+test("requires the Android APK before publishing", () => {
+	const { publish, directory, calls } = fixture();
+	rmSync(join(directory, "dump-txt-0.1.0-android-universal.apk"));
+	assert.throws(publish, /ENOENT/u);
+	assert.equal(calls.length, 0);
+});
+
+test("keeps iOS simulator bundles outside the download contract", () => {
+	assert.throws(() => normalizeTauriPackages("unused", "0.2.0", "ios", "aarch64-sim"), /Unsupported/u);
+	assert.ok(artifactNamesOf("0.2.0").every((name) => !name.includes("-ios-")));
 });

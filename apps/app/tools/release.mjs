@@ -33,6 +33,7 @@ export function artifactNamesOf(version) {
 		throw new Error("Release version must be a stable major.minor.patch version");
 
 	return [
+		`dump-txt-${version}-android-universal.apk`,
 		`dump-txt-${version}-windows-x64.exe`,
 		`dump-txt-${version}-windows-arm64.exe`,
 		`dump-txt-${version}-mac-arm64.dmg`,
@@ -109,7 +110,7 @@ export function publishRelease({ repository, sha, version, directory, draftOnly 
 			"--title",
 			`dump.txt ${version}`,
 			"--notes",
-			"Windows x64 and ARM64 installers, macOS Apple Silicon and Intel DMGs, and Linux x64 AppImage and Debian package. SHA256SUMS covers every download. macOS builds are not Developer ID signed or notarized.",
+			"Windows x64 and ARM64 installers, macOS Apple Silicon and Intel DMGs, Linux x64 AppImage and Debian package, and Android universal APK signed with the stable Android debug keystore. SHA256SUMS covers every download. macOS builds are not Developer ID signed or notarized.",
 		]);
 
 	run([
