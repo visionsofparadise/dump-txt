@@ -164,6 +164,7 @@ describe("Tauri desktop boundary", () => {
 			value: {
 				userData: "/profile",
 				restoredFilePath: null,
+				restoredFileName: null,
 				startupSettings: { bytes: [123, 125], hash: "settings" },
 			},
 		});
@@ -211,14 +212,14 @@ describe("Tauri desktop boundary", () => {
 		["showSaveDialog", "show_save_dialog"],
 	] as const)("preserves native choices and cancellation for %s with optional hints", async (method, command) => {
 		const desktop = await createTauriMain();
-		const selected = { path: "/fixture/日本語.txt", hash: "observed-content-hash" };
+		const selected = { path: "/fixture/日本語.txt", name: "日本語.txt", hash: "observed-content-hash" };
 
 		native.invoke.mockResolvedValueOnce({ ok: true, value: selected });
 		await expect(desktop.main[method]()).resolves.toEqual(selected);
 		expect(native.invoke).toHaveBeenLastCalledWith(command, { request: {} });
 
 		const options = { title: "Choose text", defaultPath: "/fixture/suggested.txt" };
-		const newFile = { path: "/fixture/chosen.txt", hash: null };
+		const newFile = { path: "/fixture/chosen.txt", name: "chosen.txt", hash: null };
 
 		native.invoke.mockResolvedValueOnce({ ok: true, value: newFile });
 		await expect(desktop.main[method](options)).resolves.toEqual(newFile);
@@ -237,8 +238,9 @@ describe("Tauri desktop boundary", () => {
 			for (const choice of [
 				undefined,
 				{ path: "/fixture/missing-hash.txt" },
+				{ path: "content://documents/missing-name", hash: null },
 				{ path: 42, hash: null },
-				{ path: "/fixture/file.txt", hash: 42 },
+				{ path: "/fixture/file.txt", name: "file.txt", hash: 42 },
 			]) {
 				native.invoke.mockResolvedValueOnce({ ok: true, value: choice });
 				await expect(desktop.main[method]()).rejects.toMatchObject({ name: "IpcError", code: "invalid" });

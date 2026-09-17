@@ -11,8 +11,8 @@
 	"scripts": {
 		"start": "node tools/tauri.mjs dev",
 		"build": "node tools/tauri.mjs build",
-		"check": "concurrently --group \"eslint . --no-cache -f unix\" \"tsc --noEmit --pretty false\" \"tsc --noEmit --pretty false -p tsconfig.node.json\" \"cargo fmt --check\" \"cargo check --all-targets --features automation && cargo clippy --all-targets --features automation -- -D warnings\" \"cargo machete\" \"styling-lint check\"",
-		"fix": "concurrently -m 1 --group \"eslint . --fix --cache\" \"cargo clippy --fix --allow-dirty --allow-staged --all-targets --features automation -- -D warnings\" \"cargo fmt\" \"styling-lint fix\"",
+		"check": "concurrently --group \"eslint . --no-cache -f unix\" \"tsc --noEmit --pretty false\" \"tsc --noEmit --pretty false -p tsconfig.node.json\" \"cargo fmt --all --check\" \"cargo check --all-targets --features automation && cargo clippy --all-targets --features automation -- -D warnings\" \"cargo machete\" \"styling-lint check\"",
+		"fix": "concurrently -m 1 --group \"eslint . --fix --cache\" \"cargo clippy --fix --allow-dirty --allow-staged --all-targets --features automation -- -D warnings\" \"cargo fmt --all\" \"styling-lint fix\"",
 		"unit": "concurrently --group \"vitest run unit && node --test tools/release.unit.test.mjs\" \"cargo test --features probe\"",
 		"integration": "vitest run integration",
 		"tauri-test": "node tools/testTauri.mjs",

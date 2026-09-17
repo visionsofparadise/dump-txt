@@ -60,6 +60,7 @@ fn native_selection_grants_exact_path_and_returns_current_hash() {
     let snapshot = files.read_snapshot(&document).unwrap().unwrap();
 
     assert_eq!(choice.hash, Some(snapshot.hash));
+    assert_eq!(choice.name, "extensionless");
     assert!(files.read_snapshot(&sibling).is_err());
     assert_eq!(
         Path::new(&choice.path).file_name().unwrap(),

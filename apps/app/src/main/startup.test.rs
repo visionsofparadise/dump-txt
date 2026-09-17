@@ -2,6 +2,30 @@ use super::*;
 use std::fs;
 
 #[test]
+fn restored_document_uri_keeps_its_name_without_native_resolution() {
+    let fixture = tempfile::tempdir().unwrap();
+    let document = "content://documents/tree/item%3A123";
+
+    fs::write(
+        fixture.path().join("app-state.json"),
+        serde_json::to_vec(&serde_json::json!({
+            "version": 1,
+            "activePath": document,
+            "activeName": "notes.txt"
+        }))
+        .unwrap(),
+    )
+    .unwrap();
+
+    let files = FileService::new(fixture.path().into()).unwrap();
+    let startup = StartupState::load(&files, fixture.path().into());
+    let paths = startup.take_paths().unwrap();
+
+    assert_eq!(paths.restored_file_path.as_deref(), Some(document));
+    assert_eq!(paths.restored_file_name.as_deref(), Some("notes.txt"));
+}
+
+#[test]
 fn missing_settings_are_null_once_then_omitted() {
     let fixture = tempfile::tempdir().unwrap();
     let files = FileService::new(fixture.path().into()).unwrap();

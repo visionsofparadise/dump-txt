@@ -14,6 +14,28 @@ impl std::fmt::Display for IpcFailure {
 
 impl std::error::Error for IpcFailure {}
 
+#[cfg(mobile)]
+impl From<tauri::plugin::mobile::PluginInvokeError> for IpcFailure {
+    fn from(error: tauri::plugin::mobile::PluginInvokeError) -> Self {
+        let code = match &error {
+            tauri::plugin::mobile::PluginInvokeError::InvokeRejected(response) => {
+                match response.code.as_deref() {
+                    Some("permission") => "permission",
+                    Some("missing") => "missing",
+                    Some("invalid") => "invalid",
+                    _ => "io",
+                }
+            }
+            _ => "io",
+        };
+
+        Self {
+            code,
+            message: error.to_string(),
+        }
+    }
+}
+
 impl From<std::io::Error> for IpcFailure {
     fn from(error: std::io::Error) -> Self {
         Self {

@@ -8,6 +8,7 @@ const preferencesSchema = z.object({ matchCase: z.boolean(), allPages: z.boolean
 export const appStateSchema = z.object({
 	version: z.literal(1),
 	activePath: z.string().min(1),
+	activeName: z.string().min(1).optional(),
 	appearance: z.object({
 		theme: z.enum(["system", "light", "dark"]),
 		font: z.string().min(1).max(100),
@@ -32,6 +33,7 @@ export const appStateSchema = z.object({
 export interface AppState {
 	readonly version: 1;
 	readonly activePath: string;
+	readonly activeName?: string;
 	readonly appearance: SessionState["appearance"];
 	readonly findPreferences: SessionState["occurrencePreferences"];
 	readonly occurrencePreferences: SessionState["occurrencePreferences"];

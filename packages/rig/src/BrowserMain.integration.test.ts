@@ -78,6 +78,7 @@ describe("BrowserMain", () => {
 		const choice = await main.showSaveDialog({ defaultPath: "page-2.txt" });
 
 		expect(choice?.hash).toBeNull();
+		expect(choice?.name).toBe("page-2.txt");
 		expect(choice?.path).toMatch(/^\/memory\/exports\/.+\/page-2\.txt$/u);
 
 		await main.writeFile({ path: choice!.path, bytes: new TextEncoder().encode("Second page"), expectedHash: null });
@@ -117,5 +118,6 @@ describe("BrowserMain", () => {
 		expect(choice?.path).toMatch(/^\/memory\/imports\/.+\/notes\.txt$/u);
 		expect(new TextDecoder().decode(file?.bytes)).toBe("Imported page");
 		expect(choice?.hash).toBe(file?.hash);
+		expect(choice?.name).toBe("notes.txt");
 	});
 });

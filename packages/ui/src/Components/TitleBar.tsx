@@ -22,7 +22,7 @@ export const TitleBar = scope(({ children, chrome, onDismissMenu, context }: Tit
 	const platform = useContext(PlatformContext) ?? main.platform ?? "windows";
 
 	const decorations = main.decorations ?? "native";
-	const filename = persistenceState.path?.split(/[\\/]/u).at(-1) ?? "dump.txt";
+	const filename = persistenceState.name ?? persistenceState.path?.split(/[\\/]/u).at(-1) ?? "dump.txt";
 	const menuOpen = chrome?.menuOpen ?? false;
 
 	const dismissMenu = useCallback(

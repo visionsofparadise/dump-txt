@@ -44,6 +44,9 @@ tempfile = "=3.27.0"
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "=0.61.2", features = ["Win32_Foundation", "Win32_Storage_FileSystem", "Win32_Security", "Win32_Security_Authorization"] }
 
+[target.'cfg(any(target_os = "android", target_os = "ios"))'.dependencies]
+tauri-plugin-documents = { path = "src/main/documents-plugin" }
+
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-single-instance = "=2.4.4"
 

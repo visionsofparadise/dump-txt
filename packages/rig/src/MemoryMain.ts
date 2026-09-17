@@ -95,6 +95,7 @@ export class MemoryMain implements Main {
 		return {
 			userData: "/memory",
 			restoredFilePath: null,
+			restoredFileName: null,
 			startupSettings: await this.readFile("/memory/app-state.json"),
 		};
 	}

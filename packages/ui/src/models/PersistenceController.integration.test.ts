@@ -33,8 +33,9 @@ async function fixture(initial?: string) {
 	const directory = await mkdtemp(join(tmpdir(), "dump-persistence-"));
 	const path = `${directory}/dump.txt`;
 	const writes: Array<WriteRequest> = [];
-	let openChoice: { path: string; hash: string | null } | null = null;
-	let saveChoice: { path: string; hash: string | null } | null = null;
+	const documentPaths = new Map<string, string>();
+	let openChoice: { path: string; name: string; hash: string | null } | null = null;
+	let saveChoice: { path: string; name: string; hash: string | null } | null = null;
 	let beforeWrite: (request: WriteRequest) => Promise<void> = async () => undefined;
 	let beforeRead: (path: string) => Promise<void> = async () => undefined;
 	let beforeClose: () => Promise<void> = async () => undefined;
@@ -42,7 +43,7 @@ async function fixture(initial?: string) {
 	if (initial !== undefined) await writeFile(path, initial);
 	const read = async (filePath: string) => {
 		try {
-			const bytes = new Uint8Array(await readFile(filePath));
+			const bytes = new Uint8Array(await readFile(documentPaths.get(filePath) ?? filePath));
 			return { bytes, hash: hash(bytes) };
 		} catch (error) {
 			if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
@@ -53,14 +54,18 @@ async function fixture(initial?: string) {
 		getPaths: async () => {
 			const state = await read(`${directory}/app-state.json`);
 			let restoredFilePath: string | null = null;
+			let restoredFileName: string | null = null;
 			try {
+				restoredFileName = state
+					? ((JSON.parse(new TextDecoder().decode(state.bytes)) as AppState).activeName ?? null)
+					: null;
 				restoredFilePath = state
 					? (JSON.parse(new TextDecoder().decode(state.bytes)) as AppState).activePath
 					: null;
 			} catch {
 				restoredFilePath = null;
 			}
-			return { userData: directory, restoredFilePath };
+			return { userData: directory, restoredFilePath, restoredFileName };
 		},
 		readFile: async (filePath) => {
 			await beforeRead(filePath);
@@ -70,7 +75,7 @@ async function fixture(initial?: string) {
 			await beforeWrite(request);
 			const current = await read(request.path);
 			if ((current?.hash ?? null) !== request.expectedHash) throw new Error("File changed outside dump.txt.");
-			await writeFile(request.path, request.bytes);
+			await writeFile(documentPaths.get(request.path) ?? request.path, request.bytes);
 			writes.push({ ...request, bytes: new Uint8Array(request.bytes) });
 			return { hash: hash(request.bytes) };
 		},
@@ -109,6 +114,7 @@ async function fixture(initial?: string) {
 	return {
 		directory,
 		path,
+		mapDocument: (reference: string, filePath: string) => documentPaths.set(reference, filePath),
 		writes,
 		read,
 		main,
@@ -167,6 +173,74 @@ afterEach(async () => {
 });
 
 describe("the current dump lifecycle", () => {
+	it("autosaves and restores opaque document references with their provider display names", async () => {
+		const test = await fixture("scratch");
+		const reference = "content://documents/1";
+		const backing = join(test.directory, "external.txt");
+		await writeFile(backing, "external");
+		test.mapDocument(reference, backing);
+		await test.persistence.initialize();
+		test.chooseOpen({ path: reference, name: "Provider notes.txt", hash: (await test.read(reference))!.hash });
+		await test.persistence.open();
+		expect(test.persistence.state.name).toBe("Provider notes.txt");
+		insert(test.persistence, "edited ");
+		await test.persistence.flush();
+		expect(await diskText(backing)).toBe("edited external");
+		expect(test.writes.some((request) => request.path === reference)).toBe(true);
+		expect(JSON.parse(await diskText(join(test.directory, "app-state.json")))).toMatchObject({
+			version: 1,
+			activePath: reference,
+			activeName: "Provider notes.txt",
+		});
+		test.persistence.dispose();
+		const restored = test.create();
+		await restored.initialize();
+		expect(restored.state).toMatchObject({ path: reference, name: "Provider notes.txt", phase: "ready" });
+		expect(textOf(restored)).toBe("edited external");
+	});
+
+	it("keeps a missing document's display name and recovery text until Save As succeeds", async () => {
+		const test = await fixture("scratch");
+		const reference = "content://documents/deleted";
+		const backing = join(test.directory, "external.txt");
+		await writeFile(backing, "preserved text");
+		test.mapDocument(reference, backing);
+		await test.persistence.initialize();
+		test.chooseOpen({ path: reference, name: "Missing notes.md", hash: (await test.read(reference))!.hash });
+		await test.persistence.open();
+		await test.persistence.flush();
+		test.persistence.dispose();
+		await rm(backing);
+		const restored = test.create();
+		await restored.initialize();
+		expect(restored.state).toMatchObject({ path: reference, name: "Missing notes.md", phase: "failed" });
+		expect(textOf(restored)).toBe("preserved text");
+		const destination = "content://documents/copy";
+		const copy = join(test.directory, "copy.txt");
+		test.mapDocument(destination, copy);
+		test.chooseSave({ path: destination, name: "Recovered.txt", hash: null });
+		await restored.saveAs();
+		expect(restored.state).toMatchObject({ path: destination, name: "Recovered.txt", phase: "ready" });
+		expect(await diskText(copy)).toBe("preserved text");
+	});
+
+	it("imports through a read-only picker without renaming the current dump", async () => {
+		const test = await fixture("scratch");
+		await test.persistence.initialize();
+		const imported = join(test.directory, "imported.txt");
+		await writeFile(imported, "imported text");
+		const picker = vi
+			.spyOn(test.main, "showOpenDialog")
+			.mockResolvedValue({ path: imported, name: "Imported.txt", hash: (await test.read(imported))!.hash });
+		await test.persistence.importPage();
+		expect(picker).toHaveBeenCalledWith({
+			title: "Import page",
+			writable: false,
+			filters: [{ name: "All files", extensions: ["*"] }],
+		});
+		expect(test.persistence.state.name).toBe("dump.txt");
+		expect(textOf(test.persistence)).toBe("imported text");
+	});
 	it("starts document and recovery reads together", async () => {
 		const test = await fixture("startup text");
 		const started = new Set<string>();
@@ -203,6 +277,7 @@ describe("the current dump lifecycle", () => {
 		vi.spyOn(test.main, "getPaths").mockResolvedValue({
 			userData: test.directory,
 			restoredFilePath: test.path,
+			restoredFileName: "dump.txt",
 			startupSettings,
 		});
 		const reads = vi.spyOn(test.main, "readFile");
@@ -232,7 +307,11 @@ describe("the current dump lifecycle", () => {
 		expect(menu).toHaveBeenCalledOnce();
 		const replacement = `${directory}/replacement.txt`;
 		await writeFile(replacement, "replacement");
-		chooseOpen({ path: replacement, hash: (await read(replacement))!.hash });
+		chooseOpen({
+			path: replacement,
+			name: replacement.split(/[\\/]/u).at(-1)!,
+			hash: (await read(replacement))!.hash,
+		});
 		await persistence.open();
 		complete("delete");
 		await Promise.resolve();
@@ -244,7 +323,7 @@ describe("the current dump lifecycle", () => {
 		const test = await fixture("source");
 		await test.persistence.initialize();
 		const destination = `${test.directory}/journal-retry.txt`;
-		test.chooseSave({ path: destination, hash: null });
+		test.chooseSave({ path: destination, name: destination.split(/[\\/]/u).at(-1)!, hash: null });
 		test.setWrite(async (request) => {
 			if (
 				request.path.endsWith("recovery.json") &&
@@ -292,7 +371,7 @@ describe("the current dump lifecycle", () => {
 		await test.persistence.initialize();
 		insert(test.persistence, "accepted");
 		const destination = `${test.directory}/unreadable.txt`;
-		test.chooseOpen({ path: destination, hash: null });
+		test.chooseOpen({ path: destination, name: destination.split(/[\\/]/u).at(-1)!, hash: null });
 		test.setRead(async (path) => {
 			if (path === destination) throw new Error("Candidate denied");
 		});
@@ -309,7 +388,7 @@ describe("the current dump lifecycle", () => {
 		const destination = `${test.directory}/mixed.txt`;
 		const bytes = "one\ftwo\r\nthree\nfour\r";
 		await writeFile(destination, bytes);
-		test.chooseOpen({ path: destination, hash: null });
+		test.chooseOpen({ path: destination, name: destination.split(/[\\/]/u).at(-1)!, hash: null });
 		await test.persistence.open();
 		await test.persistence.close();
 		test.persistence.dispose();
@@ -353,7 +432,7 @@ describe("the current dump lifecycle", () => {
 		expect(test.persistence.context).toBeNull();
 		const destination = `${test.directory}/valid.txt`;
 		await writeFile(destination, "valid");
-		test.chooseOpen({ path: destination, hash: null });
+		test.chooseOpen({ path: destination, name: destination.split(/[\\/]/u).at(-1)!, hash: null });
 		await test.persistence.open();
 		expect(textOf(test.persistence)).toBe("valid");
 		test.persistence.dispose();
@@ -385,7 +464,7 @@ describe("the current dump lifecycle", () => {
 		await restarted.initialize();
 		const destination = `${test.directory}/replacement.txt`;
 		await writeFile(destination, "replacement");
-		test.chooseOpen({ path: destination, hash: null });
+		test.chooseOpen({ path: destination, name: destination.split(/[\\/]/u).at(-1)!, hash: null });
 		await restarted.open();
 		expect(restarted.state.path).toBe(destination);
 		expect(restarted.state.phase).toBe("ready");
@@ -493,7 +572,11 @@ describe("the current dump lifecycle", () => {
 		insert(test.persistence, "accepted");
 		const destination = `${test.directory}/opened.txt`;
 		await writeFile(destination, "candidate");
-		test.chooseOpen({ path: destination, hash: hash(new TextEncoder().encode("candidate")) });
+		test.chooseOpen({
+			path: destination,
+			name: destination.split(/[\\/]/u).at(-1)!,
+			hash: hash(new TextEncoder().encode("candidate")),
+		});
 		const wait = deferred();
 		test.setRead(async (path) => {
 			if (path === destination) await wait.promise;
@@ -518,7 +601,7 @@ describe("the current dump lifecycle", () => {
 		expect(test.persistence.context).toBe(original);
 		const destination = `${test.directory}/invalid.txt`;
 		await writeFile(destination, new Uint8Array([255]));
-		test.chooseOpen({ path: destination, hash: null });
+		test.chooseOpen({ path: destination, name: destination.split(/[\\/]/u).at(-1)!, hash: null });
 		await test.persistence.open();
 		expect(test.persistence.context).toBe(original);
 		expect(test.persistence.state.error).toContain("invalid text bytes");
@@ -532,9 +615,9 @@ describe("the current dump lifecycle", () => {
 		await test.persistence.initialize();
 		insert(test.persistence, "a");
 		const original = test.persistence.context;
-		test.chooseOpen({ path: test.path, hash: null });
+		test.chooseOpen({ path: test.path, name: test.path.split(/[\\/]/u).at(-1)!, hash: null });
 		await test.persistence.open();
-		test.chooseSave({ path: test.path, hash: null });
+		test.chooseSave({ path: test.path, name: test.path.split(/[\\/]/u).at(-1)!, hash: null });
 		await test.persistence.saveAs();
 		expect(test.persistence.context).toBe(original);
 		expect(original?.history.canUndo).toBe(true);
@@ -546,7 +629,7 @@ describe("the current dump lifecycle", () => {
 		insert(test.persistence, "saved");
 		const original = test.persistence.context;
 		const destination = `${test.directory}/saved.txt`;
-		test.chooseSave({ path: destination, hash: null });
+		test.chooseSave({ path: destination, name: destination.split(/[\\/]/u).at(-1)!, hash: null });
 		await test.persistence.saveAs();
 		expect(test.persistence.context).toBe(original);
 		expect(test.persistence.state.path).toBe(destination);
@@ -565,7 +648,7 @@ describe("the current dump lifecycle", () => {
 		await test.persistence.saveAs();
 		expect(test.persistence.state.path).toBe(test.path);
 		const destination = `${test.directory}/saved.txt`;
-		test.chooseSave({ path: destination, hash: null });
+		test.chooseSave({ path: destination, name: destination.split(/[\\/]/u).at(-1)!, hash: null });
 		test.setWrite(async (request) => {
 			if (request.path === destination) throw new Error("Destination denied");
 		});
@@ -579,7 +662,7 @@ describe("the current dump lifecycle", () => {
 		const test = await fixture("source");
 		await test.persistence.initialize();
 		const destination = `${test.directory}/copy.txt`;
-		test.chooseSave({ path: destination, hash: null });
+		test.chooseSave({ path: destination, name: destination.split(/[\\/]/u).at(-1)!, hash: null });
 		test.setWrite(async (request) => {
 			if (request.path.endsWith("app-state.json") && new TextDecoder().decode(request.bytes).includes("copy.txt"))
 				throw new Error("Settings denied");
@@ -599,7 +682,7 @@ describe("the current dump lifecycle", () => {
 		expect(await diskText(test.path)).toBe("external");
 		expect(textOf(test.persistence)).toBe("pendingbase");
 		const destination = `${test.directory}/recovered.txt`;
-		test.chooseSave({ path: destination, hash: null });
+		test.chooseSave({ path: destination, name: destination.split(/[\\/]/u).at(-1)!, hash: null });
 		await test.persistence.saveAs();
 		expect(await diskText(destination)).toBe("pendingbase");
 		expect(test.persistence.state.phase).toBe("ready");
@@ -651,7 +734,7 @@ describe("the current dump lifecycle", () => {
 		const test = await fixture("source");
 		await test.persistence.initialize();
 		const destination = `${test.directory}/adopted.txt`;
-		test.chooseSave({ path: destination, hash: null });
+		test.chooseSave({ path: destination, name: destination.split(/[\\/]/u).at(-1)!, hash: null });
 		test.setWrite(async (request) => {
 			if (request.path.endsWith("recovery.json")) throw new Error("Journal denied");
 		});
@@ -743,7 +826,7 @@ describe("recovery ordering", () => {
 		expect(textOf(test.persistence)).toBe("accepted while unavailable");
 		expect(await diskText(test.path)).toBe("unknown original");
 		const destination = `${test.directory}/placeholder-rescue.txt`;
-		test.chooseSave({ path: destination, hash: null });
+		test.chooseSave({ path: destination, name: destination.split(/[\\/]/u).at(-1)!, hash: null });
 		await test.persistence.saveAs();
 		expect(await diskText(destination)).toBe("accepted while unavailable");
 	});
@@ -762,7 +845,7 @@ describe("recovery ordering", () => {
 		expect(restarted.state.phase).toBe("failed");
 		expect(restarted.state.error).toContain("could not be decoded");
 		const destination = `${test.directory}/invalid-rescue.txt`;
-		test.chooseSave({ path: destination, hash: null });
+		test.chooseSave({ path: destination, name: destination.split(/[\\/]/u).at(-1)!, hash: null });
 		await restarted.saveAs();
 		expect(await diskText(destination)).toBe("pendingbase");
 		expect(new Uint8Array(await readFile(test.path))).toEqual(invalid);
@@ -781,7 +864,7 @@ describe("recovery ordering", () => {
 		expect(textOf(restarted)).toBe("pendingbase");
 		expect(restarted.state.error).toContain("Permission denied");
 		const destination = `${test.directory}/read-recovery.txt`;
-		test.chooseSave({ path: destination, hash: null });
+		test.chooseSave({ path: destination, name: destination.split(/[\\/]/u).at(-1)!, hash: null });
 		await restarted.saveAs();
 		expect(await diskText(destination)).toBe("pendingbase");
 	});
@@ -910,6 +993,7 @@ describe("recovery ordering", () => {
 	});
 
 	it("retains a recovery journal for a different file without applying it", async () => {
+		vi.useFakeTimers();
 		const test = await fixture("base");
 		await test.persistence.initialize();
 		insert(test.persistence, "pending");

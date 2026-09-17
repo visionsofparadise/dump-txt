@@ -22,7 +22,13 @@ export function createProbeMain(native: Main): Main {
 
 	return {
 		...native,
-		getPaths: () => Promise.resolve({ userData: "/fixture", restoredFilePath: null, startupSettings: null }),
+		getPaths: () =>
+			Promise.resolve({
+				userData: "/fixture",
+				restoredFilePath: null,
+				restoredFileName: null,
+				startupSettings: null,
+			}),
 		readFile: async (path) => {
 			checkPath(path);
 			await writes;

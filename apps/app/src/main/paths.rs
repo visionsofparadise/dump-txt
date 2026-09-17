@@ -1,5 +1,7 @@
 use crate::error::IpcFailure;
-use std::{fs, path::PathBuf};
+#[cfg(desktop)]
+use std::fs;
+use std::path::PathBuf;
 
 pub struct ProfileConfiguration {
     pub config_dir: PathBuf,
@@ -25,6 +27,7 @@ pub fn resolve_profile(configuration: &ProfileConfiguration) -> Result<PathBuf, 
         return Ok(root);
     }
 
+    #[cfg(desktop)]
     for name in ["dump-txt", "com.visionsofparadise.dump-txt"] {
         let candidate = configuration.config_dir.join(name);
 

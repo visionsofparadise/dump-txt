@@ -1,4 +1,5 @@
 use crate::{
+    document::DocumentRef,
     error::{parse_request, EmptyRequest, IpcFailure, IpcResult},
     files::{renderer_path, FileRead, FileService},
 };
@@ -47,12 +48,14 @@ impl StartupTheme {
 struct RestoredSettings {
     version: u32,
     active_path: String,
+    active_name: Option<String>,
     window_bounds: Option<WindowBounds>,
 }
 
 pub struct StartupState {
     user_data: PathBuf,
-    restored_file_path: Option<PathBuf>,
+    restored_file_path: Option<DocumentRef>,
+    restored_file_name: Option<String>,
     pub theme: StartupTheme,
     pub window_bounds: Option<WindowBounds>,
     settings: Mutex<Option<Option<FileRead>>>,
@@ -80,7 +83,16 @@ impl StartupState {
             });
         let restored_file_path = restored
             .as_ref()
-            .and_then(|state| files.grant_path(state.active_path.as_ref(), true).ok());
+            .and_then(|state| DocumentRef::parse(&state.active_path).ok())
+            .and_then(|document| files.grant_document(&document, true).ok());
+        let restored_file_name = restored_file_path
+            .as_ref()
+            .and_then(|_| {
+                restored
+                    .as_ref()
+                    .and_then(|state| state.active_name.clone())
+            })
+            .filter(|name| !name.is_empty());
         let window_bounds = restored_file_path
             .as_ref()
             .and_then(|_| restored.as_ref().and_then(|state| state.window_bounds));
@@ -88,6 +100,7 @@ impl StartupState {
         Self {
             user_data,
             restored_file_path,
+            restored_file_name,
             theme,
             window_bounds,
             settings: Mutex::new(settings),
@@ -98,8 +111,8 @@ impl StartupState {
         let user_data = renderer_path(&self.user_data)?;
         let restored_file_path = self
             .restored_file_path
-            .as_deref()
-            .map(renderer_path)
+            .as_ref()
+            .map(DocumentRef::as_text)
             .transpose()?;
         let startup_settings = self
             .settings
@@ -113,6 +126,7 @@ impl StartupState {
         Ok(AppPaths {
             user_data,
             restored_file_path,
+            restored_file_name: self.restored_file_name.clone(),
             startup_settings,
         })
     }
@@ -123,6 +137,7 @@ impl StartupState {
 pub struct AppPaths {
     pub user_data: String,
     pub restored_file_path: Option<String>,
+    pub restored_file_name: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub startup_settings: Option<Option<FileRead>>,
 }

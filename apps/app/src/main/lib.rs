@@ -2,6 +2,7 @@
 mod automation;
 mod clipboard;
 mod dialogs;
+mod document;
 mod error;
 mod file_permissions;
 mod files;
@@ -51,6 +52,9 @@ pub fn run() {
     let builder = builder.plugin(tauri_plugin_wdio::init());
     #[cfg(all(feature = "automation", target_os = "macos"))]
     let builder = builder.plugin(tauri_plugin_wdio_webdriver::init());
+
+    #[cfg(mobile)]
+    let builder = builder.plugin(tauri_plugin_documents::init());
 
     let builder = builder
         .plugin(tauri_plugin_clipboard_manager::init())
@@ -104,7 +108,10 @@ pub fn run() {
                         config_dir: app.path().config_dir()?,
                         isolated_root,
                     })?;
-                    let files = Arc::new(files::FileService::new(profile)?);
+                    let files = files::FileService::new(profile)?;
+                    #[cfg(mobile)]
+                    let files = files.with_app(app.handle().clone());
+                    let files = Arc::new(files);
                     let startup = startup::StartupState::load(&files, files.user_data().into());
 
                     Ok((files, startup))

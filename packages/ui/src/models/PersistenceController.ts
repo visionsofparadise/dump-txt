@@ -15,6 +15,7 @@ import { PageNavigation } from "./PageNavigation";
 import { recoveryRecordSchema, type RecoveryRecord } from "./RecoveryRecord";
 import { createSessionState, snapshotView, type ViewSnapshot } from "./SessionState";
 import type { DumpContext } from "./DumpContext";
+import type { FileDialogOptions } from "./FileDialogOptions";
 import type { FileRead } from "./FileRead";
 import type { Main } from "./Main";
 import type { WindowBounds } from "./MainEventMap";
@@ -22,6 +23,7 @@ import type { MainEvents } from "./MainEvents";
 
 interface PersistenceState {
 	path: string | null;
+	name: string | null;
 	format: TextFormat;
 	revision: number;
 	savedRevision: number;
@@ -33,6 +35,7 @@ interface PersistenceState {
 
 interface Revision {
 	readonly path: string;
+	readonly name: string;
 	readonly revision: number;
 	readonly text: string;
 	readonly format: TextFormat;
@@ -86,6 +89,7 @@ function recoveredPages(record: RecoveryRecord): ReadonlyArray<Page> {
 export class PersistenceController {
 	readonly state = createMutableState<PersistenceState>({
 		path: null,
+		name: null,
 		format: defaultFormat,
 		revision: 0,
 		savedRevision: 0,
@@ -210,16 +214,23 @@ export class PersistenceController {
 		}
 	}
 
+	#dialogOptions(title: string): FileDialogOptions {
+		if (!this.state.path) return { title };
+
+		const defaultPath = mobilePlatforms.has(this.#main.platform ?? "windows")
+			? (this.state.name ?? "dump.txt")
+			: this.state.path;
+
+		return { title, defaultPath };
+	}
+
 	async open(): Promise<void> {
 		if (this.#transition || this.#disposed) return;
 
 		this.#transition = true;
 
 		try {
-			const candidate = await this.#main.showOpenDialog({
-				title: "Open dump",
-				...(this.state.path ? { defaultPath: this.state.path } : {}),
-			});
+			const candidate = await this.#main.showOpenDialog(this.#dialogOptions("Open dump"));
 
 			if (!candidate) return;
 
@@ -238,7 +249,12 @@ export class PersistenceController {
 				if (previousRecovery) await this.#preserve("recovery", previousRecovery);
 			}
 
-			if (this.state.path && sameFilePath(candidate.path, this.state.path)) return;
+			if (this.state.path && sameFilePath(candidate.path, this.state.path)) {
+				this.state.name = candidate.name;
+				await this.flush();
+
+				return;
+			}
 
 			const file = await this.#main.readFile(candidate.path);
 
@@ -249,6 +265,7 @@ export class PersistenceController {
 			const view = createSessionState(pages).view;
 			const revision: Revision = {
 				path: candidate.path,
+				name: candidate.name,
 				revision: 0,
 				text: serializePages(pages),
 				format: decoded.format,
@@ -276,16 +293,14 @@ export class PersistenceController {
 		this.#transition = true;
 
 		try {
-			const candidate = await this.#main.showSaveDialog({
-				title: "Save dump as",
-				...(this.state.path ? { defaultPath: this.state.path } : {}),
-			});
+			const candidate = await this.#main.showSaveDialog(this.#dialogOptions("Save dump as"));
 
 			if (!candidate) return;
 
 			this.#setLocked(true);
 
 			if (this.state.path && sameFilePath(candidate.path, this.state.path)) {
+				this.state.name = candidate.name;
 				await this.flush();
 
 				return;
@@ -298,7 +313,7 @@ export class PersistenceController {
 			}
 
 			const current = this.#capture();
-			const revision: Revision = { ...current, path: candidate.path };
+			const revision: Revision = { ...current, path: candidate.path, name: candidate.name };
 
 			await this.#enqueue(async () => {
 				const result = await this.#main.writeFile({
@@ -316,6 +331,7 @@ export class PersistenceController {
 				}
 
 				this.state.path = candidate.path;
+				this.state.name = candidate.name;
 				this.#backingHash = result.hash;
 				this.state.savedRevision = revision.revision;
 				this.#latest = revision;
@@ -347,6 +363,7 @@ export class PersistenceController {
 		try {
 			const candidate = await this.#main.showOpenDialog({
 				title: "Import page",
+				writable: false,
 				filters: [{ name: "All files", extensions: ["*"] }],
 			});
 
@@ -481,6 +498,10 @@ export class PersistenceController {
 			this.#settings && paths.restoredFilePath && sameFilePath(this.#settings.activePath, paths.restoredFilePath)
 				? this.#settings.activePath
 				: `${paths.userData}/dump.txt`;
+		const name =
+			paths.restoredFilePath && sameFilePath(path, paths.restoredFilePath)
+				? (paths.restoredFileName ?? this.#settings?.activeName ?? path.split(/[\\/]/u).at(-1) ?? "dump.txt")
+				: "dump.txt";
 		let file: FileRead | null = null;
 		let backingReadFailure: string | null = null;
 
@@ -588,7 +609,7 @@ export class PersistenceController {
 		}
 
 		this.#install(
-			{ path, revision: revisionNumber, text: serializePages(pages), format, pages, view },
+			{ path, name, revision: revisionNumber, text: serializePages(pages), format, pages, view },
 			backingHash,
 			savedRevision,
 		);
@@ -656,7 +677,15 @@ export class PersistenceController {
 			const view = this.#restoredView(pages, file.hash);
 
 			this.#install(
-				{ path, revision: 0, text: serializePages(pages), format: decoded.format, pages, view },
+				{
+					path,
+					name: this.state.name ?? path.split(/[\\/]/u).at(-1) ?? "dump.txt",
+					revision: 0,
+					text: serializePages(pages),
+					format: decoded.format,
+					pages,
+					view,
+				},
 				file.hash,
 				0,
 			);
@@ -723,6 +752,7 @@ export class PersistenceController {
 			navigation,
 		};
 		this.state.path = revision.path;
+		this.state.name = revision.name;
 		this.state.format = revision.format;
 		this.state.revision = revision.revision;
 		this.state.savedRevision = savedRevision;
@@ -750,6 +780,7 @@ export class PersistenceController {
 
 		return Object.freeze({
 			path,
+			name: this.state.name ?? path.split(/[\\/]/u).at(-1) ?? "dump.txt",
 			revision: this.state.revision,
 			text: serializePages(persisted.pages),
 			format: Object.freeze({ ...this.state.format }),
@@ -815,6 +846,7 @@ export class PersistenceController {
 		const record: AppState = {
 			version: 1,
 			activePath: revision.path,
+			activeName: revision.name,
 			appearance: { ...session.appearance },
 			findPreferences: { matchCase: session.find.matchCase, allPages: session.find.allPages },
 			occurrencePreferences: { ...session.occurrencePreferences },

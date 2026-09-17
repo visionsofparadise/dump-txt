@@ -1,13 +1,18 @@
+#[cfg(desktop)]
+use crate::files::renderer_path;
 use crate::{
     error::{parse_request, IpcFailure, IpcResult},
-    files::{renderer_path, FileService},
+    files::FileService,
 };
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
+#[cfg(desktop)]
 use std::{
     path::{Path, PathBuf},
-    sync::{mpsc, Arc},
+    sync::mpsc,
 };
 use tauri::{Manager, WebviewWindow};
+#[cfg(desktop)]
 use tauri_plugin_dialog::{DialogExt, FilePath};
 
 #[derive(Deserialize)]
@@ -16,6 +21,12 @@ struct FileDialogOptions {
     title: Option<String>,
     default_path: Option<String>,
     filters: Option<Vec<FileFilter>>,
+    #[serde(default = "default_writable")]
+    writable: bool,
+}
+
+fn default_writable() -> bool {
+    true
 }
 
 #[derive(Deserialize)]
@@ -69,8 +80,10 @@ impl FileDialogOptions {
 pub struct DialogSelection {
     path: String,
     hash: Option<String>,
+    name: String,
 }
 
+#[cfg(desktop)]
 fn dialog_hint(path: &Path) -> (Option<PathBuf>, Option<String>) {
     if path.is_dir() {
         return (Some(path.into()), None);
@@ -86,6 +99,7 @@ fn dialog_hint(path: &Path) -> (Option<PathBuf>, Option<String>) {
     )
 }
 
+#[cfg(desktop)]
 fn selection_of(
     files: &FileService,
     selection: Option<FilePath>,
@@ -104,15 +118,23 @@ fn selection_of(
     Ok(Some(DialogSelection {
         path: serialized_path,
         hash,
+        name: path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .filter(|name| !name.is_empty())
+            .unwrap_or("dump.txt")
+            .to_owned(),
     }))
 }
 
+#[cfg(desktop)]
 async fn show_dialog(
     window: WebviewWindow,
     request: serde_json::Value,
     save: bool,
 ) -> Result<Option<DialogSelection>, IpcFailure> {
     let options = FileDialogOptions::parse(request)?;
+    let _ = options.writable;
     let files = Arc::clone(window.state::<Arc<FileService>>().inner());
     let dialog = window.dialog().file();
     #[cfg(desktop)]
@@ -170,6 +192,59 @@ async fn show_dialog(
     })?
 }
 
+#[cfg(mobile)]
+async fn show_dialog(
+    window: WebviewWindow,
+    request: serde_json::Value,
+    save: bool,
+) -> Result<Option<DialogSelection>, IpcFailure> {
+    let options = FileDialogOptions::parse(request)?;
+    let files = Arc::clone(window.state::<Arc<FileService>>().inner());
+    let native_options = tauri_plugin_documents::DocumentOptions {
+        title: options.title,
+        file_name: options
+            .default_path
+            .as_deref()
+            .and_then(|path| path.rsplit(['/', '\\']).next())
+            .map(str::to_owned),
+        extensions: options
+            .filters
+            .unwrap_or_default()
+            .into_iter()
+            .flat_map(|filter| filter.extensions)
+            .collect(),
+        writable: save || options.writable,
+    };
+    let selection =
+        tauri_plugin_documents::pick_document(window.app_handle(), native_options, save).await?;
+
+    tauri::async_runtime::spawn_blocking(move || {
+        let Some(selection) = selection else {
+            return Ok(None);
+        };
+        let document = crate::document::DocumentRef::parse(&selection.path)?;
+        let document = files.grant_document(&document, false)?;
+        let hash = files
+            .read_document(&document)?
+            .map(|snapshot| snapshot.hash);
+
+        Ok(Some(DialogSelection {
+            path: document.as_text()?,
+            hash,
+            name: if selection.name.is_empty() {
+                "dump.txt".into()
+            } else {
+                selection.name
+            },
+        }))
+    })
+    .await
+    .map_err(|error| IpcFailure {
+        code: "io",
+        message: format!("The native file dialog could not finish: {error}"),
+    })?
+}
+
 #[tauri::command]
 pub async fn show_open_dialog(
     window: WebviewWindow,
@@ -186,6 +261,6 @@ pub async fn show_save_dialog(
     IpcResult::from_ipc_result(show_dialog(window, request, true).await)
 }
 
-#[cfg(test)]
+#[cfg(all(test, desktop))]
 #[path = "dialogs.test.rs"]
 mod tests;

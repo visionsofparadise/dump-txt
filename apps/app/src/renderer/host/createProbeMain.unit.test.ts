@@ -39,7 +39,12 @@ describe("isolated probe files", () => {
 
 		expect(new TextDecoder().decode(file?.bytes)).toBe(probeText);
 		expect(file?.hash).toBe(createHash("sha256").update(probeText).digest("hex"));
-		expect(await main.getPaths()).toEqual({ userData: "/fixture", restoredFilePath: null, startupSettings: null });
+		expect(await main.getPaths()).toEqual({
+			userData: "/fixture",
+			restoredFilePath: null,
+			restoredFileName: null,
+			startupSettings: null,
+		});
 		expect(await main.readFile("/fixture/missing.txt")).toBeNull();
 		expect(await main.showOpenDialog()).toBeNull();
 		expect(await main.showSaveDialog()).toBeNull();

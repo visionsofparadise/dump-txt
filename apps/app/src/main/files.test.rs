@@ -365,3 +365,76 @@ fn canonical_paths_preserve_renderer_compatible_windows_paths() {
 
     assert_eq!(files.read_snapshot(&upper).unwrap().unwrap().bytes, b"text");
 }
+
+#[test]
+fn uri_grants_authorize_only_the_selected_document() {
+    let directory = tempfile::tempdir().unwrap();
+    let files = FileService::new(directory.path().into()).unwrap();
+    let document = DocumentRef::parse("content://documents/1").unwrap();
+    let sibling = DocumentRef::parse("content://documents/2").unwrap();
+
+    assert_eq!(
+        files.authorize_document(&document).unwrap_err().code,
+        "permission"
+    );
+    assert_eq!(files.grant_document(&document, false).unwrap(), document);
+    assert_eq!(files.authorize_document(&document).unwrap(), document);
+    assert_eq!(
+        files.authorize_document(&sibling).unwrap_err().code,
+        "permission"
+    );
+
+    files.grants.lock().unwrap().remove(&document);
+
+    assert_eq!(
+        files.authorize_document(&document).unwrap_err().code,
+        "permission"
+    );
+}
+
+#[test]
+fn queued_uri_write_rechecks_its_exact_grant_before_access() {
+    let directory = tempfile::tempdir().unwrap();
+    let files = FileService::new(directory.path().into()).unwrap();
+    let document = DocumentRef::parse("content://documents/queued").unwrap();
+
+    files.grant_document(&document, false).unwrap();
+
+    let prepared = files
+        .prepare_write(WriteRequest {
+            path: document.as_text().unwrap(),
+            bytes: b"new bytes".to_vec(),
+            expected_hash: None,
+        })
+        .unwrap();
+
+    files.grants.lock().unwrap().remove(&document);
+
+    assert_eq!(
+        files.complete_write(prepared).unwrap_err().code,
+        "permission"
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn document_socket_writes_finish_without_unsupported_disk_sync() {
+    use std::io::Read;
+
+    use std::os::{fd::OwnedFd, unix::net::UnixStream};
+
+    let (writer, mut reader) = UnixStream::pair().unwrap();
+    let mut file = fs::File::from(OwnedFd::from(writer));
+
+    file.write_all(b"document").unwrap();
+
+    assert!(!file.metadata().unwrap().is_file());
+    assert!(file.sync_all().is_err());
+    assert!(sync_document(&file).is_ok());
+
+    let mut bytes = [0; 8];
+
+    reader.read_exact(&mut bytes).unwrap();
+
+    assert_eq!(&bytes, b"document");
+}

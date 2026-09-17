@@ -36,7 +36,7 @@ async function fixture(
 		platform,
 		decorations,
 		capabilities,
-		getPaths: async () => ({ userData: "/app", restoredFilePath: null }),
+		getPaths: async () => ({ userData: "/app", restoredFilePath: null, restoredFileName: null }),
 		readFile: async (path) => {
 			const bytes = files.get(path);
 			return bytes ? { bytes, hash: hash(bytes) } : null;
@@ -111,6 +111,16 @@ afterEach(() => {
 });
 
 describe("scratchpad interface", () => {
+	it("shows a provider display name instead of an opaque document reference", async () => {
+		const { files, adapter, api, container } = await fixture();
+		files.set("content://documents/opaque", new TextEncoder().encode("mobile document"));
+		adapter.showOpenDialog = async () => ({ path: "content://documents/opaque", name: "My notes.md", hash: null });
+		await act(async () => {
+			await api.current!.persistence.open();
+		});
+		expect(container.querySelector(".app-name")?.textContent).toBe("My notes.md");
+		expect(adapter.setTitle).toHaveBeenLastCalledWith("My notes.md");
+	});
 	it("exposes editing, selection, navigation and menu actions through the mounted API", async () => {
 		const { api, editor, container } = await fixture("one two\n\f\nnext");
 		const context = api.current!;
@@ -141,7 +151,7 @@ describe("scratchpad interface", () => {
 		const { api, adapter, editor, files, unmount } = await fixture("original");
 		const previous = api.current!;
 		files.set("/app/replacement.txt", new TextEncoder().encode("replacement"));
-		adapter.showOpenDialog = async () => ({ path: "/app/replacement.txt", hash: null });
+		adapter.showOpenDialog = async () => ({ path: "/app/replacement.txt", name: "replacement.txt", hash: null });
 
 		await act(async () => {
 			await previous.persistence.open();
@@ -417,12 +427,12 @@ describe("scratchpad interface", () => {
 		press("s", { ctrlKey: true, shiftKey: true });
 		await waitFor(() => expect(main.showSaveDialog).toHaveBeenCalledOnce());
 		expect(container.querySelector(".app-name")?.textContent).toBe("dump.txt");
-		main.showSaveDialog = async () => ({ path: "C:/notes/renamed.txt", hash: null });
+		main.showSaveDialog = async () => ({ path: "C:/notes/renamed.txt", name: "renamed.txt", hash: null });
 		press("s", { ctrlKey: true, shiftKey: true });
 		await waitFor(() => expect(main.setTitle).toHaveBeenLastCalledWith("renamed.txt"));
 		expect(container.querySelector(".app-name")?.textContent).toBe("renamed.txt");
 		files.set("C:/notes/opened.txt", new TextEncoder().encode("replacement"));
-		main.showOpenDialog = async () => ({ path: "C:/notes/opened.txt", hash: null });
+		main.showOpenDialog = async () => ({ path: "C:/notes/opened.txt", name: "opened.txt", hash: null });
 		press("o", { ctrlKey: true });
 		await waitFor(() => expect(editor().state.doc.toString()).toBe("replacement"));
 		expect(container.querySelector(".app-name")?.textContent).toBe("opened.txt");
@@ -485,7 +495,7 @@ describe("scratchpad interface", () => {
 		});
 		let readingCandidate = false;
 		const read = main.readFile;
-		main.showOpenDialog = async () => ({ path: "/app/other.txt", hash: null });
+		main.showOpenDialog = async () => ({ path: "/app/other.txt", name: "other.txt", hash: null });
 		main.readFile = async (path) => {
 			if (path !== "/app/other.txt") return read(path);
 			readingCandidate = true;

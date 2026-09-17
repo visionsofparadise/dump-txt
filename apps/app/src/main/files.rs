@@ -1,3 +1,4 @@
+use crate::document::DocumentRef;
 use crate::error::{parse_request, IpcFailure, IpcResult};
 use atomic_write_file::AtomicWriteFile;
 use serde::{Deserialize, Deserializer, Serialize};
@@ -88,15 +89,17 @@ impl Drop for WriteTicket {
 }
 
 struct PreparedWrite {
-    path: PathBuf,
+    path: DocumentRef,
     request: WriteRequest,
     ticket: WriteTicket,
 }
 
 pub struct FileService {
     user_data: PathBuf,
-    grants: Mutex<HashSet<PathBuf>>,
-    queues: Mutex<HashMap<PathBuf, Weak<WriteQueue>>>,
+    grants: Mutex<HashSet<DocumentRef>>,
+    queues: Mutex<HashMap<DocumentRef, Weak<WriteQueue>>>,
+    #[cfg(mobile)]
+    app: Option<tauri::AppHandle>,
 }
 
 fn failure(code: &'static str, message: &str) -> IpcFailure {
@@ -182,6 +185,13 @@ fn comparison_path(path: &Path) -> PathBuf {
     }
 }
 
+fn comparison_document(document: &DocumentRef) -> DocumentRef {
+    match document {
+        DocumentRef::Path(path) => DocumentRef::Path(comparison_path(path)),
+        DocumentRef::Uri(_) => document.clone(),
+    }
+}
+
 fn hash_of(bytes: &[u8]) -> String {
     format!("{:x}", Sha256::digest(bytes))
 }
@@ -207,7 +217,16 @@ impl FileService {
             user_data: canonical_path(&user_data)?,
             grants: Mutex::new(HashSet::new()),
             queues: Mutex::new(HashMap::new()),
+            #[cfg(mobile)]
+            app: None,
         })
+    }
+
+    #[cfg(mobile)]
+    pub fn with_app(mut self, app: tauri::AppHandle) -> Self {
+        self.app = Some(app);
+
+        self
     }
 
     pub fn user_data(&self) -> &Path {
@@ -225,7 +244,7 @@ impl FileService {
         self.grants
             .lock()
             .map_err(lock_failure)?
-            .insert(comparison_path(&canonical));
+            .insert(DocumentRef::Path(comparison_path(&canonical)));
 
         Ok(canonical)
     }
@@ -235,7 +254,13 @@ impl FileService {
         let key = comparison_path(&canonical);
         let root = comparison_path(&canonical_path(&self.user_data)?);
 
-        if key.starts_with(&root) || self.grants.lock().map_err(lock_failure)?.contains(&key) {
+        if key.starts_with(&root)
+            || self
+                .grants
+                .lock()
+                .map_err(lock_failure)?
+                .contains(&DocumentRef::Path(key.clone()))
+        {
             Ok(canonical)
         } else {
             Err(failure(
@@ -247,6 +272,68 @@ impl FileService {
 
     pub fn read_snapshot(&self, path: &Path) -> Result<Option<FileRead>, IpcFailure> {
         read_exact_snapshot(&self.authorize_path(path)?)
+    }
+
+    pub fn grant_document(
+        &self,
+        document: &DocumentRef,
+        allow_unavailable: bool,
+    ) -> Result<DocumentRef, IpcFailure> {
+        match document {
+            DocumentRef::Path(path) => self
+                .grant_path(path, allow_unavailable)
+                .map(DocumentRef::Path),
+            DocumentRef::Uri(url) => {
+                if !matches!(url.scheme(), "content" | "file") {
+                    return Err(failure("invalid", "The document URI is unsupported."));
+                }
+
+                self.grants
+                    .lock()
+                    .map_err(lock_failure)?
+                    .insert(document.clone());
+
+                Ok(document.clone())
+            }
+        }
+    }
+
+    fn authorize_document(&self, document: &DocumentRef) -> Result<DocumentRef, IpcFailure> {
+        match document {
+            DocumentRef::Path(path) => self.authorize_path(path).map(DocumentRef::Path),
+            DocumentRef::Uri(_) if self.grants.lock().map_err(lock_failure)?.contains(document) => {
+                Ok(document.clone())
+            }
+            DocumentRef::Uri(_) => Err(failure(
+                "permission",
+                "Open or choose this file with the file menu before accessing it.",
+            )),
+        }
+    }
+
+    pub fn read_document(&self, document: &DocumentRef) -> Result<Option<FileRead>, IpcFailure> {
+        let document = self.authorize_document(document)?;
+
+        match &document {
+            DocumentRef::Path(path) => read_exact_snapshot(path),
+            DocumentRef::Uri(url) => self.read_uri(url),
+        }
+    }
+
+    #[cfg(desktop)]
+    fn read_uri(&self, _: &tauri::Url) -> Result<Option<FileRead>, IpcFailure> {
+        Err(failure(
+            "invalid",
+            "External document URIs require a mobile host.",
+        ))
+    }
+
+    #[cfg(desktop)]
+    fn write_uri(&self, _: &tauri::Url, _: &[u8]) -> Result<(), IpcFailure> {
+        Err(failure(
+            "invalid",
+            "External document URIs require a mobile host.",
+        ))
     }
 
     fn prepare_write(&self, request: WriteRequest) -> Result<PreparedWrite, IpcFailure> {
@@ -262,8 +349,8 @@ impl FileService {
             ));
         }
 
-        let path = self.authorize_path(Path::new(&request.path))?;
-        let key = comparison_path(&path);
+        let path = self.authorize_document(&DocumentRef::parse(&request.path)?)?;
+        let key = comparison_document(&path);
         let mut queues = self.queues.lock().map_err(lock_failure)?;
 
         queues.retain(|_, queue| queue.strong_count() != 0);
@@ -291,16 +378,16 @@ impl FileService {
     fn complete_write(&self, prepared: PreparedWrite) -> Result<WriteResult, IpcFailure> {
         prepared.ticket.wait()?;
 
-        let path = self.authorize_path(Path::new(&prepared.request.path))?;
+        let path = self.authorize_document(&DocumentRef::parse(&prepared.request.path)?)?;
 
-        if comparison_path(&path) != comparison_path(&prepared.path) {
+        if comparison_document(&path) != comparison_document(&prepared.path) {
             return Err(failure(
                 "permission",
                 "The file destination changed while waiting to save.",
             ));
         }
 
-        let actual_hash = read_exact_snapshot(&path)?.map(|snapshot| snapshot.hash);
+        let actual_hash = self.read_document(&path)?.map(|snapshot| snapshot.hash);
 
         if actual_hash != prepared.request.expected_hash {
             return Err(if actual_hash.is_none() {
@@ -316,11 +403,16 @@ impl FileService {
             });
         }
 
-        let mut file = AtomicWriteFile::open(&path)?;
+        match &path {
+            DocumentRef::Path(path) => {
+                let mut file = AtomicWriteFile::open(path)?;
 
-        crate::file_permissions::preserve(&path, file.as_file())?;
-        file.write_all(&prepared.request.bytes)?;
-        file.commit()?;
+                crate::file_permissions::preserve(path, file.as_file())?;
+                file.write_all(&prepared.request.bytes)?;
+                file.commit()?;
+            }
+            DocumentRef::Uri(url) => self.write_uri(url, &prepared.request.bytes)?,
+        }
 
         Ok(WriteResult {
             hash: hash_of(&prepared.request.bytes),
@@ -351,7 +443,7 @@ pub async fn read_file(
     let files = Arc::clone(app.state::<Arc<FileService>>().inner());
 
     match tauri::async_runtime::spawn_blocking(move || {
-        files.read_snapshot(Path::new(&request.path))
+        files.read_document(&DocumentRef::parse(&request.path)?)
     })
     .await
     {
@@ -382,3 +474,123 @@ pub async fn write_file(
 #[cfg(test)]
 #[path = "files.test.rs"]
 mod tests;
+
+#[cfg(mobile)]
+impl FileService {
+    fn mobile_app(&self) -> Result<&tauri::AppHandle, IpcFailure> {
+        self.app
+            .as_ref()
+            .ok_or_else(|| failure("io", "The mobile document service is unavailable."))
+    }
+
+    fn read_uri(&self, url: &tauri::Url) -> Result<Option<FileRead>, IpcFailure> {
+        use std::io::Read;
+
+        let app = self.mobile_app()?;
+        let Some(document) = tauri_plugin_documents::resolve_document(app, url.as_str(), false)?
+        else {
+            return Ok(None);
+        };
+        let options = tauri_plugin_fs::OpenOptions::new().read(true).clone();
+        let result = with_uri_file(app, &document.path, options, |file| {
+            let mut bytes = Vec::new();
+
+            file.read_to_end(&mut bytes)?;
+
+            Ok(FileRead {
+                hash: hash_of(&bytes),
+                bytes,
+            })
+        });
+
+        match result {
+            Ok(snapshot) => Ok(Some(snapshot)),
+            Err(error) if error.code == "missing" => Ok(None),
+            Err(error) => Err(error),
+        }
+    }
+
+    fn write_uri(&self, url: &tauri::Url, bytes: &[u8]) -> Result<(), IpcFailure> {
+        let app = self.mobile_app()?;
+        let document = tauri_plugin_documents::resolve_document(app, url.as_str(), true)?
+            .ok_or_else(|| {
+                failure(
+                    "missing",
+                    "The document is unavailable. Use Save As to choose a location.",
+                )
+            })?;
+        let options = tauri_plugin_fs::OpenOptions::new()
+            .write(true)
+            .truncate(true)
+            .clone();
+
+        with_uri_file(app, &document.path, options, |file| {
+            file.write_all(bytes)?;
+
+            sync_document(file)
+        })
+    }
+}
+
+#[cfg(any(mobile, all(test, unix)))]
+fn sync_document(file: &fs::File) -> std::io::Result<()> {
+    if file.metadata()?.is_file() {
+        file.sync_all()?;
+    }
+
+    Ok(())
+}
+
+#[cfg(mobile)]
+fn with_uri_file<T>(
+    app: &tauri::AppHandle,
+    reference: &str,
+    options: tauri_plugin_fs::OpenOptions,
+    action: impl FnOnce(&mut fs::File) -> std::io::Result<T>,
+) -> Result<T, IpcFailure> {
+    #[cfg(target_os = "android")]
+    use tauri_plugin_fs::FsExt;
+
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let url = tauri::Url::parse(reference)
+            .map_err(|_| failure("invalid", "The native document URI is invalid."))?;
+
+        #[cfg(target_os = "android")]
+        if url.scheme() != "content" {
+            return Err(failure(
+                "invalid",
+                "Android documents require a content URI.",
+            ));
+        }
+
+        #[cfg(target_os = "ios")]
+        if url.scheme() != "file" {
+            return Err(failure("invalid", "iOS documents require a file URI."));
+        }
+
+        #[cfg(target_os = "android")]
+        let mut file = app
+            .fs()
+            .open(tauri_plugin_fs::FilePath::Url(url), options)?;
+        #[cfg(target_os = "ios")]
+        let mut file = std::fs::OpenOptions::from(options).open(
+            url.to_file_path()
+                .map_err(|_| failure("invalid", "The native document URI is invalid."))?,
+        )?;
+
+        action(&mut file).map_err(IpcFailure::from)
+    }));
+    #[cfg(target_os = "ios")]
+    let released = tauri_plugin_documents::release_document(app, reference);
+    let value = result.map_err(|_| {
+        failure(
+            "missing",
+            "The document is unavailable. Use Save As to choose a location.",
+        )
+    })??;
+
+    #[cfg(target_os = "ios")]
+    released?;
+
+    Ok(value)
+}

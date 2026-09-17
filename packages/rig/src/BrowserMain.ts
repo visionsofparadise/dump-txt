@@ -82,7 +82,7 @@ export class BrowserMain extends MemoryMain {
 				expectedHash: null,
 			});
 
-			return { path, hash };
+			return { path, name: file.name, hash };
 		});
 	}
 
@@ -91,6 +91,7 @@ export class BrowserMain extends MemoryMain {
 
 		return Promise.resolve({
 			path: `${exportsPath}${this.#transfers}/${options?.defaultPath ?? "page.txt"}`,
+			name: options?.defaultPath ?? "page.txt",
 			hash: null,
 		});
 	}

@@ -1068,6 +1068,7 @@ dependencies = [
  "tauri-build",
  "tauri-plugin-clipboard-manager",
  "tauri-plugin-dialog",
+ "tauri-plugin-documents",
  "tauri-plugin-fs",
  "tauri-plugin-single-instance",
  "tauri-plugin-wdio",
@@ -4160,6 +4161,16 @@ dependencies = [
  "tauri-plugin-fs",
  "thiserror 2.0.20",
  "url",
+]
+
+[[package]]
+name = "tauri-plugin-documents"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-plugin",
 ]
 
 [[package]]
