@@ -10,7 +10,7 @@ configs:
 settingGroups:
    app:
       base:
-         PRODUCT_NAME: dump.txt
+         PRODUCT_NAME: dump-txt
          PRODUCT_BUNDLE_IDENTIFIER: com.visionsofparadise.dump-txt
 targetTemplates:
    app:
