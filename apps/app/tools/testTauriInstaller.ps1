@@ -16,7 +16,7 @@ if ($env:CI -ne 'true' -or $env:GITHUB_ACTIONS -ne 'true' -or
 }
 
 $projectDirectory = [IO.Path]::GetFullPath((Split-Path -Parent $PSScriptRoot))
-$workspaceDirectory = [IO.Path]::GetFullPath((Join-Path $env:GITHUB_WORKSPACE 'apps/desktop'))
+$workspaceDirectory = [IO.Path]::GetFullPath((Join-Path $env:GITHUB_WORKSPACE 'apps/app'))
 if ($projectDirectory.TrimEnd('\') -ne $workspaceDirectory.TrimEnd('\') -or
     $env:USERPROFILE -eq 'C:\Users\mttcv') {
     throw 'Installer tests refuse a local checkout or personal account.'

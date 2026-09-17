@@ -1,5 +1,5 @@
 import { scope } from "opshot";
-import icon from "../../desktop/assets/icon.svg";
+import icon from "../../app/assets/icon.svg";
 import { tileLabels } from "./utils/tileLabels";
 import type { AppWindowControl } from "./hooks/useAppWindow";
 

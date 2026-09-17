@@ -1,6 +1,6 @@
-import { createTauriMain } from "./desktop/createTauriMain";
-import { mountApp } from "./desktop/mountApp";
-import { readyTauriRenderer } from "./desktop/readyTauriRenderer";
+import { createTauriMain } from "./host/createTauriMain";
+import { mountApp } from "./host/mountApp";
+import { readyTauriRenderer } from "./host/readyTauriRenderer";
 import "./styles.css";
 
 async function start(): Promise<void> {

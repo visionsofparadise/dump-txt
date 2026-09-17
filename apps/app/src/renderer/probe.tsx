@@ -1,7 +1,7 @@
-import { createProbeMain } from "./desktop/createProbeMain";
-import { createTauriMain } from "./desktop/createTauriMain";
-import { mountApp } from "./desktop/mountApp";
-import { readyTauriRenderer } from "./desktop/readyTauriRenderer";
+import { createProbeMain } from "./host/createProbeMain";
+import { createTauriMain } from "./host/createTauriMain";
+import { mountApp } from "./host/mountApp";
+import { readyTauriRenderer } from "./host/readyTauriRenderer";
 import "./styles.css";
 
 if (import.meta.env.VITE_TEST_AUTOMATION) await import("@wdio/tauri-plugin");

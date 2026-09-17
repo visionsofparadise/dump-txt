@@ -10,7 +10,7 @@
 				"textlint-rule-no-dead-link"
 			]
 		},
-		"apps/desktop": {
+		"apps/app": {
 			"project": ["src/**/*.{ts,tsx,css}", "*.config.ts"],
 			"entry": ["src/renderer/probe.tsx", "tools/*.mjs"],
 			"vite": {

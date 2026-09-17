@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { probeText } from "../src/renderer/desktop/probeText.ts";
+import { probeText } from "../src/renderer/host/probeText.ts";
 
 export const fixture = {
 	text: probeText,

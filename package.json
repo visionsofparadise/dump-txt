@@ -8,8 +8,8 @@
 		"packages/*"
 	],
 	"scripts": {
-		"start": "turbo start --filter=@dump-txt/desktop --",
-		"build": "turbo build --filter=@dump-txt/desktop --",
+		"start": "turbo start --filter=@dump-txt/app --",
+		"build": "turbo build --filter=@dump-txt/app --",
 		"check": "concurrently --group \"prettier --check .\" \"turbo check\" \"eslint tools.mjs commitlint.config.mjs .githooks/pre-push.mjs --no-cache -f unix\" \"stylelint \\\"**/*.css\\\" -f unix --allow-empty-input --cache\" \"markdownlint-cli2 \\\"**/*.md\\\"\" \"textlint -f compact \\\"**/*.md\\\"\" \"knip --no-progress\" \"jscpd .\" \"node tools.mjs run actionlint\" \"check-dependency-version-consistency .\"",
 		"fix": "concurrently -m 1 --group \"prettier --write .\" \"turbo fix\" \"eslint tools.mjs commitlint.config.mjs .githooks/pre-push.mjs --fix --cache\" \"stylelint \\\"**/*.css\\\" --fix --allow-empty-input --cache\" \"markdownlint-cli2 --fix \\\"**/*.md\\\"\" \"textlint --fix \\\"**/*.md\\\"\"",
 		"unit": "turbo unit",

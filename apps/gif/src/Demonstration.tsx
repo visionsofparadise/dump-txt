@@ -1,7 +1,7 @@
 import { createPlayback, demonstrate, MemoryMain, type DemoPlayback } from "@dump-txt/rig";
 import { App, type ChromeContext } from "@dump-txt/ui";
 import { useCallback, useEffect, useRef, useState } from "react";
-import icon from "../../desktop/assets/icon.svg";
+import icon from "../../app/assets/icon.svg";
 
 declare global {
 	interface Window {
