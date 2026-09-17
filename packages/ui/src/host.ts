@@ -21,3 +21,4 @@ export { writeResultSchema } from "./models/WriteRequest";
 export type { WriteRequest } from "./models/WriteRequest";
 export { contentHashOf } from "./utils/contentHashOf";
 export { decodeText } from "./utils/decodeText";
+export { mobilePlatforms } from "./utils/platformGroups";

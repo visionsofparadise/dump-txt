@@ -7,6 +7,7 @@ const browserCapabilities: MainCapabilities = {
 	importPage: true,
 	exportPage: true,
 	fonts: false,
+	keybinds: true,
 	minimize: true,
 	maximize: true,
 	close: true,

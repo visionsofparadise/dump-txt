@@ -7,7 +7,7 @@ import type { TextContextMenuResponse, TextContextMenuState } from "./TextContex
 import type { WriteRequest } from "./WriteRequest";
 
 export interface Main {
-	readonly platform?: "windows" | "macos" | "linux";
+	readonly platform?: "windows" | "macos" | "linux" | "android" | "ios";
 	readonly decorations?: "native" | "drawn";
 	readonly capabilities?: MainCapabilities;
 

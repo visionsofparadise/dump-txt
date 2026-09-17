@@ -6,6 +6,7 @@ export interface MainCapabilities {
 	readonly importPage: boolean;
 	readonly exportPage: boolean;
 	readonly fonts: boolean;
+	readonly keybinds: boolean;
 	readonly minimize: boolean;
 	readonly maximize: boolean;
 	readonly close: boolean;
@@ -17,6 +18,7 @@ export const fullCapabilities: MainCapabilities = {
 	importPage: true,
 	exportPage: true,
 	fonts: true,
+	keybinds: true,
 	minimize: true,
 	maximize: true,
 	close: true,

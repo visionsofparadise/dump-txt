@@ -198,6 +198,38 @@ describe("scratchpad interface", () => {
 		expect(document.documentElement.dataset.theme).toBe(theme);
 	});
 
+	it.each(["android", "ios"] as const)(
+		"keeps %s chrome touch-oriented and preserves the native selection menu",
+		async (platform) => {
+			const { container, user, editor, api } = await fixture(undefined, platform, {
+				...fullCapabilities,
+				fonts: platform === "ios",
+				keybinds: false,
+				close: false,
+				minimize: false,
+				maximize: false,
+			});
+			const menu = screen.getByRole("button", { name: "App menu" });
+			expect(screen.queryByRole("banner", { name: "Window controls" })).toBeNull();
+			expect(menu.previousElementSibling).toBe(screen.getByRole("button", { name: "Insert page above" }));
+			const event = new MouseEvent("contextmenu", { bubbles: true, cancelable: true });
+			fireEvent(editor().contentDOM, event);
+			expect(event.defaultPrevented).toBe(false);
+			expect(main.showTextContextMenu).not.toHaveBeenCalled();
+			await user.click(menu);
+			await screen.findByRole("menuitem", { name: "Open…" });
+			expect(screen.queryByRole("menuitem", { name: "Keybinds" })).toBeNull();
+			expect(screen.queryByRole("menuitem", { name: "Close" })).toBeNull();
+			expect(container.querySelector(".menu-shortcut")).toBeNull();
+			expect(screen.queryByRole("menuitem", { name: /Font…/u }) !== null).toBe(platform === "ios");
+			await user.keyboard("{Escape}");
+			await act(async () => {
+				api.current!.chrome.keybindsOpen = true;
+			});
+			expect(screen.queryByRole("dialog", { name: "Keybinds" })).toBeNull();
+		},
+	);
+
 	it.each(["windows", "macos", "linux"] as const)("places the menu and window controls for %s", async (platform) => {
 		const { container, user } = await fixture(undefined, platform);
 		const menu = screen.getByRole("button", { name: "App menu" });
@@ -646,6 +678,7 @@ describe("scratchpad interface", () => {
 			importPage: false,
 			exportPage: false,
 			fonts: false,
+			keybinds: true,
 			minimize: false,
 			maximize: false,
 			close: false,

@@ -2,6 +2,7 @@ import { scope } from "opshot";
 import { useCallback, useContext, useEffect, type PointerEvent, type ReactNode } from "react";
 import { PlatformContext } from "../models/PlatformContext";
 import { cn } from "../utils/cn";
+import { barMenuPlatforms } from "../utils/platformGroups";
 import { HeaderBarControls } from "./HeaderBarControls";
 import { TrafficLights } from "./TrafficLights";
 import { WindowControls } from "./WindowControls";
@@ -42,7 +43,7 @@ export const TitleBar = scope(({ children, chrome, onDismissMenu, context }: Tit
 		void main.setTitle(filename).catch((error: unknown) => console.error(error));
 	}, [filename, main]);
 
-	return platform === "linux" && decorations === "native" ? null : (
+	return barMenuPlatforms.has(platform) && decorations === "native" ? null : (
 		<header
 			className={cn("title-bar", menuOpen && "title-bar-menu-open")}
 			data-platform={platform}

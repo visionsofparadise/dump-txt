@@ -22,9 +22,42 @@ beforeEach(() => {
 			return unsubscribe;
 		});
 });
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => {
+	vi.restoreAllMocks();
+	vi.unstubAllGlobals();
+});
 
 describe("Tauri desktop boundary", () => {
+	it.each(["android", "ios"] as const)("answers %s chrome locally and preserves host disposal", async (platform) => {
+		vi.stubGlobal("dumpPlatform", platform);
+		const adapter = await createTauriMain();
+		expect(adapter.main.capabilities).toMatchObject({
+			fonts: platform === "ios",
+			keybinds: false,
+			close: false,
+			minimize: false,
+			maximize: false,
+			openDump: true,
+			saveAs: true,
+		});
+		await adapter.main.minimize();
+		await adapter.main.toggleMaximize();
+		await adapter.main.finishClose();
+		await adapter.main.setTitle("Mobile dump");
+		await adapter.main.setTheme("dark");
+		expect(document.title).toBe("Mobile dump");
+		expect(document.documentElement.dataset.theme).toBe("dark");
+		window.dispatchEvent(new KeyboardEvent("keydown", { key: "F12" }));
+		if (platform === "android") expect(await adapter.main.getSystemFonts()).toEqual([]);
+		expect(native.invoke).not.toHaveBeenCalled();
+		if (platform === "ios") {
+			native.invoke.mockResolvedValueOnce({ ok: true, value: ["Arial"] });
+			expect(await adapter.main.getSystemFonts()).toEqual(["Arial"]);
+			expect(native.invoke).toHaveBeenLastCalledWith("get_system_fonts", { request: {} });
+		}
+		adapter.dispose();
+		for (const unlisten of unsubscribers) expect(unlisten).toHaveBeenCalledOnce();
+	});
 	it.each(["system", "light", "dark"] as const)("synchronizes the native window theme: %s", async (theme) => {
 		const desktop = await createTauriMain();
 

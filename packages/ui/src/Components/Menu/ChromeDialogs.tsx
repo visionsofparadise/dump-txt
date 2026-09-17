@@ -1,5 +1,6 @@
 import { scope } from "opshot";
 import { lazy, Suspense } from "react";
+import { capabilitiesOf } from "../../models/MainCapabilities";
 import type { ChromeContext } from "../../models/ChromeContext";
 
 const FontPicker = lazy(() => import("./FontPicker").then((module) => ({ default: module.FontPicker })));
@@ -12,6 +13,6 @@ interface ChromeDialogsProps {
 export const ChromeDialogs = scope(({ context }: ChromeDialogsProps) => (
 	<Suspense fallback={null}>
 		{context.chrome.fontPickerOpen && <FontPicker context={context} />}
-		{context.chrome.keybindsOpen && <Keybinds context={context} />}
+		{capabilitiesOf(context.main).keybinds && context.chrome.keybindsOpen && <Keybinds context={context} />}
 	</Suspense>
 ));

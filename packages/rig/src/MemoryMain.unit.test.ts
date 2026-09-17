@@ -108,6 +108,7 @@ describe("MemoryMain", () => {
 			importPage: true,
 			exportPage: true,
 			fonts: false,
+			keybinds: true,
 			minimize: false,
 			maximize: false,
 			close: false,

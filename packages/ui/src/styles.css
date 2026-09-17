@@ -90,8 +90,15 @@
 	background: var(--color-surface);
 }
 
-.dump-ui .dump-app[data-platform="linux"][data-decorations="native"] {
+.dump-ui .dump-app[data-platform="linux"][data-decorations="native"],
+.dump-ui .dump-app[data-platform="android"][data-decorations="native"],
+.dump-ui .dump-app[data-platform="ios"][data-decorations="native"] {
 	grid-template-rows: var(--spacing-bar) minmax(0, 1fr) var(--spacing-bar) var(--status-bar-height, 24px);
+}
+
+.dump-ui .dump-app[data-platform="android"],
+.dump-ui .dump-app[data-platform="ios"] {
+	--spacing-bar: 44px;
 }
 
 .dump-ui .loading-copy {
@@ -241,6 +248,12 @@
 	background: transparent;
 	color: inherit;
 	-webkit-app-region: no-drag;
+}
+
+.dump-ui .dump-app:is([data-platform="android"], [data-platform="ios"]) .chrome-button {
+	min-width: 44px;
+	min-height: 44px;
+	touch-action: manipulation;
 }
 
 .dump-ui .title-menu > :where(button) svg,

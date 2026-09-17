@@ -13,6 +13,7 @@ import {
 } from "react";
 import { capabilitiesOf } from "../models/MainCapabilities";
 import { PlatformContext } from "../models/PlatformContext";
+import { barMenuPlatforms } from "../utils/platformGroups";
 import { Menu } from "./Menu";
 import { ChromeDialogs } from "./Menu/ChromeDialogs";
 import { DownBar } from "./Page/DownBar";
@@ -150,9 +151,9 @@ export const Layout = scope(({ ref, surface, context: dumpContext }: LayoutProps
 	return (
 		<main className="dump-app" data-platform={platform} data-decorations={decorations} style={appearance}>
 			<TitleBar chrome={context.chrome} onDismissMenu={dismissMenu} context={context}>
-				{platform !== "linux" && <Menu context={context} />}
+				{!barMenuPlatforms.has(platform) && <Menu context={context} />}
 			</TitleBar>
-			<UpBar context={context}>{platform === "linux" && <Menu context={context} />}</UpBar>
+			<UpBar context={context}>{barMenuPlatforms.has(platform) && <Menu context={context} />}</UpBar>
 			<PageLayout context={context} />
 			<DownBar context={context} />
 			{showStatusBar && <StatusBar context={context} />}

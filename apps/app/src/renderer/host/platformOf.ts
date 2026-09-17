@@ -1,6 +1,6 @@
 declare global {
 	interface Window {
-		readonly dumpPlatform?: "windows" | "macos" | "linux";
+		readonly dumpPlatform?: "windows" | "macos" | "linux" | "android" | "ios";
 	}
 }
 

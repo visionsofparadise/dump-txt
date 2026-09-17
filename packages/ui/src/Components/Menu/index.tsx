@@ -3,6 +3,7 @@ import { scope } from "opshot";
 import { useCallback, useContext } from "react";
 import { capabilitiesOf } from "../../models/MainCapabilities";
 import { PlatformContext } from "../../models/PlatformContext";
+import { mobilePlatforms } from "../../utils/platformGroups";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -113,12 +114,12 @@ export const Menu = scope(({ context }: MenuProps) => {
 				<DropdownMenuItem onSelect={openFile} disabled={persistenceState.locked || !capabilities.openDump}>
 					<FolderOpen size={16} aria-hidden />
 					<span>Open…</span>
-					<span className="menu-shortcut">Ctrl+O</span>
+					{capabilities.keybinds && <span className="menu-shortcut">Ctrl+O</span>}
 				</DropdownMenuItem>
 				<DropdownMenuItem onSelect={saveAs} disabled={persistenceState.locked || !capabilities.saveAs}>
 					<Save size={16} aria-hidden />
 					<span>Save As…</span>
-					<span className="menu-shortcut">Ctrl+Shift+S</span>
+					{capabilities.keybinds && <span className="menu-shortcut">Ctrl+Shift+S</span>}
 				</DropdownMenuItem>
 				<DropdownMenuSeparator />
 				<PageFileMenu context={context} />
@@ -126,35 +127,41 @@ export const Menu = scope(({ context }: MenuProps) => {
 				<DropdownMenuItem onSelect={undo} disabled={!session.canUndo || persistenceState.locked}>
 					<Undo2 size={16} aria-hidden />
 					<span>Undo</span>
-					<span className="menu-shortcut">Ctrl+Z</span>
+					{capabilities.keybinds && <span className="menu-shortcut">Ctrl+Z</span>}
 				</DropdownMenuItem>
 				<DropdownMenuItem onSelect={redo} disabled={!session.canRedo || persistenceState.locked}>
 					<Redo2 size={16} aria-hidden />
 					<span>Redo</span>
-					<span className="menu-shortcut">Ctrl+Y</span>
+					{capabilities.keybinds && <span className="menu-shortcut">Ctrl+Y</span>}
 				</DropdownMenuItem>
 				<DropdownMenuItem onSelect={find} disabled={persistenceState.locked}>
 					<Search size={16} aria-hidden />
 					<span>Find and replace</span>
-					<span className="menu-shortcut">Ctrl+F</span>
+					{capabilities.keybinds && <span className="menu-shortcut">Ctrl+F</span>}
 				</DropdownMenuItem>
 				<DropdownMenuSeparator />
 				<TextSizeMenu context={context} />
-				<FontMenu context={context} />
+				{(!mobilePlatforms.has(platform ?? "windows") || capabilities.fonts) && <FontMenu context={context} />}
 				<AppearanceMenu context={context} />
 				<DropdownMenuItem onSelect={toggleStatusBar} disabled={persistenceState.locked}>
 					<PanelBottom size={16} aria-hidden />
 					<span>{session.appearance.showStatusBar === false ? "Show status bar" : "Hide status bar"}</span>
 				</DropdownMenuItem>
-				<DropdownMenuItem onSelect={openKeybinds} disabled={persistenceState.locked}>
-					<Keyboard size={16} aria-hidden />
-					<span>Keybinds</span>
-				</DropdownMenuItem>
-				<DropdownMenuSeparator />
-				<DropdownMenuItem onSelect={close} disabled={persistenceState.locked || !capabilities.close}>
-					<X size={16} aria-hidden />
-					<span>Close</span>
-				</DropdownMenuItem>
+				{capabilities.keybinds && (
+					<DropdownMenuItem onSelect={openKeybinds} disabled={persistenceState.locked}>
+						<Keyboard size={16} aria-hidden />
+						<span>Keybinds</span>
+					</DropdownMenuItem>
+				)}
+				{(!mobilePlatforms.has(platform ?? "windows") || capabilities.close) && (
+					<>
+						<DropdownMenuSeparator />
+						<DropdownMenuItem onSelect={close} disabled={persistenceState.locked || !capabilities.close}>
+							<X size={16} aria-hidden />
+							<span>Close</span>
+						</DropdownMenuItem>
+					</>
+				)}
 			</DropdownMenuContent>
 		</DropdownMenu>
 	);

@@ -4,6 +4,7 @@ import { decodeText, type TextFormat } from "../utils/decodeText";
 import { encodeText } from "../utils/encodeText";
 import { parsePages } from "../utils/parsePages";
 import { persistedPagesOf } from "../utils/persistedPagesOf";
+import { mobilePlatforms } from "../utils/platformGroups";
 import { sameFilePath } from "../utils/sameFilePath";
 import { serializePages } from "../utils/serializePages";
 import { appStateSchema, type AppState } from "./AppState";
@@ -689,7 +690,9 @@ export class PersistenceController {
 		const history = new History(document, session, () => this.changed());
 		const navigation = new PageNavigation(document, session);
 		const editor = new EditorController(document, session, history, navigation, {
-			showTextContextMenu: (state) => this.#main.showTextContextMenu(state),
+			...(!mobilePlatforms.has(this.#main.platform ?? "windows")
+				? { showTextContextMenu: (state) => this.#main.showTextContextMenu(state) }
+				: {}),
 			readClipboard: () => this.#main.readClipboard(),
 			writeClipboard: (text) => this.#main.writeClipboard(text),
 			...(this.#callbacks.openFind

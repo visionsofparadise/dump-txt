@@ -1,5 +1,5 @@
 import { EventEmitter } from "events";
-import { appPathsSchema } from "@dump-txt/ui/host";
+import { appPathsSchema, fullCapabilities, mobilePlatforms } from "@dump-txt/ui/host";
 import { dialogChoiceSchema } from "@dump-txt/ui/host";
 import { fileReadSchema } from "@dump-txt/ui/host";
 import { failureOf, IpcError } from "@dump-txt/ui/host";
@@ -21,6 +21,8 @@ const nativePaths = appPathsSchema
 	.pipe(appPathsSchema);
 
 export async function createTauriMain(): Promise<{ main: Main; dispose(): void }> {
+	const platform = platformOf();
+	const mobile = mobilePlatforms.has(platform);
 	const events = new EventEmitter<MainEventMap>();
 	const subscriptions = await Promise.allSettled(
 		(["closeRequested", "windowBoundsChanged", "maximizedChanged"] as const).map((channel) =>
@@ -45,7 +47,7 @@ export async function createTauriMain(): Promise<{ main: Main; dispose(): void }
 
 	let removeInspector: () => void = () => undefined;
 
-	if (import.meta.env.DEV) {
+	if (import.meta.env.DEV && !mobile) {
 		const openInspector = (event: KeyboardEvent) => {
 			const shortcut =
 				event.key === "F12" ||
@@ -64,7 +66,7 @@ export async function createTauriMain(): Promise<{ main: Main; dispose(): void }
 	}
 
 	const main: Main = {
-		platform: platformOf(),
+		platform,
 		getPaths: () => invokeTauri("get_paths", {}, nativePaths),
 		readFile: (path) => invokeTauri("read_file", { path }, nativeFileRead.nullable()),
 		writeFile: (request) =>
@@ -109,7 +111,34 @@ export async function createTauriMain(): Promise<{ main: Main; dispose(): void }
 	};
 
 	return {
-		main,
+		main: mobile
+			? {
+					...main,
+					capabilities: {
+						...fullCapabilities,
+						fonts: platform === "ios",
+						keybinds: false,
+						minimize: false,
+						maximize: false,
+						close: false,
+					},
+					minimize: () => Promise.resolve(),
+					toggleMaximize: () => Promise.resolve(),
+					finishClose: () => Promise.resolve(),
+					setTitle: (title) => {
+						document.title = title;
+
+						return Promise.resolve();
+					},
+					setTheme: (theme) => {
+						document.documentElement.dataset.theme = theme;
+
+						return Promise.resolve();
+					},
+					showTextContextMenu: () => Promise.resolve(null),
+					...(platform === "android" ? { getSystemFonts: () => Promise.resolve([]) } : {}),
+				}
+			: main,
 		dispose() {
 			if (disposed) return;
 
