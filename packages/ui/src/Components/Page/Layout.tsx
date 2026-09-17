@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
+import { observePageTouch } from "../../utils/observePageTouch";
 import { PageEditor } from "./Editor";
 import { FindPanel } from "./FindPanel";
 import { OccurrencePanel } from "./OccurrencePanel";
@@ -22,6 +23,12 @@ export function PageLayout({ context }: PageLayoutProps) {
 	const incoming = useRef<HTMLDivElement>(null);
 
 	const outgoing = useRef<HTMLDivElement>(null);
+
+	useEffect(() => {
+		if (!current.current || !["android", "ios"].includes(context.main.platform ?? "")) return;
+
+		return observePageTouch(current.current, editor, navigation);
+	}, [context.main.platform, editor, navigation]);
 
 	useEffect(() => {
 		const element = current.current;

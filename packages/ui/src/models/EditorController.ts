@@ -44,6 +44,16 @@ export interface PageTransition {
 }
 
 export class EditorController {
+	get canNavigateByTouch(): boolean {
+		return (
+			!!this.#view &&
+			!this.#locked &&
+			!this.#composition &&
+			!this.#view.composing &&
+			this.#view.state.selection.ranges.every((range) => range.empty)
+		);
+	}
+
 	readonly #document: DocumentState;
 	readonly #session: SessionState;
 	readonly #history: History;
