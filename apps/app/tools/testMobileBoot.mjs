@@ -163,7 +163,13 @@ async function android() {
 	assert.equal(runAs(["cat", document]), sentinel, "UTF-8 content must survive app initialization and restart.");
 	report.secondReady = true;
 	report.fileRetained = true;
-	const secondBrowser = await androidBrowserEvidence(adb, second.processId, second.logs);
+	const secondBrowser = await androidBrowserEvidence(
+		adb,
+		second.processId,
+		second.logs,
+		undefined,
+		process.env.MOBILE_REQUIRE_RENDERER_TEXT === "1" ? sentinel.trim() : undefined,
+	);
 	report.rendererTextObserved = secondBrowser.editorText?.includes(sentinel.trim()) ?? false;
 	if (process.env.MOBILE_REQUIRE_RENDERER_TEXT === "1") {
 		assert(report.rendererTextObserved, "The relaunched editor must display the persisted text through CDP.");
@@ -177,7 +183,7 @@ async function android() {
 		adb(["shell", "am", "force-stop", app]);
 		const third = await launch("autosave-relaunch");
 		assert.equal(runAs(["cat", document]), expected, "Editor autosave must survive process restart.");
-		const restored = await androidBrowserEvidence(adb, third.processId, third.logs);
+		const restored = await androidBrowserEvidence(adb, third.processId, third.logs, undefined, autosaveText.trim());
 		assert(
 			restored.editorText?.includes(autosaveText.trim()),
 			"The relaunched editor must display its autosaved input.",
@@ -187,7 +193,26 @@ async function android() {
 	adb(["shell", "am", "force-stop", app]);
 }
 
-async function androidBrowserEvidence(adb, processId, logs, inputText) {
+async function androidBrowserEvidence(adb, processId, logs, inputText, expectedText) {
+	if (expectedText === undefined) return readAndroidBrowserEvidence(adb, processId, logs, inputText);
+	const deadline = Date.now() + 30_000;
+	let last;
+	do {
+		try {
+			const result = await readAndroidBrowserEvidence(adb, processId, logs, inputText, expectedText, deadline);
+			last = result;
+			if (result.editorText?.includes(expectedText)) return result;
+		} catch (error) {
+			if (error.code === "ANDROID_USER_AGENT_MISMATCH") throw error;
+			last = { error: error.message };
+		}
+		if (Date.now() < deadline) await delay(500);
+	} while (Date.now() < deadline);
+	report.lastRendererObservation = { processId, expectedText, ...last };
+	throw new Error("Relaunched editor text was not observed within 30000ms; see lastRendererObservation.");
+}
+
+async function readAndroidBrowserEvidence(adb, processId, logs, inputText, expectedText, deadline) {
 	let port;
 	try {
 		const sockets = adb(["shell", "cat", "/proc/net/unix"]);
@@ -211,6 +236,22 @@ async function androidBrowserEvidence(adb, processId, logs, inputText) {
 			const error = new Error("The observed WebView user agent does not identify Android.");
 			error.code = "ANDROID_USER_AGENT_MISMATCH";
 			throw error;
+		}
+		if (expectedText !== undefined) {
+			result.editorText = await evaluate(
+				page.webSocketDebuggerUrl,
+				`(async () => {
+                    const deadline = Date.now() + ${Math.max(1, deadline - Date.now())};
+                    let text;
+                    do {
+                        text = document.querySelector('.cm-content')?.innerText ?? null;
+                        if (text?.includes(${JSON.stringify(expectedText)})) return text;
+                        await new Promise(resolve => setTimeout(resolve, 100));
+                    } while (Date.now() < deadline);
+                    return text;
+                })()`,
+				Math.max(1, deadline - Date.now()) + 5000,
+			);
 		}
 		if (inputText !== undefined) {
 			assert.equal(
@@ -236,6 +277,7 @@ async function androidBrowserEvidence(adb, processId, logs, inputText) {
 		}
 		return { source: "webview-cdp", ...result };
 	} catch (error) {
+		if (expectedText !== undefined) throw error;
 		if (inputText !== undefined) throw error;
 		if (error.code === "ANDROID_USER_AGENT_MISMATCH") throw error;
 		const userAgent = logs.match(/dump\.txt user agent: (.+)/u)?.[1]?.trim();
@@ -250,18 +292,23 @@ async function androidBrowserEvidence(adb, processId, logs, inputText) {
 	}
 }
 
-async function evaluate(url, expression) {
-	const result = await devtoolsCall(url, "Runtime.evaluate", { expression, returnByValue: true });
+async function evaluate(url, expression, timeout) {
+	const result = await devtoolsCall(
+		url,
+		"Runtime.evaluate",
+		{ expression, returnByValue: true, awaitPromise: true },
+		timeout,
+	);
 	assert(!result.exceptionDetails, "CDP evaluation failed.");
 	return result.result.value;
 }
 
-async function devtoolsCall(url, method, params) {
+async function devtoolsCall(url, method, params, timeout = 5000) {
 	return new Promise((resolveValue, reject) => {
 		const socket = new WebSocket(url);
-		const timeout = setTimeout(() => finish(new Error("CDP evaluation timed out")), 5000);
+		const timer = setTimeout(() => finish(new Error("CDP evaluation timed out")), timeout);
 		function finish(error, value) {
-			clearTimeout(timeout);
+			clearTimeout(timer);
 			socket.close();
 			if (error) reject(error);
 			else resolveValue(value);
