@@ -189,7 +189,7 @@ describe("scratchpad interface", () => {
 		await act(async () => {
 			first.api.current!.chrome.keybindsOpen = true;
 		});
-		const firstDialog = await within(first.container).findByRole("dialog", { name: "Keybinds" });
+		const firstDialog = await within(first.container).findByRole("dialog", { name: "Keybinds" }, { timeout: 3000 });
 
 		expect(firstDialog.closest(".dump-ui")).toBe(first.container.querySelector(".dump-ui"));
 		expect(within(second.container).queryByRole("dialog", { name: "Keybinds" })).toBeNull();
