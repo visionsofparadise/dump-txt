@@ -1,6 +1,8 @@
 import { Paintbrush } from "lucide-react";
 import { scope } from "opshot";
-import { useCallback } from "react";
+import { useCallback, useContext } from "react";
+import { PlatformContext } from "../../models/PlatformContext";
+import { mobilePlatforms } from "../../utils/platformGroups";
 import {
 	DropdownMenuSub,
 	DropdownMenuSubTrigger,
@@ -15,6 +17,9 @@ interface AppearanceMenuProps {
 }
 
 export const AppearanceMenu = scope(({ context }: AppearanceMenuProps) => {
+	const platform = useContext(PlatformContext) ?? context.main.platform;
+
+	const mobile = mobilePlatforms.has(platform ?? "windows");
 	const { session, history, persistence, persistenceState } = context;
 
 	const themeChanged = useCallback(
@@ -42,7 +47,11 @@ export const AppearanceMenu = scope(({ context }: AppearanceMenuProps) => {
 							: "Dark"}
 				</span>
 			</DropdownMenuSubTrigger>
-			<DropdownMenuSubContent container={context.surface.current}>
+			<DropdownMenuSubContent
+				container={context.surface.current}
+				sideOffset={mobile ? -160 : 0}
+				style={mobile ? { width: 160 } : undefined}
+			>
 				<DropdownMenuRadioGroup value={session.appearance.theme} onValueChange={themeChanged}>
 					<DropdownMenuRadioItem value="system" disabled={persistenceState.locked}>
 						System

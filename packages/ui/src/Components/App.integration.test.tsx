@@ -232,6 +232,11 @@ describe("scratchpad interface", () => {
 			expect(screen.queryByRole("menuitem", { name: "Close" })).toBeNull();
 			expect(container.querySelector(".menu-shortcut")).toBeNull();
 			expect(screen.queryByRole("menuitem", { name: /Font…/u }) !== null).toBe(platform === "ios");
+			await user.click(screen.getByRole("menuitem", { name: /Appearance/u }));
+			const dark = await screen.findByRole("menuitemradio", { name: "Dark" });
+			expect((dark.closest(".menu-subcontent") as HTMLElement).style.width).toBe("160px");
+			await user.pointer({ keys: "[TouchA]", target: dark });
+			await waitFor(() => expect(api.current?.session.appearance.theme).toBe("dark"));
 			await user.keyboard("{Escape}");
 			await act(async () => {
 				api.current!.chrome.keybindsOpen = true;
