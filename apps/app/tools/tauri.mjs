@@ -12,14 +12,16 @@ const directory = fileURLToPath(new URL("../", import.meta.url));
 const arguments_ = process.argv.slice(2);
 const platform = ["android", "ios"].includes(arguments_[0]) ? arguments_.shift() : undefined;
 const command = arguments_.shift();
-const xcodeScript = platform === "ios" && command === "xcode-script";
+const nativeScript =
+	(platform === "ios" && command === "xcode-script") ||
+	(platform === "android" && command === "android-studio-script");
 const probe = arguments_.includes("--probe");
 const automation = arguments_.includes("--automation");
 const supported = new Set(["dev", "build"]);
 
 if (
-	(!supported.has(command) && !xcodeScript) ||
-	(!xcodeScript && arguments_.some((argument) => !["--probe", "--automation"].includes(argument))) ||
+	(!supported.has(command) && !nativeScript) ||
+	(!nativeScript && arguments_.some((argument) => !["--probe", "--automation"].includes(argument))) ||
 	(platform && (probe || automation))
 ) {
 	throw new Error("Use [android|ios] dev [--probe] [--automation] or [android|ios] build [--probe] [--automation]");
@@ -44,8 +46,8 @@ function run(executable, arguments_) {
 	if (result.status !== 0) process.exit(result.status ?? 1);
 }
 
-if (xcodeScript) {
-	run(process.execPath, [require.resolve("@tauri-apps/cli/tauri.js"), "ios", "xcode-script", ...arguments_]);
+if (nativeScript) {
+	run(process.execPath, [require.resolve("@tauri-apps/cli/tauri.js"), platform, command, ...arguments_]);
 	process.exit(0);
 }
 
