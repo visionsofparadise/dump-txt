@@ -4,7 +4,7 @@
 	position: relative;
 	isolation: isolate;
 	line-height: 1.5;
-	font-size: 16px;
+	font-size: var(--text-interface);
 	tab-size: 4;
 	--color-surface: light-dark(#fafafa, #2c2c2c);
 	--color-chrome: light-dark(#e6e6e6, #1e1e1e);
@@ -18,6 +18,10 @@
 	--color-focus: light-dark(#505050, #bababa);
 	--spacing-bar: 40px;
 	--font-interface: "Segoe UI", sans-serif;
+	--text-interface: 14px;
+	--text-secondary: 12px;
+	--text-heading: 16px;
+	--size-icon: 18px;
 	overflow: hidden;
 	background: var(--color-surface);
 	color: var(--color-ink);
@@ -92,7 +96,7 @@
 
 .dump-ui .loading-copy {
 	padding: 14px;
-	font-size: 12px;
+	font-size: var(--text-interface);
 	color: var(--color-muted);
 }
 
@@ -209,8 +213,8 @@
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
-	font-size: 12px;
-	letter-spacing: 0.14em;
+	font-size: var(--text-interface);
+	letter-spacing: 0.06em;
 	color: light-dark(#9a9a9a, #6a6a6a);
 }
 
@@ -220,7 +224,7 @@
 
 .dump-ui .title-bar[data-platform="linux"] .app-name {
 	font-family: Cantarell, "Segoe UI", sans-serif;
-	font-size: 13px;
+	font-size: var(--text-interface);
 	font-weight: 700;
 	letter-spacing: normal;
 	color: light-dark(#2e2e2e, #e6e6e6);
@@ -237,6 +241,17 @@
 	background: transparent;
 	color: inherit;
 	-webkit-app-region: no-drag;
+}
+
+.dump-ui .title-menu > :where(button) svg,
+.dump-ui .page-bar :where(button) svg,
+.dump-ui .menu-item > svg,
+.dump-ui .menu-size-row > svg,
+.dump-ui .menu-size-adjust svg,
+.dump-ui .panel-button svg,
+.dump-ui .font-search-field > svg {
+	width: var(--size-icon);
+	height: var(--size-icon);
 }
 
 .dump-ui .chrome-button:hover:not(:disabled),
@@ -313,7 +328,7 @@
 	background: var(--color-chrome);
 	color: var(--color-muted);
 	font-family: Consolas, monospace;
-	font-size: 11px;
+	font-size: var(--text-secondary);
 	line-height: 1;
 	font-variant-numeric: tabular-nums;
 	user-select: none;
@@ -449,7 +464,7 @@
 
 .dump-ui .menu-content {
 	z-index: 20;
-	width: 264px;
+	width: 288px;
 	max-width: 100%;
 	max-height: var(--radix-dropdown-menu-content-available-height);
 	overflow-y: auto;
@@ -459,7 +474,7 @@
 	background: var(--color-chrome);
 	color: var(--color-ink);
 	box-shadow: 0 8px 24px #0003;
-	font: 13px var(--font-interface);
+	font: var(--text-interface) / 1.5 var(--font-interface);
 	animation: panel-appear 120ms ease-out;
 }
 
@@ -518,7 +533,7 @@
 .dump-ui .menu-value {
 	margin-left: auto;
 	color: light-dark(#9a9a9a, #a0a0a0);
-	font-size: 11px;
+	font-size: var(--text-secondary);
 }
 
 .dump-ui .menu-value {
@@ -568,7 +583,7 @@
 	top: 0;
 	right: 0;
 	z-index: 5;
-	width: min(400px, 100%);
+	width: min(440px, 100%);
 	max-height: 100%;
 	overflow: auto;
 	box-sizing: border-box;
@@ -577,7 +592,7 @@
 	border-radius: 0;
 	background: var(--color-bar);
 	box-shadow: 0 6px 20px #0002;
-	font: 13px var(--font-interface);
+	font: var(--text-interface) / 1.5 var(--font-interface);
 	animation: panel-appear 120ms ease-out;
 }
 
@@ -601,8 +616,8 @@
 }
 
 .dump-ui .panel-button {
-	min-height: 26px;
-	min-width: 26px;
+	min-height: 32px;
+	min-width: 32px;
 	padding: 3px 6px;
 	display: inline-flex;
 	align-items: center;
@@ -648,7 +663,7 @@
 	height: var(--spacing-bar);
 	gap: 0;
 	flex-wrap: nowrap;
-	font-size: 12px;
+	font-size: var(--text-interface);
 }
 
 .dump-ui .panel-options label {
@@ -700,7 +715,7 @@
 
 .dump-ui .panel-count {
 	color: light-dark(#777, #a0a0a0);
-	font-size: 12px;
+	font-size: var(--text-secondary);
 	font-variant-numeric: tabular-nums;
 	white-space: nowrap;
 }
@@ -728,7 +743,7 @@
 	padding: 7px 10px;
 	background: var(--color-panel);
 	box-shadow: 0 4px 16px #0002;
-	font: 12px var(--font-interface);
+	font: var(--text-interface) / 1.5 var(--font-interface);
 }
 
 .dump-ui .save-error-actions {
@@ -760,7 +775,7 @@
 	align-items: center;
 	gap: 10px;
 	margin: 0;
-	font-size: 14px;
+	font-size: var(--text-heading);
 	font-weight: 500;
 }
 
@@ -772,7 +787,7 @@
 	overflow: hidden;
 	background: var(--color-bar);
 	color: var(--color-ink);
-	font: 13px var(--font-interface);
+	font: var(--text-interface) / 1.5 var(--font-interface);
 }
 
 .dump-ui .keybinds-list {
@@ -784,7 +799,7 @@
 	margin: 0;
 	padding: 12px;
 	background: light-dark(#dedede, #383838);
-	font-size: 12px;
+	font-size: var(--text-interface);
 	font-weight: 600;
 }
 
@@ -797,7 +812,7 @@
 	align-items: center;
 	justify-content: space-between;
 	gap: 16px;
-	min-height: 32px;
+	min-height: var(--spacing-bar);
 	padding: 0 12px;
 }
 
@@ -812,7 +827,7 @@
 
 .dump-ui .keybind-row kbd {
 	font:
-		12px Consolas,
+		var(--text-interface) Consolas,
 		monospace;
 	white-space: nowrap;
 }
@@ -827,7 +842,7 @@
 	border: 0;
 	background: var(--color-bar);
 	color: var(--color-ink);
-	font: 13px var(--font-interface);
+	font: var(--text-interface) / 1.5 var(--font-interface);
 }
 
 .dump-ui .font-picker-header {
