@@ -178,7 +178,10 @@ jobs:
            run: |
               apksigner=$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -n 1)
               test -n "$apksigner"
-              certificate_sha256=$("$apksigner" verify --print-certs apps/app/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk | sed -n 's/^Signer #1 certificate SHA-256 digest: //p')
+              echo "Verifying APK with $apksigner"
+              certificates=$("$apksigner" verify --print-certs apps/app/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk)
+              printf '%s\n' "$certificates"
+              certificate_sha256=$(printf '%s\n' "$certificates" | sed -n 's/^.* certificate SHA-256 digest: //p' | tr -d '\r' | sort -u)
               test "$certificate_sha256" = "059e85e1a8aa67d93842ed55cd8e7a470eef3624c21f50b0527adc061c741eea"
          - name: Enable Android emulator acceleration
            if: ${{ !cancelled() && steps.android-build.outcome == 'success' && matrix.artifact == 'linux-x64' }}
