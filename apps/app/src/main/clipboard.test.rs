@@ -53,3 +53,27 @@ fn matching_text_in_a_tauri_error_remains_an_error() {
         json!({"ok": false, "error": {"code": "io", "message": message}})
     );
 }
+
+#[cfg(mobile)]
+#[test]
+fn empty_mobile_clipboards_preserve_other_plugin_failures() {
+    use tauri::plugin::mobile::{ErrorResponse, PluginInvokeError};
+
+    for message in [
+        "Clipboard is empty",
+        "Clipboard content reader not implemented",
+        "Clipboard access denied",
+    ] {
+        let error: ErrorResponse = serde_json::from_value(json!({ "message": message })).unwrap();
+        let result = clipboard_read_result(Err(Error::PluginInvoke(
+            PluginInvokeError::InvokeRejected(error),
+        )));
+        let expected = if message == "Clipboard access denied" {
+            json!({"ok": false, "error": {"code": "io", "message": message}})
+        } else {
+            json!({"ok": true, "value": ""})
+        };
+
+        assert_eq!(serde_json::to_value(result).unwrap(), expected);
+    }
+}

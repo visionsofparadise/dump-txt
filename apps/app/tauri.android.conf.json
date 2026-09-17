@@ -1,0 +1,32 @@
+{
+	"$schema": "https://schema.tauri.app/config/2",
+	"app": {
+		"windows": [
+			{
+				"label": "main",
+				"create": false,
+				"url": "index.html",
+				"title": "dump.txt",
+				"width": 960,
+				"height": 640,
+				"minWidth": 420,
+				"minHeight": 280,
+				"decorations": false,
+				"visible": true,
+				"backgroundColor": "#fafafa",
+				"dragDropEnabled": false,
+				"zoomHotkeysEnabled": false
+			}
+		],
+		"security": {
+			"capabilities": ["mobile"],
+			"csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src ipc: http://ipc.localhost http://tauri.localhost; img-src 'self' data:; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'",
+			"devCsp": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost ws:; img-src 'self' data:; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'"
+		}
+	},
+	"bundle": {
+		"android": {
+			"minSdkVersion": 24
+		}
+	}
+}

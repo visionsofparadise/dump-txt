@@ -1,16 +1,25 @@
-use crate::error::{empty_request, parse_request, IpcResult};
+#[cfg(desktop)]
+use crate::error::parse_request;
+use crate::error::{empty_request, IpcResult};
+#[cfg(desktop)]
 use crate::startup::WindowBounds;
+#[cfg(desktop)]
 use serde::Deserialize;
 use std::sync::atomic::{AtomicBool, Ordering};
-use tauri::{Emitter, Manager, State, WebviewWindow, WindowEvent};
+#[cfg(desktop)]
+use tauri::{Emitter, Manager, WindowEvent};
+use tauri::{State, WebviewWindow};
 
 #[derive(Default)]
 pub struct WindowState {
     ready: AtomicBool,
+    #[cfg(desktop)]
     close_requested: AtomicBool,
+    #[cfg(desktop)]
     allow_close: AtomicBool,
 }
 
+#[cfg(desktop)]
 pub fn restore_bounds(window: &WebviewWindow, bounds: WindowBounds) -> tauri::Result<()> {
     let scale = window.scale_factor()?;
     let monitors = window.available_monitors()?;
@@ -61,6 +70,7 @@ pub fn restore_bounds(window: &WebviewWindow, bounds: WindowBounds) -> tauri::Re
     Ok(())
 }
 
+#[cfg(desktop)]
 fn fit_bounds(bounds: WindowBounds, area: WindowBounds) -> WindowBounds {
     let width = bounds.width.min(area.width).max(420);
     let height = bounds.height.min(area.height).max(280);
@@ -81,10 +91,11 @@ fn fit_bounds(bounds: WindowBounds, area: WindowBounds) -> WindowBounds {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, desktop))]
 #[path = "window.test.rs"]
 mod tests;
 
+#[cfg(desktop)]
 fn emit_bounds(window: &tauri::Window) -> tauri::Result<()> {
     if window.is_maximized()? || window.is_minimized()? {
         return Ok(());
@@ -113,6 +124,7 @@ fn emit_bounds(window: &tauri::Window) -> tauri::Result<()> {
     )
 }
 
+#[cfg(desktop)]
 pub fn handle_window_event(window: &tauri::Window, event: &WindowEvent) {
     let state = window.state::<WindowState>();
 
@@ -145,6 +157,7 @@ pub fn handle_window_event(window: &tauri::Window, event: &WindowEvent) {
     }
 }
 
+#[cfg(desktop)]
 pub fn restore_existing(app: &tauri::AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.unminimize();
@@ -157,6 +170,7 @@ pub fn restore_existing(app: &tauri::AppHandle) {
     }
 }
 
+#[cfg(desktop)]
 pub fn handle_exit_request(app: &tauri::AppHandle, api: &tauri::ExitRequestApi) {
     if !app
         .state::<WindowState>()
@@ -172,11 +186,13 @@ pub fn handle_exit_request(app: &tauri::AppHandle, api: &tauri::ExitRequestApi) 
 }
 
 #[tauri::command]
+#[cfg(desktop)]
 pub fn minimize(window: WebviewWindow, request: serde_json::Value) -> IpcResult<()> {
     empty_request(request, || window.minimize())
 }
 
 #[tauri::command]
+#[cfg(desktop)]
 pub fn toggle_maximize(window: WebviewWindow, request: serde_json::Value) -> IpcResult<()> {
     empty_request(request, || {
         if window.is_maximized()? {
@@ -187,6 +203,7 @@ pub fn toggle_maximize(window: WebviewWindow, request: serde_json::Value) -> Ipc
     })
 }
 
+#[cfg(desktop)]
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct TitleRequest {
@@ -194,6 +211,7 @@ struct TitleRequest {
 }
 
 #[tauri::command]
+#[cfg(desktop)]
 pub fn set_title(window: WebviewWindow, request: serde_json::Value) -> IpcResult<()> {
     match parse_request::<TitleRequest>(request) {
         Ok(request) if !request.title.contains('\0') && request.title.len() <= 4096 => {
@@ -205,6 +223,7 @@ pub fn set_title(window: WebviewWindow, request: serde_json::Value) -> IpcResult
 }
 
 #[tauri::command]
+#[cfg(desktop)]
 pub fn finish_close(
     window: WebviewWindow,
     state: State<'_, WindowState>,
@@ -231,13 +250,24 @@ pub fn renderer_ready(
 ) -> IpcResult<()> {
     empty_request(request, || {
         state.ready.store(true, Ordering::SeqCst);
-        window.show()?;
-        window.set_focus()?;
-        window.emit("maximizedChanged", [window.is_maximized()?])?;
-        emit_bounds(&window.as_ref().window())?;
 
-        if state.close_requested.swap(false, Ordering::SeqCst) {
-            window.emit("closeRequested", Vec::<bool>::new())?;
+        #[cfg(mobile)]
+        {
+            let _ = window;
+
+            eprintln!("dump.txt renderer ready");
+        }
+
+        #[cfg(desktop)]
+        {
+            window.show()?;
+            window.set_focus()?;
+            window.emit("maximizedChanged", [window.is_maximized()?])?;
+            emit_bounds(&window.as_ref().window())?;
+
+            if state.close_requested.swap(false, Ordering::SeqCst) {
+                window.emit("closeRequested", Vec::<bool>::new())?;
+            }
         }
 
         Ok(())
@@ -245,6 +275,7 @@ pub fn renderer_ready(
 }
 
 #[tauri::command]
+#[cfg(desktop)]
 pub fn open_inspector(window: WebviewWindow, request: serde_json::Value) -> IpcResult<()> {
     empty_request(request, || {
         #[cfg(debug_assertions)]

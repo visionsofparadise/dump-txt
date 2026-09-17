@@ -15,7 +15,9 @@
 		"fix": "concurrently -m 1 --group \"eslint . --fix --cache\" \"cargo clippy --fix --allow-dirty --allow-staged --all-targets --features automation -- -D warnings\" \"cargo fmt\" \"styling-lint fix\"",
 		"unit": "concurrently --group \"vitest run unit && node --test tools/release.unit.test.mjs\" \"cargo test --features probe\"",
 		"integration": "vitest run integration",
-		"tauri-test": "node tools/testTauri.mjs"
+		"tauri-test": "node tools/testTauri.mjs",
+		"android": "node tools/tauri.mjs android build",
+		"ios": "node tools/tauri.mjs ios build"
 	},
 	"dependencies": {
 		"@tauri-apps/api": "2.11.1",

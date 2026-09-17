@@ -9,13 +9,19 @@ import { normalizeTauriPackages } from "./normalizeTauriPackages.mjs";
 
 const require = createRequire(import.meta.url);
 const directory = fileURLToPath(new URL("../", import.meta.url));
-const [command, ...arguments_] = process.argv.slice(2);
+const arguments_ = process.argv.slice(2);
+const platform = ["android", "ios"].includes(arguments_[0]) ? arguments_.shift() : undefined;
+const command = arguments_.shift();
 const probe = arguments_.includes("--probe");
 const automation = arguments_.includes("--automation");
 const supported = new Set(["dev", "build"]);
 
-if (!supported.has(command) || arguments_.some((argument) => !["--probe", "--automation"].includes(argument))) {
-	throw new Error("Use dev [--probe] [--automation] or build [--probe] [--automation]");
+if (
+	!supported.has(command) ||
+	arguments_.some((argument) => !["--probe", "--automation"].includes(argument)) ||
+	(platform && (probe || automation))
+) {
+	throw new Error("Use [android|ios] dev [--probe] [--automation] or [android|ios] build [--probe] [--automation]");
 }
 
 const environment = { ...process.env };
@@ -28,7 +34,7 @@ if (existsSync(cargoDirectory)) {
 
 const options = { cwd: directory, env: environment, stdio: "inherit", windowsHide: true };
 environment.TAURI_TEST_AUTOMATION = automation ? "true" : "false";
-if (command === "dev" && !probe)
+if (command === "dev" && !probe && !platform)
 	environment.DUMP_TXT_PROFILE ??= fileURLToPath(new URL("../../../.scratch/tauri-dev-profile", import.meta.url));
 
 function run(executable, arguments_) {
@@ -39,10 +45,11 @@ function run(executable, arguments_) {
 
 const vite = join(require.resolve("vite/package.json"), "..", "bin", "vite.js");
 const frontendArguments = ["--config", "vite.tauri.config.ts", "--mode", probe ? "probe" : "production"];
-const nativeArguments = [command];
+if (platform && command === "dev") frontendArguments.push("--host", "0.0.0.0");
+const nativeArguments = platform ? [platform, command] : [command];
 if (probe)
 	nativeArguments.push("--config", "tauri.probe.conf.json", "--features", automation ? "probe,automation" : "probe");
-else if (command === "dev" || automation)
+else if (!platform && (command === "dev" || automation))
 	nativeArguments.push(
 		"--config",
 		JSON.stringify({ identifier: `com.visionsofparadise.dump-txt.${automation ? "test" : "dev"}` }),
@@ -60,31 +67,40 @@ if (command === "build") {
 	};
 	run(process.execPath, [vite, "build", ...frontendArguments]);
 	nativeArguments.push("--ci");
+	if (platform === "android") nativeArguments.push("--debug", "--apk");
+	if (platform === "ios") nativeArguments.push("-t", "aarch64-sim");
 	if (probe || automation) nativeArguments.push("--no-bundle");
 	run(process.execPath, [require.resolve("@tauri-apps/cli/tauri.js"), ...nativeArguments]);
-	if (!probe && !automation) {
+	if (!platform && !probe && !automation) {
 		const { version } = JSON.parse(readFileSync(join(directory, "package.json"), "utf8"));
 		console.log("Packages:", normalizeTauriPackages(directory, version));
 	}
-	const executable = join(directory, "target", "release", process.platform === "win32" ? "dump-txt.exe" : "dump-txt");
-	const bytes = readFileSync(executable);
-	mkdirSync(join(directory, ".scratch"), { recursive: true });
-	writeFileSync(
-		join(directory, ".scratch", "tauri-build.json"),
-		JSON.stringify(
-			{
-				...source,
-				probe,
-				automation,
-				executable,
-				bytes: bytes.length,
-				sha256: createHash("sha256").update(bytes).digest("hex"),
-				builtAt: new Date().toISOString(),
-			},
-			null,
-			2,
-		),
-	);
+	if (!platform) {
+		const executable = join(
+			directory,
+			"target",
+			"release",
+			process.platform === "win32" ? "dump-txt.exe" : "dump-txt",
+		);
+		const bytes = readFileSync(executable);
+		mkdirSync(join(directory, ".scratch"), { recursive: true });
+		writeFileSync(
+			join(directory, ".scratch", "tauri-build.json"),
+			JSON.stringify(
+				{
+					...source,
+					probe,
+					automation,
+					executable,
+					bytes: bytes.length,
+					sha256: createHash("sha256").update(bytes).digest("hex"),
+					builtAt: new Date().toISOString(),
+				},
+				null,
+				2,
+			),
+		);
+	}
 } else {
 	const frontend = spawn(process.execPath, [vite, ...frontendArguments], options);
 	const native = spawn(process.execPath, [require.resolve("@tauri-apps/cli/tauri.js"), ...nativeArguments], options);

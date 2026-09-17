@@ -187,6 +187,89 @@ jobs:
                  apps/app/target/release/dump-txt.exe
               if-no-files-found: warn
 
+   mobile:
+      if: github.event_name == 'workflow_dispatch'
+      strategy:
+         fail-fast: false
+         matrix:
+            include:
+               - os: ubuntu-24.04
+                 artifact: android
+               - os: macos-15
+                 artifact: ios
+      runs-on: ${{ matrix.os }}
+      timeout-minutes: 90
+      steps:
+         - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+           with:
+              persist-credentials: false
+         - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+           with:
+              node-version: 24
+              cache: npm
+         - name: Pin npm 12
+           run: npm install -g npm@12
+         - name: Enforce install-script allowlist
+           run: npm config set strict-allow-scripts=true --location=project
+         - name: Install pinned Rust toolchain
+           run: rustup show
+         - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+           with:
+              workspaces: apps/app -> target
+              key: mobile-${{ matrix.artifact }}
+              cache-on-failure: "true"
+              save-if: ${{ github.ref == 'refs/heads/main' }}
+         - run: npm ci
+         - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961
+           if: matrix.artifact == 'android'
+           with:
+              distribution: temurin
+              java-version: 17
+         - uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407
+           if: matrix.artifact == 'android'
+         - name: Install Android NDK
+           if: matrix.artifact == 'android'
+           run: |
+              sdkmanager "ndk;27.2.12479018"
+              echo "NDK_HOME=$ANDROID_HOME/ndk/27.2.12479018" >> "$GITHUB_ENV"
+              echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
+         - name: Build Android
+           if: matrix.artifact == 'android'
+           run: npm run android --workspace @dump-txt/app
+         - uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90
+           if: matrix.artifact == 'ios'
+           with:
+              xcode-version: latest-stable
+         - name: Install CocoaPods
+           if: matrix.artifact == 'ios'
+           run: brew list cocoapods || brew install cocoapods
+         - name: Generate iOS project
+           if: matrix.artifact == 'ios'
+           working-directory: apps/app
+           run: node ../../node_modules/@tauri-apps/cli/tauri.js ios init --ci
+         - name: Build iOS simulator
+           if: matrix.artifact == 'ios'
+           continue-on-error: true
+           run: npm run ios --workspace @dump-txt/app
+         - name: Record generated mobile outputs
+           if: always()
+           shell: bash
+           run: |
+              mkdir -p .scratch/mobile-probe
+              for tree in apps/app/gen/android/app/build/outputs apps/app/gen/apple; do
+                 if [ -d "$tree" ]; then find "$tree" -type f -exec ls -l {} \;; fi
+              done > .scratch/mobile-probe/files.txt
+         - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+           if: always()
+           with:
+              name: mobile-probe-${{ matrix.artifact }}
+              include-hidden-files: true
+              path: |
+                 .scratch/mobile-probe/
+                 apps/app/gen/android/app/build/outputs/
+                 apps/app/gen/apple/
+              if-no-files-found: error
+
    publish:
       needs: build
       if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}

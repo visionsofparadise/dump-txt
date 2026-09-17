@@ -1,0 +1,20 @@
+{
+	"$schema": "../gen/schemas/mobile-schema.json",
+	"identifier": "mobile",
+	"description": "Mobile editor services for the main window",
+	"platforms": ["android", "iOS"],
+	"windows": ["main"],
+	"permissions": [
+		"core:event:allow-listen",
+		"core:event:allow-unlisten",
+		"allow-renderer-ready",
+		"allow-read-clipboard",
+		"allow-write-clipboard",
+		"allow-get-paths",
+		"allow-read-file",
+		"allow-write-file",
+		"allow-show-open-dialog",
+		"allow-show-save-dialog",
+		"allow-get-system-fonts"
+	]
+}

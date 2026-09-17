@@ -25,5 +25,6 @@
 		"allow-write-file",
 		"allow-show-open-dialog",
 		"allow-show-save-dialog"
-	]
+	],
+	"platforms": ["windows", "macOS", "linux"]
 }

@@ -18,5 +18,6 @@
 		"allow-read-clipboard",
 		"allow-write-clipboard",
 		"allow-show-text-context-menu"
-	]
+	],
+	"platforms": ["windows", "macOS", "linux"]
 }

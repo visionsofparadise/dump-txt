@@ -13,6 +13,19 @@ fn clipboard_read_result(
             ok: true,
             value: String::new(),
         },
+        #[cfg(mobile)]
+        Err(Error::PluginInvoke(tauri::plugin::mobile::PluginInvokeError::InvokeRejected(
+            error,
+        ))) if matches!(
+            error.message.as_deref(),
+            Some("Clipboard is empty" | "Clipboard content reader not implemented")
+        ) =>
+        {
+            IpcResult::Success {
+                ok: true,
+                value: String::new(),
+            }
+        }
         result => IpcResult::from_result(result),
     }
 }

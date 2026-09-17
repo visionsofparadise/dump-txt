@@ -114,7 +114,10 @@ async fn show_dialog(
 ) -> Result<Option<DialogSelection>, IpcFailure> {
     let options = FileDialogOptions::parse(request)?;
     let files = Arc::clone(window.state::<Arc<FileService>>().inner());
-    let mut dialog = window.dialog().file().set_parent(&window);
+    let dialog = window.dialog().file();
+    #[cfg(desktop)]
+    let dialog = dialog.set_parent(&window);
+    let mut dialog = dialog;
 
     if let Some(title) = options.title {
         dialog = dialog.set_title(title);
