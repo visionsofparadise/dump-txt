@@ -51,6 +51,12 @@ test("rejects a release missing an asset", () => {
 	assert.throws(() => manifestOf(releaseOf(names.filter((name) => !name.endsWith(".deb")))), /linux-amd64/u);
 });
 
+test("includes Windows ARM64 when the release provides it", () => {
+	const name = "dump-txt-0.3.2-windows-arm64.exe";
+
+	assert.deepEqual(manifestOf(releaseOf([...names, name])).downloads.windows.arm64, downloadOf(name, 7_000_000));
+});
+
 for (const flag of ["prerelease", "draft"]) {
 	test(`rejects a ${flag} release`, () => {
 		assert.throws(() => manifestOf(releaseOf(names, { [flag]: true })), /published stable release/u);

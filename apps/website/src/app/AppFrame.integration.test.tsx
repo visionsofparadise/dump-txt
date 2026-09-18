@@ -4,6 +4,7 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 import { AppFrame } from "./AppFrame";
+import * as visitorEvents from "../utils/isVisitorEvent";
 import type { ChromeContext } from "@dump-txt/ui";
 
 vi.mock("@dump-txt/rig", async (importOriginal) => ({
@@ -17,6 +18,7 @@ interface StubPlayback {
 	readonly finish: () => void;
 	readonly fail: (error: Error) => void;
 	readonly resume: Mock<() => void>;
+	readonly pause: Mock<() => void>;
 	readonly dispose: Mock<() => void>;
 }
 
@@ -154,9 +156,10 @@ beforeEach(() => {
 			fail = reject;
 		});
 		const resume = vi.fn<() => void>();
+		const pause = vi.fn<() => void>();
 		const dispose = vi.fn<() => void>();
 
-		playbacks.push({ options, finish, fail, resume, dispose });
+		playbacks.push({ options, finish, fail, resume, pause, dispose });
 
 		return {
 			ready: true,
@@ -164,7 +167,7 @@ beforeEach(() => {
 			error: null,
 			play: () => played,
 			stop: vi.fn(),
-			pause: vi.fn(),
+			pause,
 			resume,
 			dispose,
 		};
@@ -186,6 +189,42 @@ afterEach(async () => {
 });
 
 describe("AppFrame", { timeout: 30_000 }, () => {
+	it("records keyboard activation of Home as a visitor action before minimizing", async () => {
+		const { container } = await mount("?platform=ios");
+		const home = container.querySelector<HTMLButtonElement>(".home-bar");
+		const click = new MouseEvent("click", { bubbles: true, detail: 0 });
+
+		vi.spyOn(visitorEvents, "isVisitorEvent").mockImplementation((event) => event === click);
+
+		await act(async () => {
+			container.querySelector(".cm-content")?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+			home?.dispatchEvent(click);
+		});
+
+		expect(playbacks[0]?.pause).toHaveBeenCalledOnce();
+	});
+
+	it("records a visitor's swipe before closing, after a synthetic demonstration click", async () => {
+		const { container } = await mount("?platform=ios");
+		const home = container.querySelector<HTMLButtonElement>(".home-bar");
+		const posted = vi.spyOn(window, "postMessage");
+		const pointer = new MouseEvent("pointerdown", { bubbles: true, clientY: 200 });
+
+		if (!home) throw new Error("The mobile home bar is missing.");
+
+		home.setPointerCapture = vi.fn();
+		vi.spyOn(visitorEvents, "isVisitorEvent").mockImplementation((event) => event === pointer);
+
+		await act(async () => {
+			container.querySelector(".cm-content")?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+			home.dispatchEvent(pointer);
+			home.dispatchEvent(new MouseEvent("pointerup", { bubbles: true, clientY: 100 }));
+		});
+		await until(() => posted.mock.calls.length);
+
+		expect(posted).toHaveBeenCalledWith({ type: "close", isDemonstration: false }, window.location.origin);
+	});
+
 	it("skips a focus call inside the stage while the frame's focus rests on the takeover button", async () => {
 		const { content, context, overlay } = await mount();
 		const takeover = overlay();
@@ -374,11 +413,14 @@ describe("AppFrame", { timeout: 30_000 }, () => {
 
 		const activePage = original.session.view.activePageId;
 
-		for (const next of ["macos", "windows", "linux"]) {
+		for (const next of ["macos", "ios", "android", "windows", "linux"]) {
 			await act(async () => {
 				window.dispatchEvent(platformMessage(next));
 			});
 			await until(() => platform() === next);
+
+			expect(original.main.capabilities?.keybinds).toBe(next !== "ios" && next !== "android");
+			expect(original.main.capabilities?.close).toBe(next !== "ios" && next !== "android");
 
 			expect(context()).toBe(original);
 			expect(content.isConnected).toBe(true);

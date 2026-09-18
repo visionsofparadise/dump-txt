@@ -291,6 +291,18 @@ a {
 	padding: 0 8px;
 }
 
+.device-group {
+	padding: 0 6px;
+}
+
+.radio.radio-device {
+	display: grid;
+	place-items: center;
+	width: 40px;
+	height: 40px;
+	padding: 0;
+}
+
 .radio-divider {
 	width: 1px;
 	height: 28px;
@@ -363,6 +375,17 @@ a {
 	background: #16a34a;
 }
 
+.download-pending {
+	border: 0;
+	font-family: inherit;
+	opacity: 1;
+	cursor: default;
+}
+
+.download-pending:hover {
+	background: #1a1a1a;
+}
+
 .download-label,
 .download-platform {
 	display: inline-flex;
@@ -382,6 +405,10 @@ a {
 
 .download:hover .download-meta {
 	color: #d6ead9;
+}
+
+.download-pending:hover .download-meta {
+	color: #9a9a9a;
 }
 
 #github {
@@ -466,9 +493,19 @@ a {
 	margin: -56px -4.5vw -56px 0;
 }
 
+#app[data-mobile] {
+	min-height: 560px;
+	margin: 0;
+}
+
 #appanim {
 	height: 100%;
 	transform-origin: center;
+}
+
+#app[data-mobile] #appanim {
+	display: flex;
+	justify-content: center;
 }
 
 #appanim[data-animation="win-min"] {
@@ -523,6 +560,82 @@ a {
 	animation: gnome-open 0.25s cubic-bezier(0, 0, 0.2, 1) both;
 }
 
+@keyframes ios-min {
+	to {
+		transform: translate(var(--tile-x), var(--tile-y)) scale(0.05);
+		opacity: 0;
+	}
+}
+
+@keyframes ios-restore {
+	from {
+		transform: translate(var(--tile-x), var(--tile-y)) scale(0.05);
+		opacity: 0;
+	}
+}
+
+@keyframes ios-close {
+	to {
+		transform: translateY(-38%) scale(0.78);
+		opacity: 0;
+	}
+}
+
+@keyframes android-min {
+	60% {
+		opacity: 0.9;
+	}
+
+	to {
+		transform: translate(var(--tile-x), var(--tile-y)) scale(0.1);
+		opacity: 0;
+	}
+}
+
+@keyframes android-restore {
+	from {
+		transform: translate(var(--tile-x), var(--tile-y)) scale(0.1);
+		opacity: 0;
+	}
+
+	40% {
+		opacity: 1;
+	}
+}
+
+@keyframes android-close {
+	to {
+		transform: translateY(-28%) scale(0.88);
+		opacity: 0;
+	}
+}
+
+#appanim[data-animation="ios-min"] {
+	animation: ios-min 0.5s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+}
+
+#appanim[data-animation="ios-restore"],
+#appanim[data-animation="ios-open"] {
+	animation: ios-restore 0.55s cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+
+#appanim[data-animation="ios-close"] {
+	animation: ios-close 0.3s cubic-bezier(0.4, 0, 0.6, 1) forwards;
+}
+
+#appanim[data-animation="android-min"] {
+	animation: android-min 0.35s cubic-bezier(0.3, 0, 0.8, 0.15) forwards;
+}
+
+#appanim[data-animation="android-restore"],
+#appanim[data-animation="android-open"] {
+	animation: android-restore 0.4s cubic-bezier(0.05, 0.7, 0.1, 1) both;
+}
+
+#appanim[data-animation="android-close"] {
+	animation: android-close 0.22s cubic-bezier(0.3, 0, 0.8, 0.15) forwards;
+}
+
 @media (prefers-reduced-motion: reduce) {
 	#appanim {
 		animation-duration: 0.01s !important;
@@ -539,6 +652,16 @@ a {
 		0 4px 5px rgba(0, 0, 0, 0.9),
 		0 12px 32px rgba(0, 0, 0, 0.25),
 		0 32px 80px rgba(0, 0, 0, 0.25);
+}
+
+#app[data-mobile] #appbox {
+	flex: 0 0 auto;
+	width: auto;
+	max-width: 100%;
+	min-height: 0;
+	margin: 0 auto;
+	aspect-ratio: 9 / 19.5;
+	transform-origin: center;
 }
 
 @media (min-width: 1000px) {
@@ -593,6 +716,18 @@ a {
 		height: 460px;
 		min-height: 0;
 		transform: none !important;
+	}
+
+	#app[data-mobile] #appbox {
+		height: 560px;
+	}
+
+	.platform-label {
+		display: none;
+	}
+
+	.radio-group[aria-label="Platform"] .radio {
+		padding: 8px 10px;
 	}
 
 	#controls {

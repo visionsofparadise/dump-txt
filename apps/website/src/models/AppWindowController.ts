@@ -5,7 +5,13 @@ import type { AppWindow, BoxPose, WindowAnimation } from "./AppWindow";
 import type { Platform } from "../utils/platformOf";
 import type { WindowReport, WindowRequest } from "../utils/windowMessages";
 
-const animationPrefixes: Record<Platform, "win" | "mac" | "gnome"> = { windows: "win", macos: "mac", linux: "gnome" };
+const animationPrefixes: Record<Platform, "win" | "mac" | "gnome" | "ios" | "android"> = {
+	windows: "win",
+	macos: "mac",
+	linux: "gnome",
+	ios: "ios",
+	android: "android",
+};
 
 const flattenDelay = 150;
 
@@ -190,6 +196,7 @@ export class AppWindowController {
 		if (this.#appWindow.state !== "closed") return;
 
 		this.#isClosedByDemonstration = false;
+		this.#appWindow.tileOffset = this.#tileOffset();
 		this.#appWindow.state = "open";
 		this.reportWindow();
 		await this.#animate(`${animationPrefixes[platform]}-open`);

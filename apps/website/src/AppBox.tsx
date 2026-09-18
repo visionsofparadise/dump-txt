@@ -73,6 +73,7 @@ export const AppBox = scope(({ platform, entrance, tiltTransition, control, onAp
 		<motion.div
 			id="app"
 			data-window={appWindow.state}
+			data-mobile={platform === "ios" || platform === "android" ? "true" : undefined}
 			data-maximized={String(appWindow.isMaximized)}
 			layout
 			layoutDependency={appWindow.isMaximized}

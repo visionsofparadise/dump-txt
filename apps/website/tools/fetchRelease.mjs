@@ -18,7 +18,12 @@ export function manifestOf(release) {
 		tag: release.tag_name,
 		version: release.tag_name.replace(/^v/u, ""),
 		downloads: {
-			windows: { x64: downloadOf(release, /-windows-x64\.exe$/u) },
+			windows: {
+				x64: downloadOf(release, /-windows-x64\.exe$/u),
+				...(release.assets.some((asset) => /-windows-arm64\.exe$/u.test(asset.name))
+					? { arm64: downloadOf(release, /-windows-arm64\.exe$/u) }
+					: {}),
+			},
 			macos: { arm64: downloadOf(release, /-mac-arm64\.dmg$/u), x64: downloadOf(release, /-mac-x64\.dmg$/u) },
 			linux: {
 				appImage: downloadOf(release, /-linux-x86_64\.AppImage$/u),

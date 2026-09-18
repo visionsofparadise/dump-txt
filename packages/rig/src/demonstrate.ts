@@ -156,9 +156,9 @@ async function returnLater(rig: DemoRig, options: DemonstrationOptions): Promise
 
 	const pages = rig.context.document.pages.map((page) => page.text);
 
-	await rig.click('[aria-label="Close window"]');
+	await rig.click('[aria-label="Close window"], [aria-label="Home"]');
 	await rig.wait(1300);
-	await rig.click('[aria-label="Open dump.txt"]');
+	await rig.click('[aria-label="Open dump.txt"], [aria-label="Restore dump.txt"]');
 	await rig.wait(1100);
 	rig.assert(
 		JSON.stringify(rig.context.document.pages.map((page) => page.text)) === JSON.stringify(pages),

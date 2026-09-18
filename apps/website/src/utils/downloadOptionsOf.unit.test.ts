@@ -25,7 +25,10 @@ describe("downloadOptionsOf", () => {
 	test("offers the Windows x64 installer by architecture", () => {
 		expect(downloadOptionsOf(manifest, "windows")).toEqual({
 			group: "Architecture",
-			options: [{ id: "x64", label: "x64", download: manifest.downloads.windows.x64 }],
+			options: [
+				{ id: "x64", label: "x64", download: manifest.downloads.windows.x64 },
+				{ id: "arm64", label: "ARM64", download: null },
+			],
 		});
 	});
 

@@ -15,6 +15,14 @@ const browserCapabilities: MainCapabilities = {
 
 const exportsPath = "/memory/exports/";
 
+const mobileCapabilities: MainCapabilities = {
+	...browserCapabilities,
+	keybinds: false,
+	minimize: false,
+	maximize: false,
+	close: false,
+};
+
 export interface BrowserMainOptions extends Omit<MemoryMainOptions, "capabilities"> {
 	readonly onMinimize?: () => void;
 	readonly onToggleMaximize?: () => void;
@@ -37,6 +45,10 @@ export class BrowserMain extends MemoryMain {
 
 	override get maximized(): boolean {
 		return this.#maximized;
+	}
+
+	override get capabilities(): MainCapabilities {
+		return this.platform === "ios" || this.platform === "android" ? mobileCapabilities : browserCapabilities;
 	}
 
 	setMaximized(maximized: boolean): void {

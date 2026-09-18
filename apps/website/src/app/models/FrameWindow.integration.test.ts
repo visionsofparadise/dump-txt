@@ -51,6 +51,23 @@ afterEach(() => {
 });
 
 describe("FrameWindow", () => {
+	it("keeps playing through the demonstration's Home action so it can restore itself", () => {
+		const frameWindow = new FrameWindow();
+		const playback = stubPlayback();
+
+		frameWindow.attach(playback);
+		frameWindow.recordClick({ isTrusted: false });
+		frameWindow.hostCallbacksOf(true).onMinimize?.();
+		frameWindow.receiveReport(minimized, true, () => true);
+
+		expect(posted).toHaveBeenCalledExactlyOnceWith({ type: "minimize" }, window.location.origin);
+		expect(playback.pause).not.toHaveBeenCalled();
+
+		frameWindow.receiveReport(open, true, () => true);
+
+		expect(playback.resume).not.toHaveBeenCalled();
+	});
+
 	it("pauses for a visitor's minimize and resumes once the page reports the window open with the application mounted", () => {
 		const frameWindow = new FrameWindow();
 		const playback = stubPlayback();

@@ -14,7 +14,7 @@ export class FrameWindow {
 	#restart: (() => void) | null = null;
 	#isHeld = false;
 	#isClosedByDemonstration = false;
-	#isVisitorClick = false;
+	#isVisitorClick = true;
 	#isMaximized = false;
 
 	get isMaximized(): boolean {
@@ -24,7 +24,11 @@ export class FrameWindow {
 	hostCallbacksOf(isDemonstrating: boolean): HostCallbacks {
 		return {
 			onMinimize: () => {
-				if (isDemonstrating) this.#hold();
+				const isDemonstration = isDemonstrating && !this.#isVisitorClick;
+
+				if (isDemonstrating && !isDemonstration) this.#hold();
+
+				this.#isClosedByDemonstration = isDemonstration;
 
 				postRequest({ type: "minimize" });
 			},

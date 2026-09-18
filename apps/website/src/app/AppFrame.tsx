@@ -4,6 +4,7 @@ import { useCallback, useEffect, useEffectEvent, useRef, useState } from "react"
 import { isPlatform } from "../utils/isPlatform";
 import { platformOf } from "../utils/platformOf";
 import { messagePlatformOf, windowReportOf, type WindowState } from "../utils/windowMessages";
+import { HomeBar } from "./HomeBar";
 import { FrameWindow } from "./models/FrameWindow";
 import { guardDemonstrationFocus } from "./utils/guardDemonstrationFocus";
 import { pageStageOf } from "./utils/pageStageOf";
@@ -78,6 +79,11 @@ export function AppFrame() {
 		frameWindow.receiveReport(report, mode === "demonstrating", () => context.current !== null);
 	});
 
+	const receivePlatform = useEffectEvent((next: typeof platform) => {
+		main.setPlatform(next);
+		setPlatform(next);
+	});
+
 	const receiveClick = useEffectEvent((event: MouseEvent) => {
 		const element = stage.current;
 
@@ -91,7 +97,7 @@ export function AppFrame() {
 		const receive = (event: MessageEvent<unknown>) => {
 			const next = messagePlatformOf(event.data);
 
-			if (event.origin === window.location.origin && next) setPlatform(next);
+			if (event.origin === window.location.origin && next) receivePlatform(next);
 			else receiveReport(event);
 		};
 
@@ -106,11 +112,16 @@ export function AppFrame() {
 		const receive = (event: MouseEvent) => {
 			receiveClick(event);
 		};
+		const recordPointer = (event: PointerEvent) => {
+			frameWindow.recordClick(event);
+		};
 
 		window.addEventListener("click", receive, true);
+		window.addEventListener("pointerdown", recordPointer, true);
 
 		return () => {
 			window.removeEventListener("click", receive, true);
+			window.removeEventListener("pointerdown", recordPointer, true);
 		};
 	}, []);
 
@@ -217,16 +228,17 @@ export function AppFrame() {
 		};
 	}, [mode, hostGeneration]);
 
-	useEffect(() => {
-		main.setPlatform(platform);
-	}, [platform, main]);
-
 	return (
 		<>
-			<div ref={stage} className={mode === "demonstrating" ? "appbox-stage demo-stage" : "appbox-stage"}>
+			<div
+				ref={stage}
+				data-platform={platform}
+				className={mode === "demonstrating" ? "appbox-stage demo-stage" : "appbox-stage"}
+			>
 				{windowState !== "closed" && (
 					<App key={hostGeneration} main={main} platform={platform} ref={attachContext} />
 				)}
+				{windowState !== "closed" && (platform === "ios" || platform === "android") && <HomeBar main={main} />}
 			</div>
 			{mode === "demonstrating" && <button className="appbox-takeover" type="button" aria-label="Try dump.txt" />}
 		</>

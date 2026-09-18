@@ -8,7 +8,7 @@ interface ReleaseManifest {
 	readonly tag: string;
 	readonly version: string;
 	readonly downloads: {
-		readonly windows: { readonly x64: ReleaseDownload };
+		readonly windows: { readonly x64: ReleaseDownload; readonly arm64?: ReleaseDownload };
 		readonly macos: { readonly arm64: ReleaseDownload; readonly x64: ReleaseDownload };
 		readonly linux: { readonly appImage: ReleaseDownload; readonly deb: ReleaseDownload };
 	};

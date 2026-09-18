@@ -36,3 +36,33 @@ body:has(.appbox-takeover) {
 	background: transparent;
 	pointer-events: none;
 }
+
+.appbox-stage[data-platform="ios"],
+.appbox-stage[data-platform="android"] {
+	display: grid;
+	grid-template-rows: minmax(0, 1fr) 30px;
+}
+
+.home-bar {
+	display: grid;
+	place-items: center;
+	padding: 0;
+	border: 0;
+	background: #e6e6e6;
+	cursor: pointer;
+	touch-action: none;
+	pointer-events: auto;
+}
+
+.home-bar span {
+	width: 40%;
+	height: 5px;
+	border-radius: 3px;
+	background: #1a1a1a;
+	opacity: 0.85;
+}
+
+[data-platform="android"] .home-bar span {
+	width: 30%;
+	height: 4px;
+}

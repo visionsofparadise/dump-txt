@@ -1,6 +1,7 @@
 import type { WindowState } from "../utils/windowMessages";
 
-export type WindowAnimation = `${"win" | "mac" | "gnome"}-${"min" | "restore" | "close" | "open"}` | "mac-hold";
+export type WindowAnimation =
+	`${"win" | "mac" | "gnome" | "ios" | "android"}-${"min" | "restore" | "close" | "open"}` | "mac-hold";
 
 export type BoxPose = "flat" | "maximized" | "tilted";
 

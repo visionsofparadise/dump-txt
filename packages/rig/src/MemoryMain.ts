@@ -14,7 +14,7 @@ export interface MemoryMainOptions {
 
 export class MemoryMain implements Main {
 	#platform: Main["platform"];
-	readonly capabilities: MainCapabilities | undefined;
+	readonly #capabilities: MainCapabilities | undefined;
 	readonly #files = new Map<string, Uint8Array>();
 	readonly #listeners: {
 		[Channel in keyof MainEventMap]: Set<(...parameters: MainEventMap[Channel]) => void>;
@@ -41,7 +41,7 @@ export class MemoryMain implements Main {
 
 	constructor(options: MemoryMainOptions = {}) {
 		this.#platform = options.platform ?? "windows";
-		this.capabilities = options.capabilities;
+		this.#capabilities = options.capabilities;
 		this.#onClose = options.onClose;
 		this.#theme = options.theme ?? "dark";
 
@@ -69,6 +69,10 @@ export class MemoryMain implements Main {
 
 	get platform(): Main["platform"] {
 		return this.#platform;
+	}
+
+	get capabilities(): MainCapabilities | undefined {
+		return this.#capabilities;
 	}
 
 	setPlatform(platform: Main["platform"]): void {

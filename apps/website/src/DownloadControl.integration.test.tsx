@@ -3,6 +3,7 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DownloadControl } from "./DownloadControl";
+import type { Platform } from "./utils/platformOf";
 
 class MockIntersectionObserver implements IntersectionObserver {
 	static instances: Array<MockIntersectionObserver> = [];
@@ -81,7 +82,12 @@ async function until<T>(read: () => T | null | undefined | false): Promise<T> {
 	}
 }
 
-async function mount() {
+async function mount(
+	platform: Platform = "windows",
+	onPlatformChange: (platform: Platform) => void = () => undefined,
+	optionId = "x64",
+	release = manifest,
+) {
 	const container = document.createElement("div");
 	const root = createRoot(container);
 
@@ -89,10 +95,10 @@ async function mount() {
 	await act(async () => {
 		root.render(
 			<DownloadControl
-				manifest={manifest}
-				platform="windows"
-				optionId="x64"
-				onPlatformChange={() => undefined}
+				manifest={release}
+				platform={platform}
+				optionId={optionId}
+				onPlatformChange={onPlatformChange}
 				onOptionChange={() => undefined}
 				entrance={testEntrance}
 			/>,
@@ -123,6 +129,56 @@ afterEach(async () => {
 });
 
 describe("DownloadControl", () => {
+	it("holds Windows ARM64 as coming soon until its installer is released", async () => {
+		const { controls } = await mount("windows", undefined, "arm64");
+
+		expect(controls.querySelector(".download")?.textContent).toBe("Windows ARM64Coming Soon");
+		expect(controls.querySelector(".download")?.hasAttribute("disabled")).toBe(true);
+	});
+
+	it("links a published Windows ARM64 installer", async () => {
+		const arm64 = downloadOf("dump-txt-0.3.3-windows-arm64.exe", 3_000_000);
+		const { controls } = await mount("windows", undefined, "arm64", {
+			...manifest,
+			downloads: { ...manifest.downloads, windows: { ...manifest.downloads.windows, arm64 } },
+		});
+
+		expect(controls.querySelector("a.download")?.getAttribute("href")).toBe(arm64.url);
+		expect(controls.textContent).not.toContain("Coming Soon");
+	});
+
+	it.each(["ios", "android"] as const)("shows %s as coming soon without offering a download", async (platform) => {
+		const onPlatformChange = vi.fn();
+		const { controls } = await mount(platform, onPlatformChange);
+		const download = controls.querySelector(".download");
+
+		expect(download).toBeInstanceOf(HTMLButtonElement);
+		expect(download?.hasAttribute("disabled")).toBe(true);
+		expect(download?.textContent).toContain("Coming Soon");
+		expect(controls.querySelector("a")).toBeNull();
+		expect(controls.querySelector('[aria-label="Architecture"]')).toBeNull();
+		expect(controls.querySelector('[aria-label="Platform"]')?.textContent).toBe("iOSAndroid");
+
+		await act(async () => {
+			controls.querySelector<HTMLButtonElement>('[aria-label="Desktop"]')?.click();
+		});
+
+		expect(onPlatformChange).toHaveBeenCalledWith("windows");
+	});
+
+	it("switches to the mobile choices without replacing desktop download links", async () => {
+		const onPlatformChange = vi.fn();
+		const { controls } = await mount("windows", onPlatformChange);
+
+		expect(controls.querySelector("a.download")?.getAttribute("href")).toBe(manifest.downloads.windows.x64.url);
+
+		await act(async () => {
+			controls.querySelector<HTMLButtonElement>('[aria-label="Mobile"]')?.click();
+		});
+
+		expect(onPlatformChange).toHaveBeenCalledWith("ios");
+	});
+
 	it("holds the controls hidden by its entrance until it intersects the viewport, then reveals it", async () => {
 		const { controls } = await mount();
 

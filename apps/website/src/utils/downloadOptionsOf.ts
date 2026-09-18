@@ -3,7 +3,7 @@ import type { Platform } from "./platformOf";
 export interface DownloadOption {
 	readonly id: string;
 	readonly label: string;
-	readonly download: ReleaseDownload;
+	readonly download: ReleaseDownload | null;
 }
 
 export function downloadOptionsOf(
@@ -13,8 +13,17 @@ export function downloadOptionsOf(
 	const { windows, macos, linux } = manifest.downloads;
 
 	switch (platform) {
+		case "ios":
+		case "android":
+			return { group: "Package", options: [] };
 		case "windows":
-			return { group: "Architecture", options: [{ id: "x64", label: "x64", download: windows.x64 }] };
+			return {
+				group: "Architecture",
+				options: [
+					{ id: "x64", label: "x64", download: windows.x64 },
+					{ id: "arm64", label: "ARM64", download: windows.arm64 ?? null },
+				],
+			};
 		case "macos":
 			return {
 				group: "Architecture",
