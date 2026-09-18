@@ -51,8 +51,8 @@ targets:
                - UIInterfaceOrientationPortraitUpsideDown
                - UIInterfaceOrientationLandscapeLeft
                - UIInterfaceOrientationLandscapeRight
-            CFBundleShortVersionString: 0.3.2
-            CFBundleVersion: "0.3.2"
+            CFBundleShortVersionString: 0.3.3
+            CFBundleVersion: "0.3.3"
       entitlements:
          path: dump-txt_iOS/dump-txt_iOS.entitlements
       scheme:
