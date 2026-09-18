@@ -7,7 +7,7 @@
 </head>
 <body>
 <x-dc>
-<div style="width:100%; height:100%; display:grid; grid-template-rows:40px 40px minmax(0,1fr) 40px 24px; background:#fafafa; color:#1a1a1a; border-radius:{{ radius }}; overflow:hidden; box-shadow:{{ shadow }}; transition:border-radius .5s; font-family:'Segoe UI',system-ui,sans-serif; box-sizing:border-box; user-select:none;">
+<div style="width:100%; height:100%; display:grid; grid-template-rows:{{ rows }}; background:#fafafa; color:#1a1a1a; border-radius:{{ radius }}; overflow:hidden; box-shadow:{{ shadow }}; transition:border-radius .5s; font-family:'Segoe UI',system-ui,sans-serif; box-sizing:border-box; user-select:none;">
   <sc-if value="{{ isWin }}" hint-placeholder-val="{{ true }}">
   <header style="display:grid; grid-template-columns:1fr auto 1fr; align-items:center; background:#e6e6e6;">
     <div style="width:46px; height:40px; display:grid; place-items:center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 12h16"/><path d="M4 6h16"/><path d="M4 18h16"/></svg></div>
@@ -43,10 +43,10 @@
     </div>
   </header>
   </sc-if>
-  <nav style="display:grid; grid-template-columns:{{ navCols }}; align-items:center; background:#f0f0f0; color:#8a8a8a;">
+  <nav style="display:grid; grid-template-columns:{{ navCols }}; min-width:0; align-items:center; background:#f0f0f0; color:#8a8a8a;">
     <span style="display:flex;">
-      <sc-if value="{{ isLinux }}" hint-placeholder-val="{{ false }}"><span style="width:46px; height:40px; display:grid; place-items:center; color:#1a1a1a;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 12h16"/><path d="M4 6h16"/><path d="M4 18h16"/></svg></span></sc-if>
       <span style="width:46px; height:40px; display:grid; place-items:center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg></span>
+      <sc-if value="{{ navMenu }}" hint-placeholder-val="{{ false }}"><span style="width:46px; height:40px; display:grid; place-items:center; color:#1a1a1a;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 12h16"/><path d="M4 6h16"/><path d="M4 18h16"/></svg></span></sc-if>
     </span>
     <span style="display:grid; place-items:center; padding-left:{{ navPad }};"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6"/></svg></span>
     <span style="display:flex;">
@@ -54,7 +54,7 @@
       <span style="width:46px; height:40px; display:grid; place-items:center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m17 11-5-5-5 5"/><path d="m17 18-5-5-5 5"/></svg></span>
     </span>
   </nav>
-  <section style="min-height:0; overflow:hidden; padding:10px 14px; font-family:Consolas,'Cascadia Mono',monospace; font-size:11pt; line-height:1.5; white-space:pre-wrap; color:#1a1a1a;">call mom back re: sunday
+  <section style="min-height:0; min-width:0; overflow:hidden; padding:10px 14px; font-family:Consolas,'Cascadia Mono',monospace; font-size:11pt; line-height:1.5; white-space:pre-wrap; color:#1a1a1a;">call mom back re: sunday
 ideas for the thing — start with the boring version, ship it
 "the best notes app is the one you don't think about"
 
@@ -65,7 +65,7 @@ todo
 - cancel the trial before the 14th
 - pages are cheap. dump it, sort later
 - rename dump.txt? no.</section>
-  <nav style="display:grid; grid-template-columns:46px 1fr 138px; align-items:center; background:#f0f0f0; color:#8a8a8a;">
+  <nav style="display:grid; grid-template-columns:46px minmax(0,1fr) 138px; min-width:0; align-items:center; background:#f0f0f0; color:#8a8a8a;">
     <span style="display:grid; place-items:center; height:40px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg></span>
     <span style="display:grid; place-items:center; padding-left:92px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></span>
     <span style="display:flex;">
@@ -74,20 +74,29 @@ todo
       <span style="width:46px; height:40px; display:grid; place-items:center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7 6 5 5 5-5"/><path d="m7 13 5 5 5-5"/></svg></span>
     </span>
   </nav>
-  <footer style="display:grid; grid-template-columns:1fr auto 1fr; align-items:center; padding:0 10px; background:#e6e6e6; color:#8a8a8a; font-family:Consolas,monospace; font-size:11px; white-space:nowrap;">
-    <span style="overflow:hidden; text-overflow:ellipsis;">318 chars · 62 words · 11 lines</span>
+  <footer style="display:grid; grid-template-columns:minmax(0,1fr) auto minmax(0,1fr); column-gap:10px; align-items:center; padding:0 10px; min-width:0; background:#e6e6e6; color:#8a8a8a; font-family:Consolas,monospace; font-size:11px; white-space:nowrap;">
+    <span style="overflow:hidden; text-overflow:ellipsis;">{{ statsText }}</span>
     <span>Ln 11, Col 17</span>
-    <span style="justify-self:end;">Pages 2 / 3</span>
+    <span style="justify-self:end; overflow:hidden; text-overflow:ellipsis; min-width:0;">{{ pagesText }}</span>
   </footer>
+  <sc-if value="{{ isMobile }}" hint-placeholder-val="{{ false }}">
+  <div role="button" aria-label="Home (tap) or close (swipe up)" title="Tap: home · Swipe up: close" onPointerDown="{{ homeDown }}" onPointerUp="{{ homeUp }}" style="display:grid; place-items:center; background:#e6e6e6; cursor:pointer; touch-action:none;"><span style="width:{{ pillW }}; height:{{ pillH }}; border-radius:3px; background:#1a1a1a; opacity:.85;"></span></div>
+  </sc-if>
 </div>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:640,&quot;height&quot;:760},&quot;platform&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;windows&quot;,&quot;macos&quot;,&quot;linux&quot;],&quot;default&quot;:&quot;windows&quot;,&quot;tsType&quot;:&quot;\&quot;windows\&quot; | \&quot;macos\&quot; | \&quot;linux\&quot;&quot;},&quot;shadow&quot;:{&quot;editor&quot;:null,&quot;default&quot;:&quot;&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:640,&quot;height&quot;:760},&quot;platform&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;windows&quot;,&quot;macos&quot;,&quot;linux&quot;,&quot;ios&quot;,&quot;android&quot;],&quot;default&quot;:&quot;windows&quot;,&quot;tsType&quot;:&quot;\&quot;windows\&quot; | \&quot;macos\&quot; | \&quot;linux\&quot;&quot;},&quot;shadow&quot;:{&quot;editor&quot;:null,&quot;default&quot;:&quot;&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
 class Component extends DCLogic {
   renderVals() {
     const pl = this.props.platform ?? "windows";
-    const linux = pl === "linux";
-    return { isWin: pl === "windows", isMac: pl === "macos", isLinux: linux, shadow: this.props.shadow, onMinimize: this.props.onMinimize, onClose: this.props.onClose, onMaximize: this.props.onMaximize, radius: this.props.maximized ? "0" : "8px", isMaxed: !!this.props.maximized, notMaxed: !this.props.maximized, maxLabel: this.props.maximized ? "Restore" : "Maximize",
-      navCols: linux ? "92px 1fr 92px" : "46px 1fr 92px", navPad: linux ? "0" : "46px" };
+    const linux = pl === "linux", mobile = pl === "ios" || pl === "android", menu = linux || mobile;
+    return { isWin: pl === "windows", isMac: pl === "macos", isLinux: linux, isMobile: mobile, navMenu: menu, shadow: this.props.shadow, onMinimize: this.props.onMinimize, onClose: this.props.onClose, onMaximize: this.props.onMaximize, radius: mobile ? "28px" : this.props.maximized ? "0" : "8px", isMaxed: !!this.props.maximized, notMaxed: !this.props.maximized, maxLabel: this.props.maximized ? "Restore" : "Maximize",
+      rows: mobile ? "40px minmax(0,1fr) 40px 24px 30px" : "40px 40px minmax(0,1fr) 40px 24px",
+      navCols: menu ? "92px minmax(0,1fr) 92px" : "46px minmax(0,1fr) 92px", navPad: menu ? "0" : "46px",
+      statsText: mobile ? "318 ch · 62 w" : "318 chars · 62 words · 11 lines", pagesText: mobile ? "2 / 3" : "Pages 2 / 3",
+      pillW: pl === "ios" ? "40%" : "30%", pillH: pl === "ios" ? "5px" : "4px",
+      // gesture bar: tap = home (minimize), swipe up past 60px = fling away (close)
+      homeDown: (e) => { this._y0 = e.clientY; try { e.currentTarget.setPointerCapture(e.pointerId); } catch {} },
+      homeUp: (e) => { const d = (this._y0 ?? e.clientY) - e.clientY; this._y0 = null; if (d > 60) this.props.onClose?.(); else this.props.onMinimize?.(); } };
   }
 }
 </script>

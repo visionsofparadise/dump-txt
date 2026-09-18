@@ -61,6 +61,27 @@ a:hover [data-meta]{color:#d6ead9 !important}
 #appanim[data-anim="gnome-restore"]{animation:gnome-restore .3s cubic-bezier(0,0,.2,1) both;}
 #appanim[data-anim="gnome-close"]{animation:gnome-close .15s ease-out forwards;}
 #appanim[data-anim="gnome-open"]{animation:gnome-open .25s cubic-bezier(0,0,.2,1) both;}
+/* iOS: app zooms into its icon on the home row; close = flung up out of the switcher. Android: Material emphasized curve, quicker */
+@keyframes ios-min{to{transform:translate(var(--mx),var(--my)) scale(.05);opacity:0}}
+@keyframes ios-restore{from{transform:translate(var(--mx),var(--my)) scale(.05);opacity:0}}
+@keyframes ios-close{to{transform:translateY(-38%) scale(.78);opacity:0}}
+@keyframes ios-open{from{transform:translate(var(--mx),var(--my)) scale(.05);opacity:0}}
+@keyframes android-min{60%{opacity:.9}to{transform:translate(var(--mx),var(--my)) scale(.1);opacity:0}}
+@keyframes android-restore{from{transform:translate(var(--mx),var(--my)) scale(.1);opacity:0}40%{opacity:1}}
+@keyframes android-close{to{transform:translateY(-28%) scale(.88);opacity:0}}
+@keyframes android-open{from{transform:translate(var(--mx),var(--my)) scale(.1);opacity:0}40%{opacity:1}}
+#appanim[data-anim="ios-min"]{animation:ios-min .5s cubic-bezier(.32,.72,0,1) forwards;}
+#appanim[data-anim="ios-restore"]{animation:ios-restore .55s cubic-bezier(.32,.72,0,1) both;}
+#appanim[data-anim="ios-close"]{animation:ios-close .3s cubic-bezier(.4,0,.6,1) forwards;}
+#appanim[data-anim="ios-open"]{animation:ios-open .55s cubic-bezier(.32,.72,0,1) both;}
+#appanim[data-anim="android-min"]{animation:android-min .35s cubic-bezier(.3,0,.8,.15) forwards;}
+#appanim[data-anim="android-restore"]{animation:android-restore .4s cubic-bezier(.05,.7,.1,1) both;}
+#appanim[data-anim="android-close"]{animation:android-close .22s cubic-bezier(.3,0,.8,.15) forwards;}
+#appanim[data-anim="android-open"]{animation:android-open .4s cubic-bezier(.05,.7,.1,1) both;}
+/* phones: fixed 9:19.5 frame, centred in the app column */
+#app[data-mobile] #appanim{display:flex;justify-content:center;}
+#app[data-mobile] #appbox{aspect-ratio:9/19.5;width:auto;height:100%;flex:0 0 auto;min-height:0;margin:0 auto;transform-origin:center;}
+#app[data-mobile]{align-self:stretch;min-height:560px;}
 #app[data-max]{margin:-56px -4.5vw -56px 0;}
 #app[data-max] #appbox{transform:none;}
 #app[data-flat] #appbox{transform:none !important;transition-duration:.15s !important;}
@@ -78,6 +99,7 @@ a:hover [data-meta]{color:#d6ead9 !important}
   #app{grid-column:1;grid-row:2;}
   #appbox{height:460px;min-height:0;transform:none;animation:none !important;}
   #app[data-max]{margin:0 -20px;}
+  #app[data-mobile] #appbox{height:560px;}
   #controls{grid-column:1;grid-row:3;align-items:stretch;}
   #controls > *{width:100% !important;min-width:0 !important;justify-content:center !important;}
   #github{grid-column:1;grid-row:4;justify-self:center;margin-top:-24px;margin-left:0;}
@@ -86,6 +108,8 @@ a:hover [data-meta]{color:#d6ead9 !important}
   #github[data-in]{--dy:20px;animation-delay:.35s;}
   #headline[data-in]{animation-delay:.1s;}
   #bg{position:absolute !important;}
+  [data-pl-label]{display:none;}
+  #controls [role="radiogroup"][aria-label="Platform"] button{padding:8px 10px !important;}
   #hills{background-position:42% center !important;background-size:auto 100% !important;}
 }
 </style>
@@ -102,28 +126,35 @@ a:hover [data-meta]{color:#d6ead9 !important}
 
     <div id="controls" style="display:flex; flex-direction:column; gap:14px; font-family:'IBM Plex Mono',monospace;">
       <div role="group" aria-label="Platform and architecture" style="display:flex; align-items:center; justify-content:center; flex-wrap:wrap; width:max-content; min-height:52px; background:#fafafa; border-radius:3px; color:#1a1a1a; font-size:13px; box-shadow:{{ shadow }};">
-        <span role="radiogroup" aria-label="Platform" style="display:flex; align-items:center; gap:2px; padding:0 8px;">
-          <button role="radio" aria-checked="{{ isWin }}" onClick="{{ pickWin }}" style="position:relative; display:inline-flex; align-items:center; gap:7px; padding:8px 12px; border:0; background:transparent; font:inherit; cursor:pointer; transition:color .28s; color:{{ winColor }}; --bar:{{ winBar }};" style-after="content:''; position:absolute; left:12px; right:12px; bottom:6px; height:2px; background:#1a1a1a; transform-origin:left center; transform:var(--bar); transition:transform .28s cubic-bezier(.2,.7,.2,1);"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 5.5 11 4.4v7.1H3zM12.5 4.2 21 3v8.5h-8.5zM3 12.5h8v7.1L3 18.5zM12.5 12.5H21V21l-8.5-1.2z"/></svg>Windows</button>
-          <button role="radio" aria-checked="{{ isMac }}" onClick="{{ pickMac }}" style="position:relative; display:inline-flex; align-items:center; gap:7px; padding:8px 12px; border:0; background:transparent; font:inherit; cursor:pointer; transition:color .28s; color:{{ macColor }}; --bar:{{ macBar }};" style-after="content:''; position:absolute; left:12px; right:12px; bottom:6px; height:2px; background:#1a1a1a; transform-origin:left center; transform:var(--bar); transition:transform .28s cubic-bezier(.2,.7,.2,1);"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16.4 12.6c0-2.3 1.9-3.4 2-3.5-1.1-1.6-2.8-1.8-3.4-1.8-1.4-.1-2.8.9-3.5.9-.7 0-1.9-.8-3.1-.8-1.6 0-3.1.9-3.9 2.4-1.7 2.9-.4 7.2 1.2 9.6.8 1.2 1.8 2.5 3 2.4 1.2 0 1.7-.8 3.1-.8 1.5 0 1.9.8 3.1.8 1.3 0 2.1-1.2 2.9-2.3.9-1.3 1.3-2.6 1.3-2.7 0 0-2.7-1-2.7-4.2zM14.1 5.8c.6-.8 1.1-1.9 1-3-.9 0-2.1.6-2.7 1.4-.6.7-1.1 1.8-1 2.9 1 .1 2.1-.5 2.7-1.3z"/></svg>macOS</button>
-          <button role="radio" aria-checked="{{ isLinux }}" onClick="{{ pickLinux }}" style="position:relative; display:inline-flex; align-items:center; gap:7px; padding:8px 12px; border:0; background:transparent; font:inherit; cursor:pointer; transition:color .28s; color:{{ linuxColor }}; --bar:{{ linuxBar }};" style-after="content:''; position:absolute; left:12px; right:12px; bottom:6px; height:2px; background:#1a1a1a; transform-origin:left center; transform:var(--bar); transition:transform .28s cubic-bezier(.2,.7,.2,1);"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2c-2.5 0-4 2-4 4.8 0 1.2-.3 2-1 3.2-1 1.5-2.3 3.3-2.3 5.4 0 .7.1 1.3.4 1.8-.8.3-1.6.8-1.6 1.6 0 1.1 1.6 1.5 3.3 1.9.9.2 1.6 1.3 3 1.3.8 0 1.4-.3 2.2-.3s1.4.3 2.2.3c1.4 0 2.1-1.1 3-1.3 1.7-.4 3.3-.8 3.3-1.9 0-.8-.8-1.3-1.6-1.6.3-.5.4-1.1.4-1.8 0-2.1-1.3-3.9-2.3-5.4-.7-1.2-1-2-1-3.2C16 4 14.5 2 12 2zm-1.5 4a.8 1 0 1 1 0 2 .8 1 0 0 1 0-2zm3 0a.8 1 0 1 1 0 2 .8 1 0 0 1 0-2zM12 8.5c1 0 2 .5 2 1.1 0 .6-1.2 1.2-2 1.4-.8-.2-2-.8-2-1.4 0-.6 1-1.1 2-1.1zm0 3.5c1.8 0 3.3 2.2 3.3 4.4 0 1.9-1.5 2.8-3.3 2.8s-3.3-.9-3.3-2.8c0-2.2 1.5-4.4 3.3-4.4z"/></svg>Linux</button>
+        <span role="radiogroup" aria-label="Device" style="display:flex; align-items:center; gap:2px; padding:0 6px;">
+          <button role="radio" aria-checked="{{ isDesktop }}" aria-label="Desktop" title="Desktop" onClick="{{ pickDesktop }}" style="position:relative; display:grid; place-items:center; width:40px; height:40px; padding:0; border:0; background:transparent; font:inherit; cursor:pointer; transition:color .28s; color:{{ desktopColor }}; --bar:{{ desktopBar }};" style-after="content:''; position:absolute; left:12px; right:12px; bottom:6px; height:2px; background:#1a1a1a; transform-origin:left center; transform:var(--bar); transition:transform .28s cubic-bezier(.2,.7,.2,1);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/></svg></button>
+          <button role="radio" aria-checked="{{ isMobile }}" aria-label="Mobile" title="Mobile" onClick="{{ pickMobile }}" style="position:relative; display:grid; place-items:center; width:40px; height:40px; padding:0; border:0; background:transparent; font:inherit; cursor:pointer; transition:color .28s; color:{{ mobileColor }}; --bar:{{ mobileBar }};" style-after="content:''; position:absolute; left:12px; right:12px; bottom:6px; height:2px; background:#1a1a1a; transform-origin:left center; transform:var(--bar); transition:transform .28s cubic-bezier(.2,.7,.2,1);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="2" width="12" height="20" rx="2.5"/><path d="M11 18h2"/></svg></button>
         </span>
+        <span style="width:1px; height:28px; background:#e6e6e6;"></span>
+        <span role="radiogroup" aria-label="Platform" style="display:flex; align-items:center; gap:2px; padding:0 8px;">
+          <sc-if value="{{ isDesktop }}" hint-placeholder-val="{{ true }}">
+          <button role="radio" aria-checked="{{ isWin }}" onClick="{{ pickWin }}" style="position:relative; display:inline-flex; align-items:center; gap:7px; padding:8px 12px; border:0; background:transparent; font:inherit; cursor:pointer; transition:color .28s; color:{{ winColor }}; --bar:{{ winBar }};" style-after="content:''; position:absolute; left:12px; right:12px; bottom:6px; height:2px; background:#1a1a1a; transform-origin:left center; transform:var(--bar); transition:transform .28s cubic-bezier(.2,.7,.2,1);"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 5.5 11 4.4v7.1H3zM12.5 4.2 21 3v8.5h-8.5zM3 12.5h8v7.1L3 18.5zM12.5 12.5H21V21l-8.5-1.2z"/></svg><span data-pl-label="">Windows</span></button>
+          <button role="radio" aria-checked="{{ isMac }}" onClick="{{ pickMac }}" style="position:relative; display:inline-flex; align-items:center; gap:7px; padding:8px 12px; border:0; background:transparent; font:inherit; cursor:pointer; transition:color .28s; color:{{ macColor }}; --bar:{{ macBar }};" style-after="content:''; position:absolute; left:12px; right:12px; bottom:6px; height:2px; background:#1a1a1a; transform-origin:left center; transform:var(--bar); transition:transform .28s cubic-bezier(.2,.7,.2,1);"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16.4 12.6c0-2.3 1.9-3.4 2-3.5-1.1-1.6-2.8-1.8-3.4-1.8-1.4-.1-2.8.9-3.5.9-.7 0-1.9-.8-3.1-.8-1.6 0-3.1.9-3.9 2.4-1.7 2.9-.4 7.2 1.2 9.6.8 1.2 1.8 2.5 3 2.4 1.2 0 1.7-.8 3.1-.8 1.5 0 1.9.8 3.1.8 1.3 0 2.1-1.2 2.9-2.3.9-1.3 1.3-2.6 1.3-2.7 0 0-2.7-1-2.7-4.2zM14.1 5.8c.6-.8 1.1-1.9 1-3-.9 0-2.1.6-2.7 1.4-.6.7-1.1 1.8-1 2.9 1 .1 2.1-.5 2.7-1.3z"/></svg><span data-pl-label="">macOS</span></button>
+          <button role="radio" aria-checked="{{ isLinux }}" onClick="{{ pickLinux }}" style="position:relative; display:inline-flex; align-items:center; gap:7px; padding:8px 12px; border:0; background:transparent; font:inherit; cursor:pointer; transition:color .28s; color:{{ linuxColor }}; --bar:{{ linuxBar }};" style-after="content:''; position:absolute; left:12px; right:12px; bottom:6px; height:2px; background:#1a1a1a; transform-origin:left center; transform:var(--bar); transition:transform .28s cubic-bezier(.2,.7,.2,1);"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2c-2.5 0-4 2-4 4.8 0 1.2-.3 2-1 3.2-1 1.5-2.3 3.3-2.3 5.4 0 .7.1 1.3.4 1.8-.8.3-1.6.8-1.6 1.6 0 1.1 1.6 1.5 3.3 1.9.9.2 1.6 1.3 3 1.3.8 0 1.4-.3 2.2-.3s1.4.3 2.2.3c1.4 0 2.1-1.1 3-1.3 1.7-.4 3.3-.8 3.3-1.9 0-.8-.8-1.3-1.6-1.6.3-.5.4-1.1.4-1.8 0-2.1-1.3-3.9-2.3-5.4-.7-1.2-1-2-1-3.2C16 4 14.5 2 12 2zm-1.5 4a.8 1 0 1 1 0 2 .8 1 0 0 1 0-2zm3 0a.8 1 0 1 1 0 2 .8 1 0 0 1 0-2zM12 8.5c1 0 2 .5 2 1.1 0 .6-1.2 1.2-2 1.4-.8-.2-2-.8-2-1.4 0-.6 1-1.1 2-1.1zm0 3.5c1.8 0 3.3 2.2 3.3 4.4 0 1.9-1.5 2.8-3.3 2.8s-3.3-.9-3.3-2.8c0-2.2 1.5-4.4 3.3-4.4z"/></svg><span data-pl-label="">Linux</span></button>
+          </sc-if>
+          <sc-if value="{{ isMobile }}" hint-placeholder-val="{{ false }}">
+          <button role="radio" aria-checked="{{ isIos }}" onClick="{{ pickIos }}" style="position:relative; display:inline-flex; align-items:center; gap:7px; padding:8px 12px; border:0; background:transparent; font:inherit; cursor:pointer; transition:color .28s; color:{{ iosColor }}; --bar:{{ iosBar }};" style-after="content:''; position:absolute; left:12px; right:12px; bottom:6px; height:2px; background:#1a1a1a; transform-origin:left center; transform:var(--bar); transition:transform .28s cubic-bezier(.2,.7,.2,1);"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16.4 12.6c0-2.3 1.9-3.4 2-3.5-1.1-1.6-2.8-1.8-3.4-1.8-1.4-.1-2.8.9-3.5.9-.7 0-1.9-.8-3.1-.8-1.6 0-3.1.9-3.9 2.4-1.7 2.9-.4 7.2 1.2 9.6.8 1.2 1.8 2.5 3 2.4 1.2 0 1.7-.8 3.1-.8 1.5 0 1.9.8 3.1.8 1.3 0 2.1-1.2 2.9-2.3.9-1.3 1.3-2.6 1.3-2.7 0 0-2.7-1-2.7-4.2zM14.1 5.8c.6-.8 1.1-1.9 1-3-.9 0-2.1.6-2.7 1.4-.6.7-1.1 1.8-1 2.9 1 .1 2.1-.5 2.7-1.3z"/></svg><span data-pl-label="">iOS</span></button>
+          <button role="radio" aria-checked="{{ isAndroid }}" onClick="{{ pickAndroid }}" style="position:relative; display:inline-flex; align-items:center; gap:7px; padding:8px 12px; border:0; background:transparent; font:inherit; cursor:pointer; transition:color .28s; color:{{ androidColor }}; --bar:{{ androidBar }};" style-after="content:''; position:absolute; left:12px; right:12px; bottom:6px; height:2px; background:#1a1a1a; transform-origin:left center; transform:var(--bar); transition:transform .28s cubic-bezier(.2,.7,.2,1);"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.6 9.48l1.84-3.18c.16-.31.04-.69-.26-.85-.29-.15-.65-.06-.83.22l-1.88 3.24c-2.86-1.21-6.08-1.21-8.94 0L5.65 5.67c-.19-.29-.58-.38-.87-.2-.28.18-.37.54-.22.83L6.4 9.48C3.3 11.25 1.28 14.44 1 18h22c-.28-3.56-2.3-6.75-5.4-8.52zM7 15.25c-.69 0-1.25-.56-1.25-1.25s.56-1.25 1.25-1.25 1.25.56 1.25 1.25-.56 1.25-1.25 1.25zm10 0c-.69 0-1.25-.56-1.25-1.25s.56-1.25 1.25-1.25 1.25.56 1.25 1.25-.56 1.25-1.25 1.25z"/></svg><span data-pl-label="">Android</span></button>
+          </sc-if>
+        </span>
+        <sc-if value="{{ hasArch }}" hint-placeholder-val="{{ true }}">
         <span style="width:1px; height:28px; background:#e6e6e6;"></span>
         <span role="radiogroup" aria-label="Architecture" style="display:flex; align-items:center; gap:2px; padding:0 8px;">
           <sc-for list="{{ archOptions }}" as="a" hint-placeholder-count="1">
             <button key="{{ a.id }}" role="radio" aria-checked="{{ a.selected }}" onClick="{{ a.pick }}" style="position:relative; display:inline-flex; align-items:center; gap:7px; padding:8px 12px; border:0; background:transparent; font:inherit; cursor:pointer; transition:color .28s; color:{{ a.color }}; animation:arch-in .28s cubic-bezier(.2,.7,.2,1) both; --bar:{{ a.bar }};" style-after="content:''; position:absolute; left:12px; right:12px; bottom:6px; height:2px; background:#1a1a1a; transform-origin:left center; transform:var(--bar); transition:transform .28s cubic-bezier(.2,.7,.2,1);">{{ a.label }}</button>
           </sc-for>
         </span>
+        </sc-if>
       </div>
       <a href="#" style="display:inline-flex; align-items:center; justify-content:space-between; gap:24px; width:max-content; min-width:300px; white-space:nowrap; height:56px; padding:0 22px; box-sizing:border-box; border-radius:3px; background:#1a1a1a; color:#fafafa; text-decoration:none; font-size:14px; letter-spacing:.02em; box-shadow:{{ shadow }}; transition:background .25s;" style-hover="background:#16a34a">
         <span style="display:inline-flex; align-items:center; gap:10px;">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/></svg>
-          <span>Download for</span>
-          <span style="display:inline-flex; align-items:center; gap:7px;">
-            <sc-if value="{{ isWin }}" hint-placeholder-val="{{ true }}"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 5.5 11 4.4v7.1H3zM12.5 4.2 21 3v8.5h-8.5zM3 12.5h8v7.1L3 18.5zM12.5 12.5H21V21l-8.5-1.2z"/></svg></sc-if>
-            <sc-if value="{{ isMac }}" hint-placeholder-val="{{ false }}"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16.4 12.6c0-2.3 1.9-3.4 2-3.5-1.1-1.6-2.8-1.8-3.4-1.8-1.4-.1-2.8.9-3.5.9-.7 0-1.9-.8-3.1-.8-1.6 0-3.1.9-3.9 2.4-1.7 2.9-.4 7.2 1.2 9.6.8 1.2 1.8 2.5 3 2.4 1.2 0 1.7-.8 3.1-.8 1.5 0 1.9.8 3.1.8 1.3 0 2.1-1.2 2.9-2.3.9-1.3 1.3-2.6 1.3-2.7 0 0-2.7-1-2.7-4.2zM14.1 5.8c.6-.8 1.1-1.9 1-3-.9 0-2.1.6-2.7 1.4-.6.7-1.1 1.8-1 2.9 1 .1 2.1-.5 2.7-1.3z"/></svg></sc-if>
-            <sc-if value="{{ isLinux }}" hint-placeholder-val="{{ false }}"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2c-2.5 0-4 2-4 4.8 0 1.2-.3 2-1 3.2-1 1.5-2.3 3.3-2.3 5.4 0 .7.1 1.3.4 1.8-.8.3-1.6.8-1.6 1.6 0 1.1 1.6 1.5 3.3 1.9.9.2 1.6 1.3 3 1.3.8 0 1.4-.3 2.2-.3s1.4.3 2.2.3c1.4 0 2.1-1.1 3-1.3 1.7-.4 3.3-.8 3.3-1.9 0-.8-.8-1.3-1.6-1.6.3-.5.4-1.1.4-1.8 0-2.1-1.3-3.9-2.3-5.4-.7-1.2-1-2-1-3.2C16 4 14.5 2 12 2zm-1.5 4a.8 1 0 1 1 0 2 .8 1 0 0 1 0-2zm3 0a.8 1 0 1 1 0 2 .8 1 0 0 1 0-2zM12 8.5c1 0 2 .5 2 1.1 0 .6-1.2 1.2-2 1.4-.8-.2-2-.8-2-1.4 0-.6 1-1.1 2-1.1zm0 3.5c1.8 0 3.3 2.2 3.3 4.4 0 1.9-1.5 2.8-3.3 2.8s-3.3-.9-3.3-2.8c0-2.2 1.5-4.4 3.3-4.4z"/></svg></sc-if>
-            {{ platformLabel }}
-          </span>
+          <span>Download</span>
         </span>
         <span data-meta="" style="font-size:11px; color:#9a9a9a; transition:color .25s;">{{ meta }}</span>
       </a>
@@ -134,7 +165,7 @@ a:hover [data-meta]{color:#d6ead9 !important}
       <a href="#" aria-label="GitHub" style="display:grid; place-items:center; width:52px; height:52px; color:#fafafa; text-decoration:none; filter:{{ dropShadow }};"><svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.1.79-.25.79-.56v-2.17c-3.2.7-3.87-1.36-3.87-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.7 1.25 3.35.96.1-.75.4-1.25.73-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.78 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.25 5.67.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5z"/></svg></a>
     </div>
 
-    <div id="app" data-max="{{ maxAttr }}" data-flat="{{ flatAttr }}" onAnimationEnd="{{ appEntered }}" style="pointer-events:{{ appPointer }}; --maxt:{{ maxTrans }};">
+    <div id="app" data-max="{{ maxAttr }}" data-flat="{{ flatAttr }}" data-mobile="{{ mobileAttr }}" onAnimationEnd="{{ appEntered }}" style="pointer-events:{{ appPointer }}; --maxt:{{ maxTrans }};">
       <div id="appanim" data-anim="{{ animName }}" style="--mx:{{ animDx }}; --my:{{ animDy }};">
       <div id="appbox" style="--tilt:{{ tilt }};">
         <dc-import name="DumpMock" shadow="{{ shadowWindow }}" platform="{{ mockPlatform }}" on-minimize="{{ minimizeWin }}" on-close="{{ closeWin }}" on-maximize="{{ maximizeWin }}" maximized="{{ isMax }}" style="position:absolute; inset:0;" hint-size="100%,100%"></dc-import>
@@ -146,10 +177,13 @@ a:hover [data-meta]{color:#d6ead9 !important}
 </x-dc>
 <script type="text/x-dc" data-dc-script data-props="{&quot;headFont&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;Roboto Condensed&quot;,&quot;Archivo Narrow&quot;,&quot;Barlow Condensed&quot;,&quot;Oswald&quot;,&quot;Saira Condensed&quot;,&quot;Sofia Sans Extra Condensed&quot;,&quot;Instrument Serif&quot;],&quot;default&quot;:&quot;Archivo Narrow&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Headline&quot;},&quot;thinkSize&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:87,&quot;min&quot;:50,&quot;max&quot;:130,&quot;step&quot;:1,&quot;unit&quot;:&quot;%&quot;,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Headline&quot;},&quot;thinkY&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:-8,&quot;min&quot;:-30,&quot;max&quot;:30,&quot;step&quot;:1,&quot;unit&quot;:&quot;% of size&quot;,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Headline&quot;},&quot;skyX&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:0,&quot;min&quot;:0,&quot;max&quot;:100,&quot;step&quot;:1,&quot;unit&quot;:&quot;% of loop&quot;,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Sky&quot;},&quot;skyY&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:0,&quot;min&quot;:-40,&quot;max&quot;:40,&quot;step&quot;:1,&quot;unit&quot;:&quot;% of height&quot;,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Sky&quot;},&quot;skySpeed&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:400,&quot;min&quot;:20,&quot;max&quot;:600,&quot;step&quot;:10,&quot;unit&quot;:&quot;s per loop&quot;,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Sky&quot;},&quot;bgSaturation&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:130,&quot;min&quot;:0,&quot;max&quot;:200,&quot;step&quot;:5,&quot;unit&quot;:&quot;%&quot;,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Background&quot;},&quot;shadowY&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:4,&quot;min&quot;:0,&quot;max&quot;:24,&quot;step&quot;:1,&quot;unit&quot;:&quot;px&quot;,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Shadow · key&quot;},&quot;shadowBlur&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:5,&quot;min&quot;:0,&quot;max&quot;:40,&quot;step&quot;:1,&quot;unit&quot;:&quot;px&quot;,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Shadow · key&quot;},&quot;shadowOpacity&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:90,&quot;min&quot;:0,&quot;max&quot;:100,&quot;step&quot;:5,&quot;unit&quot;:&quot;%&quot;,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Shadow · key&quot;},&quot;ambientY&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:12,&quot;min&quot;:0,&quot;max&quot;:48,&quot;step&quot;:1,&quot;unit&quot;:&quot;px&quot;,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Shadow · ambient&quot;},&quot;ambientBlur&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:32,&quot;min&quot;:0,&quot;max&quot;:96,&quot;step&quot;:2,&quot;unit&quot;:&quot;px&quot;,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Shadow · ambient&quot;},&quot;ambientOpacity&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:25,&quot;min&quot;:0,&quot;max&quot;:100,&quot;step&quot;:5,&quot;unit&quot;:&quot;%&quot;,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Shadow · ambient&quot;},&quot;tilt&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Desktop&quot;}}">
 const PLATFORMS = {
-  windows: { label: "Windows", archs: [["x64", "x64"]], meta: "v1.2 · 4 MB" },
+  windows: { label: "Windows", archs: [["x64", "x64"], ["arm64", "ARM64"]], meta: "v1.2 · 4 MB" },
   mac: { label: "macOS", archs: [["arm64", "Apple Silicon"], ["x64", "Intel"]], meta: "v1.2 · 5 MB" },
   linux: { label: "Linux", archs: [["x64", "x64"], ["arm64", "ARM64"]], meta: "v1.2 · 4 MB" },
+  ios: { label: "iOS", archs: [["store", "App Store"]], meta: "iOS 17+" },
+  android: { label: "Android", archs: [["store", "Play Store"], ["apk", "APK"]], meta: "v1.2 · 6 MB" },
 };
+const MOBILE = { ios: 1, android: 1 };
 class Component extends DCLogic {
   state = { platform: "windows", arch: "x64", win: "open", max: false, anim: "idle", dx: 0, dy: 0 };
   // macOS genie: snapshot the window, then warp it into the tile as horizontal strips whose edges ease toward the tile
@@ -228,13 +262,14 @@ class Component extends DCLogic {
     this.act2(win, phase);
   };
   act2 = (win, phase) => {
-    const pre = { windows: "win", mac: "mac", linux: "gnome" }[this.state.platform];
+    const pre = { windows: "win", mac: "mac", linux: "gnome", ios: "ios", android: "android" }[this.state.platform];
     const t = document.getElementById("tile"), a = document.getElementById("appanim");
     let dx = 0, dy = 0;
     if (t && a) { const tr = t.getBoundingClientRect(), ar = a.getBoundingClientRect(); dx = Math.round(tr.left + tr.width / 2 - (ar.left + ar.width / 2)); dy = Math.round(tr.top + tr.height / 2 - (ar.top + ar.height / 2)); }
     this.setState({ win, anim: pre + "-" + phase, dx, dy });
   };
-  pick = (platform) => this.setState({ platform, arch: PLATFORMS[platform].archs[0][0] });
+  pick = (platform) => this.setState({ platform, arch: PLATFORMS[platform].archs[0]?.[0] ?? null, max: MOBILE[platform] ? false : this.state.max });
+  pickDevice = (mobile) => { if (!!MOBILE[this.state.platform] !== mobile) this.pick(mobile ? "ios" : "windows"); };
   componentDidMount() {
     const load = (src) => new Promise((res) => { const img = new Image(); img.onload = img.onerror = res; img.src = src; });
     const bgReady = Promise.all([load('uploads/bliss-like-sky-loop.webp'), load('uploads/bliss-like-hills.webp')]);
@@ -263,7 +298,8 @@ class Component extends DCLogic {
     const { platform, arch } = this.state;
     const pl = PLATFORMS[platform];
     const sel = (on) => ({ color: on ? "#1a1a1a" : "#8a8a8a", bar: on ? "scaleX(1)" : "scaleX(0)" });
-    const w = sel(platform === "windows"), m = sel(platform === "mac"), l = sel(platform === "linux");
+    const w = sel(platform === "windows"), m = sel(platform === "mac"), l = sel(platform === "linux"), io = sel(platform === "ios"), an = sel(platform === "android");
+    const mob = !!MOBILE[platform], dk = sel(!mob), mb = sel(mob);
     const tilt = p.tilt ?? true;
     const y = p.shadowY ?? 4, blur = p.shadowBlur ?? 5, a = (p.shadowOpacity ?? 90) / 100;
     const y2 = p.ambientY ?? 12, blur2 = p.ambientBlur ?? 32, a2 = (p.ambientOpacity ?? 25) / 100;
@@ -282,16 +318,19 @@ class Component extends DCLogic {
     return {
       appEntered: (e) => { if (e.target.id === "app") e.target.setAttribute("data-in", "done"); },
       appPointer: open ? "auto" : "none", animName: this.state.anim, animDx: this.state.dx + "px", animDy: this.state.dy + "px",
-      maxTrans: { windows: ".25s cubic-bezier(.1,.9,.2,1)", mac: ".5s cubic-bezier(.2,.8,.2,1)", linux: ".25s cubic-bezier(.4,0,.2,1)" }[platform],
-      isMax: this.state.max, maxAttr: this.state.max ? "" : undefined, flatAttr: this.state.flat ? "" : undefined,
+      maxTrans: { windows: ".25s cubic-bezier(.1,.9,.2,1)", mac: ".5s cubic-bezier(.2,.8,.2,1)", linux: ".25s cubic-bezier(.4,0,.2,1)", ios: ".5s", android: ".4s" }[platform],
+      isMax: this.state.max, maxAttr: this.state.max ? "" : undefined, flatAttr: this.state.flat ? "" : undefined, mobileAttr: MOBILE[platform] ? "" : undefined,
       maximizeWin: () => this.setState((s) => ({ max: !s.max })),
       minimizeWin: () => this.act("min", "min"), closeWin: () => this.act("closed", "close"),
       toggleWin: () => open ? this.act("min", "min") : this.act("open", win === "min" ? "restore" : "open"),
       tileLabel: open ? "Minimize dump.txt" : win === "min" ? "Restore dump.txt" : "Open dump.txt",
       tileBg: win === "closed" ? "transparent" : "rgba(250,250,250,.14)", tileShadow: win === "closed" ? "none" : shadow, tileUnderline: open ? 1 : 0,
-      isWin: platform === "windows", isMac: platform === "mac", isLinux: platform === "linux",
-      pickWin: () => this.pick("windows"), pickMac: () => this.pick("mac"), pickLinux: () => this.pick("linux"),
-      winColor: w.color, winBar: w.bar, macColor: m.color, macBar: m.bar, linuxColor: l.color, linuxBar: l.bar,
+      isWin: platform === "windows", isMac: platform === "mac", isLinux: platform === "linux", isIos: platform === "ios", isAndroid: platform === "android",
+      pickWin: () => this.pick("windows"), pickMac: () => this.pick("mac"), pickLinux: () => this.pick("linux"), pickIos: () => this.pick("ios"), pickAndroid: () => this.pick("android"),
+      winColor: w.color, winBar: w.bar, macColor: m.color, macBar: m.bar, linuxColor: l.color, linuxBar: l.bar, iosColor: io.color, iosBar: io.bar, androidColor: an.color, androidBar: an.bar,
+      hasArch: pl.archs.length > 0,
+      isDesktop: !mob, isMobile: mob, pickDesktop: () => this.pickDevice(false), pickMobile: () => this.pickDevice(true),
+      desktopColor: dk.color, desktopBar: dk.bar, mobileColor: mb.color, mobileBar: mb.bar,
       archOptions: pl.archs.map(([id, label]) => ({ id: platform + id, label, selected: arch === id, ...sel(arch === id), pick: () => this.setState({ arch: id }) })),
       platformLabel: pl.label, meta: pl.meta, mockPlatform: platform === "mac" ? "macos" : platform,
       headFont: f[0], headWeight: f[1], headTracking: f[2], headScale: `${f[3]}em`, thinkScale: `${(p.thinkSize ?? 87) / 100}em`, thinkShift: `${(p.thinkY ?? 0) / 100}em`,
