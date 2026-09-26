@@ -234,6 +234,7 @@ jobs:
            if: ${{ !cancelled() && steps.package-build.outcome == 'success' }}
            with:
               name: installer-${{ matrix.artifact }}
+              retention-days: 1
               path: |
                  apps/app/out/make/dump-txt-*-windows-x64.exe
                  apps/app/out/make/dump-txt-*-windows-arm64.exe
@@ -246,6 +247,7 @@ jobs:
            if: always()
            with:
               name: window-layouts-${{ matrix.artifact }}
+              retention-days: 1
               include-hidden-files: true
               path: |
                  apps/app/.scratch/tauri-persistence/**/layout-*.png
@@ -261,6 +263,7 @@ jobs:
            if: always()
            with:
               name: tauri-evidence-${{ matrix.artifact }}
+              retention-days: 1
               include-hidden-files: true
               path: |
                  apps/app/.scratch/tauri-test/
@@ -273,6 +276,24 @@ jobs:
                  apps/app/target/release/dump-txt
                  apps/app/target/release/dump-txt.exe
               if-no-files-found: warn
+
+   cleanup-artifacts:
+      needs: [build, publish]
+      if: ${{ always() && needs.build.result == 'success' && (needs.publish.result == 'success' || needs.publish.result == 'skipped') }}
+      runs-on: ubuntu-latest
+      permissions:
+         actions: write
+      steps:
+         - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+           with:
+              persist-credentials: false
+         - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+           with:
+              node-version: 24
+         - name: Delete temporary workflow artifacts
+           env:
+              GH_TOKEN: ${{ github.token }}
+           run: node apps/app/tools/releaseRetention.mjs artifacts
 
    publish:
       needs: build
@@ -303,6 +324,11 @@ jobs:
               result=$(node apps/app/tools/release.mjs publish artifacts)
               printf '%s\n' "$result"
               printf 'result=%s\n' "$result" >> "$GITHUB_OUTPUT"
+         - name: Delete older stable releases
+           if: steps.release.outputs.result == 'published'
+           env:
+              GH_TOKEN: ${{ github.token }}
+           run: node apps/app/tools/releaseRetention.mjs releases v$(node -p "JSON.parse(require('node:fs').readFileSync('apps/app/package.json', 'utf8')).version")
          - name: Generate the published release demonstration and website
            if: steps.release.outputs.result == 'published'
            env:
