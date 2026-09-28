@@ -273,6 +273,11 @@
 	color: var(--color-ink);
 }
 
+.dump-ui .title-bar .chrome-button:not(.window-close):hover:not(:disabled),
+.dump-ui .title-bar .menu-trigger[data-state="open"] {
+	background: light-dark(#d2d2d2, #383838);
+}
+
 .dump-ui .window-close:hover:not(:disabled),
 .dump-ui .page-delete:hover:not(:disabled) {
 	background: #c42b1c;
