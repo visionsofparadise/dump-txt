@@ -2,6 +2,7 @@ import { execFileSync, spawn, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
+import { createServer } from "node:net";
 import { homedir } from "node:os";
 import { delimiter, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -51,10 +52,25 @@ if (nativeScript) {
 	process.exit(0);
 }
 
+async function freePort(host, port) {
+	const free = await new Promise((resolve) => {
+		const server = createServer()
+			.once("error", () => resolve(false))
+			.listen(port, host, () => server.close(() => resolve(true)));
+	});
+
+	return free ? port : freePort(host, port + 1);
+}
+
 const vite = join(require.resolve("vite/package.json"), "..", "bin", "vite.js");
 const frontendArguments = ["--config", "vite.tauri.config.ts", "--mode", probe ? "probe" : "production"];
-if (platform && command === "dev") frontendArguments.push("--host", "0.0.0.0");
 const nativeArguments = platform ? [platform, command] : [command];
+if (command === "dev") {
+	const host = platform ? "0.0.0.0" : "127.0.0.1";
+	const port = await freePort(host, 1420);
+	frontendArguments.push("--host", host, "--port", String(port));
+	nativeArguments.push("--config", JSON.stringify({ build: { devUrl: `http://127.0.0.1:${port}` } }));
+}
 if (probe)
 	nativeArguments.push("--config", "tauri.probe.conf.json", "--features", automation ? "probe,automation" : "probe");
 else if (!platform && (command === "dev" || automation))
