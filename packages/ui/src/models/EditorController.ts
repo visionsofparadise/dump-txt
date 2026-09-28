@@ -733,7 +733,7 @@ export class EditorController {
 			outgoing: this.#captureSnapshot(view),
 			incoming: null,
 		};
-		view.dom.parentElement?.classList.add("page-editor-covered");
+		view.dom.parentElement?.setAttribute("data-covered", "");
 		this.#publishTransition();
 	}
 
@@ -742,7 +742,6 @@ export class EditorController {
 
 		if (!(dom instanceof HTMLElement)) throw new Error("Editor snapshot is not an HTML element");
 
-		dom.classList.remove("page-editor-covered");
 		dom.inert = true;
 		dom.removeAttribute("id");
 
@@ -765,7 +764,7 @@ export class EditorController {
 		if (!this.#transition) return;
 
 		this.#transition = null;
-		this.#view?.dom.parentElement?.classList.remove("page-editor-covered");
+		this.#view?.dom.parentElement?.removeAttribute("data-covered");
 		this.#publishTransition();
 	}
 

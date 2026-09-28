@@ -114,12 +114,20 @@ export const Menu = scope(({ context }: MenuProps) => {
 				<DropdownMenuItem onSelect={openFile} disabled={persistenceState.locked || !capabilities.openDump}>
 					<FolderOpen size={16} aria-hidden />
 					<span>Open…</span>
-					{capabilities.keybinds && <span className="menu-shortcut">Ctrl+O</span>}
+					{capabilities.keybinds && (
+						<span className="menu-shortcut" data-slot="dropdown-menu-shortcut" data-variant="shortcut">
+							Ctrl+O
+						</span>
+					)}
 				</DropdownMenuItem>
 				<DropdownMenuItem onSelect={saveAs} disabled={persistenceState.locked || !capabilities.saveAs}>
 					<Save size={16} aria-hidden />
 					<span>Save As…</span>
-					{capabilities.keybinds && <span className="menu-shortcut">Ctrl+Shift+S</span>}
+					{capabilities.keybinds && (
+						<span className="menu-shortcut" data-slot="dropdown-menu-shortcut" data-variant="shortcut">
+							Ctrl+Shift+S
+						</span>
+					)}
 				</DropdownMenuItem>
 				<DropdownMenuSeparator />
 				<PageFileMenu context={context} />
@@ -127,17 +135,29 @@ export const Menu = scope(({ context }: MenuProps) => {
 				<DropdownMenuItem onSelect={undo} disabled={!session.canUndo || persistenceState.locked}>
 					<Undo2 size={16} aria-hidden />
 					<span>Undo</span>
-					{capabilities.keybinds && <span className="menu-shortcut">Ctrl+Z</span>}
+					{capabilities.keybinds && (
+						<span className="menu-shortcut" data-slot="dropdown-menu-shortcut" data-variant="shortcut">
+							Ctrl+Z
+						</span>
+					)}
 				</DropdownMenuItem>
 				<DropdownMenuItem onSelect={redo} disabled={!session.canRedo || persistenceState.locked}>
 					<Redo2 size={16} aria-hidden />
 					<span>Redo</span>
-					{capabilities.keybinds && <span className="menu-shortcut">Ctrl+Y</span>}
+					{capabilities.keybinds && (
+						<span className="menu-shortcut" data-slot="dropdown-menu-shortcut" data-variant="shortcut">
+							Ctrl+Y
+						</span>
+					)}
 				</DropdownMenuItem>
 				<DropdownMenuItem onSelect={find} disabled={persistenceState.locked}>
 					<Search size={16} aria-hidden />
 					<span>Find and replace</span>
-					{capabilities.keybinds && <span className="menu-shortcut">Ctrl+F</span>}
+					{capabilities.keybinds && (
+						<span className="menu-shortcut" data-slot="dropdown-menu-shortcut" data-variant="shortcut">
+							Ctrl+F
+						</span>
+					)}
 				</DropdownMenuItem>
 				<DropdownMenuSeparator />
 				<TextSizeMenu context={context} />

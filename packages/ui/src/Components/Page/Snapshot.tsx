@@ -24,8 +24,8 @@ export function PageSnapshot({ snapshot, ref }: PageSnapshotProps) {
 	}, [snapshot]);
 
 	return (
-		<div className="page-snapshot" ref={ref} aria-hidden inert>
-			<div className="page-editor" ref={content} />
+		<div className="page-snapshot" data-slot="page-snapshot" ref={ref} aria-hidden inert>
+			<div className="page-editor" data-slot="page-editor" ref={content} />
 		</div>
 	);
 }

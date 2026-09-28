@@ -10,7 +10,7 @@ interface WindowControlsProps {
 
 export function WindowControls({ context }: WindowControlsProps) {
 	return (
-		<div className="window-controls">
+		<div className="window-controls" data-slot="window-controls">
 			<MinimizeButton className="chrome-button" context={context}>
 				<Minus size={14} aria-hidden />
 			</MinimizeButton>

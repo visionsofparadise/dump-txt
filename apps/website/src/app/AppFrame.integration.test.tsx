@@ -112,7 +112,7 @@ async function mount(search = "?platform=windows") {
 
 		return element;
 	};
-	const platform = () => container.querySelector(".dump-app")?.getAttribute("data-platform");
+	const platform = () => container.querySelector('[data-slot="dump-app"]')?.getAttribute("data-platform");
 
 	return { container, content, context, overlay, stage, platform, unmount };
 }
@@ -467,7 +467,7 @@ describe("AppFrame", { timeout: 30_000 }, () => {
 		const { container, context, stage } = await mount();
 		const [playback] = playbacks;
 		const demonstrated = context();
-		const missing = new Error("Demo target is missing: .find-panel label:last-of-type input");
+		const missing = new Error('Demo target is missing: [data-slot="find-panel"] label:last-of-type input');
 
 		await act(async () => {
 			demonstrated.editor.apply({ type: "insert", text: "demonstrated" });
@@ -528,7 +528,7 @@ describe("AppFrame", { timeout: 30_000 }, () => {
 		const [playback] = playbacks;
 		const demonstrated = context();
 		const editor = container.querySelector(".cm-editor");
-		const missing = new Error("Demo target is missing: .find-panel label:last-of-type input");
+		const missing = new Error('Demo target is missing: [data-slot="find-panel"] label:last-of-type input');
 		const rig = new DemoRig({ stage: stage(), pointer: document.createElement("div"), context: () => demonstrated });
 		const wait = vi.spyOn(rig, "wait").mockResolvedValue();
 

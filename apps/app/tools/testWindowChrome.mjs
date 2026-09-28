@@ -17,8 +17,15 @@ export async function testWindowChrome(browser, native, folder) {
 		}
 		throw new Error(`Timed out: ${predicate}`);
 	};
-	const menuOpen = () => browser.execute(() => !!document.querySelector(".menu-content"));
-	const dismiss = () => native.click(process.platform === "linux" ? ".page-current .cm-line" : ".app-name");
+	const menuOpen = () =>
+		browser.execute(
+			() =>
+				!!document.querySelector(
+					':is([data-slot="dropdown-menu-content"], [data-slot="dropdown-menu-sub-content"])',
+				),
+		);
+	const dismiss = () =>
+		native.click(process.platform === "linux" ? '[data-slot="page-current"] .cm-line' : '[data-slot="app-name"]');
 	try {
 		await native.restore();
 		await browser.execute(() => {
@@ -63,13 +70,15 @@ export async function testWindowChrome(browser, native, folder) {
 					width: innerWidth,
 					height: innerHeight,
 					menu: rectangle('[aria-label="App menu"]'),
-					title: rectangle(".app-name"),
-					header: rectangle(".title-bar"),
-					controls: rectangle(".window-controls"),
-					up: rectangle(".page-bar"),
+					title: rectangle('[data-slot="app-name"]'),
+					header: rectangle('[data-slot="title-bar"]'),
+					controls: rectangle('[data-slot="window-controls"]'),
+					up: rectangle('[data-slot="page-bar"]'),
 					insert: rectangle('[aria-label="Insert page above"]'),
-					viewport: rectangle(".page-viewport"),
-					bars: [...document.querySelectorAll(".page-bar")].map((bar) => bar.getBoundingClientRect().height),
+					viewport: rectangle('[data-slot="page-viewport"]'),
+					bars: [...document.querySelectorAll('[data-slot="page-bar"]')].map(
+						(bar) => bar.getBoundingClientRect().height,
+					),
 				};
 			});
 			const windowState = await native.state();
@@ -120,7 +129,9 @@ export async function testWindowChrome(browser, native, folder) {
 			await waitFor(menuOpen);
 			await delay(200);
 			const dropdown = await browser.execute(() => {
-				const panel = document.querySelector(".menu-content").getBoundingClientRect();
+				const panel = document
+					.querySelector(':is([data-slot="dropdown-menu-content"], [data-slot="dropdown-menu-sub-content"])')
+					.getBoundingClientRect();
 				const trigger = document.querySelector('[aria-label="App menu"]').getBoundingClientRect();
 				return {
 					edge: window.dumpPlatform === "macos" ? panel.right - trigger.right : panel.left - trigger.left,
@@ -141,7 +152,7 @@ export async function testWindowChrome(browser, native, folder) {
 			pointerEvents.length >= 4 && pointerEvents.every((event) => event.trusted),
 		);
 		const before = await native.state();
-		await native.drag(process.platform === "linux" ? null : ".app-name", -24, 24);
+		await native.drag(process.platform === "linux" ? null : '[data-slot="app-name"]', -24, 24);
 		await waitFor(async () => {
 			const after = await native.state();
 			return Math.abs(after.x - before.x) > 20 || Math.abs(after.y - before.y) > 20;

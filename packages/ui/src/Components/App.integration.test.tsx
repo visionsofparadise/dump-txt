@@ -118,7 +118,7 @@ describe("scratchpad interface", () => {
 		await act(async () => {
 			await api.current!.persistence.open();
 		});
-		expect(container.querySelector(".app-name")?.textContent).toBe("My notes.md");
+		expect(container.querySelector('[data-slot="app-name"]')?.textContent).toBe("My notes.md");
 		expect(adapter.setTitle).toHaveBeenLastCalledWith("My notes.md");
 	});
 	it("exposes editing, selection, navigation and menu actions through the mounted API", async () => {
@@ -178,8 +178,10 @@ describe("scratchpad interface", () => {
 			first.api.current!.session.appearance = { ...first.api.current!.session.appearance, theme: "dark" };
 			second.api.current!.session.appearance = { ...second.api.current!.session.appearance, theme: "light" };
 		});
-		await waitFor(() => expect(first.container.querySelector(".dump-ui")?.getAttribute("data-theme")).toBe("dark"));
-		expect(second.container.querySelector(".dump-ui")?.getAttribute("data-theme")).toBe("light");
+		await waitFor(() =>
+			expect(first.container.querySelector('[data-slot="dump-ui"]')?.getAttribute("data-theme")).toBe("dark"),
+		);
+		expect(second.container.querySelector('[data-slot="dump-ui"]')?.getAttribute("data-theme")).toBe("light");
 		fireEvent.keyDown(first.editor().contentDOM, { key: "n", ctrlKey: true });
 		await waitFor(() => expect(first.api.current?.document.pages).toHaveLength(2));
 		expect(second.api.current?.document.pages).toHaveLength(1);
@@ -191,7 +193,7 @@ describe("scratchpad interface", () => {
 		});
 		const firstDialog = await within(first.container).findByRole("dialog", { name: "Keybinds" }, { timeout: 3000 });
 
-		expect(firstDialog.closest(".dump-ui")).toBe(first.container.querySelector(".dump-ui"));
+		expect(firstDialog.closest('[data-slot="dump-ui"]')).toBe(first.container.querySelector('[data-slot="dump-ui"]'));
 		expect(within(second.container).queryByRole("dialog", { name: "Keybinds" })).toBeNull();
 		await act(async () => {
 			first.api.current!.chrome.keybindsOpen = false;
@@ -202,7 +204,9 @@ describe("scratchpad interface", () => {
 		});
 		const secondDialog = await within(second.container).findByRole("dialog", { name: "Keybinds" });
 
-		expect(secondDialog.closest(".dump-ui")).toBe(second.container.querySelector(".dump-ui"));
+		expect(secondDialog.closest('[data-slot="dump-ui"]')).toBe(
+			second.container.querySelector('[data-slot="dump-ui"]'),
+		);
 		expect(within(first.container).queryByRole("dialog", { name: "Keybinds" })).toBeNull();
 		expect(document.title).toBe(title);
 		expect(document.documentElement.dataset.theme).toBe(theme);
@@ -230,11 +234,11 @@ describe("scratchpad interface", () => {
 			await screen.findByRole("menuitem", { name: "Open…" });
 			expect(screen.queryByRole("menuitem", { name: "Keybinds" })).toBeNull();
 			expect(screen.queryByRole("menuitem", { name: "Close" })).toBeNull();
-			expect(container.querySelector(".menu-shortcut")).toBeNull();
+			expect(container.querySelector('[data-slot="dropdown-menu-shortcut"][data-variant="shortcut"]')).toBeNull();
 			expect(screen.queryByRole("menuitem", { name: /Font…/u }) !== null).toBe(platform === "ios");
 			await user.click(screen.getByRole("menuitem", { name: /Appearance/u }));
 			const dark = await screen.findByRole("menuitemradio", { name: "Dark" });
-			expect((dark.closest(".menu-subcontent") as HTMLElement).style.width).toBe("160px");
+			expect((dark.closest('[data-slot="dropdown-menu-sub-content"]') as HTMLElement).style.width).toBe("160px");
 			await user.pointer({ keys: "[TouchA]", target: dark });
 			await waitFor(() => expect(api.current?.session.appearance.theme).toBe("dark"));
 			await user.keyboard("{Escape}");
@@ -257,11 +261,11 @@ describe("scratchpad interface", () => {
 			expect(screen.queryByRole("button", { name: "Minimize" })).toBeNull();
 		}
 		if (platform === "linux") {
-			expect(container.querySelector(".title-bar")).toBeNull();
+			expect(container.querySelector('[data-slot="title-bar"]')).toBeNull();
 			expect(menu.previousElementSibling).toBe(screen.getByRole("button", { name: "Insert page above" }));
 		} else {
-			expect(menu.closest(".title-bar")?.getAttribute("data-platform")).toBe(platform);
-			expect(container.querySelector(".app-name")?.textContent).toBe("dump.txt");
+			expect(menu.closest('[data-slot="title-bar"]')?.getAttribute("data-platform")).toBe(platform);
+			expect(container.querySelector('[data-slot="app-name"]')?.textContent).toBe("dump.txt");
 		}
 		await waitFor(() => expect(main.setTitle).toHaveBeenLastCalledWith("dump.txt"));
 		await user.click(menu);
@@ -269,14 +273,14 @@ describe("scratchpad interface", () => {
 	});
 
 	it.each([
-		["windows", ".window-controls", ["Minimize", "Maximize", "Close window"]],
-		["macos", ".traffic-lights", ["Close window", "Minimize", "Maximize"]],
-		["linux", ".header-bar-controls", ["Minimize", "Maximize", "Close window"]],
+		["windows", '[data-slot="window-controls"]', ["Minimize", "Maximize", "Close window"]],
+		["macos", '[data-slot="traffic-lights"]', ["Close window", "Minimize", "Maximize"]],
+		["linux", '[data-slot="header-bar-controls"]', ["Minimize", "Maximize", "Close window"]],
 	] as const)(
 		"draws window chrome for %s when the host has no native decorations",
 		async (platform, selector, labels) => {
 			const { container, insert, closed, files, listeners, user } = await fixture("", platform, undefined, "drawn");
-			const titleBar = container.querySelector<HTMLElement>(".title-bar")!;
+			const titleBar = container.querySelector<HTMLElement>('[data-slot="title-bar"]')!;
 			const controls = titleBar.querySelector<HTMLElement>(selector)!;
 			const menu = screen.getByRole("button", { name: "App menu" });
 			const emitMaximized = async (maximized: boolean) => {
@@ -286,8 +290,8 @@ describe("scratchpad interface", () => {
 			};
 
 			expect(titleBar.getAttribute("data-platform")).toBe(platform);
-			expect(container.querySelector(".dump-app")?.getAttribute("data-decorations")).toBe("drawn");
-			expect(within(titleBar).getByText("dump.txt").className).toBe("app-name");
+			expect(container.querySelector('[data-slot="dump-app"]')?.getAttribute("data-decorations")).toBe("drawn");
+			expect(within(titleBar).getByText("dump.txt").getAttribute("data-slot")).toBe("app-name");
 			expect(
 				within(controls)
 					.getAllByRole("button")
@@ -295,7 +299,7 @@ describe("scratchpad interface", () => {
 			).toEqual(labels);
 			if (platform === "linux")
 				expect(menu.previousElementSibling).toBe(screen.getByRole("button", { name: "Insert page above" }));
-			else expect(menu.closest(".title-menu")?.parentElement).toBe(titleBar);
+			else expect(menu.closest('[data-slot="title-menu"]')?.parentElement).toBe(titleBar);
 			if (platform === "macos") expect(titleBar.firstElementChild).toBe(controls);
 			await user.click(within(controls).getByRole("button", { name: "Minimize" }));
 			expect(main.minimize).toHaveBeenCalledOnce();
@@ -317,11 +321,11 @@ describe("scratchpad interface", () => {
 		async (platform) => {
 			const { container } = await fixture(undefined, platform, undefined, "native");
 
-			expect(container.querySelector(".dump-app")?.getAttribute("data-decorations")).toBe("native");
-			expect(container.querySelector(".traffic-lights")).toBeNull();
-			expect(container.querySelector(".header-bar-controls")).toBeNull();
+			expect(container.querySelector('[data-slot="dump-app"]')?.getAttribute("data-decorations")).toBe("native");
+			expect(container.querySelector('[data-slot="traffic-lights"]')).toBeNull();
+			expect(container.querySelector('[data-slot="header-bar-controls"]')).toBeNull();
 			expect(screen.queryByRole("button", { name: "Minimize" })).toBeNull();
-			expect(container.querySelector(".title-bar") === null).toBe(platform === "linux");
+			expect(container.querySelector('[data-slot="title-bar"]') === null).toBe(platform === "linux");
 		},
 	);
 
@@ -341,8 +345,8 @@ describe("scratchpad interface", () => {
 
 	it("updates status counts and positions for typing, selections, and page navigation", async () => {
 		const { container, editor, insert, user } = await fixture("one two\nthree\n\f\nnext");
-		const counts = () => container.querySelector(".status-counts")?.textContent;
-		const position = () => container.querySelector(".status-position")?.textContent;
+		const counts = () => container.querySelector('[data-slot="status-counts"]')?.textContent;
+		const position = () => container.querySelector('[data-slot="status-position"]')?.textContent;
 
 		expect(counts()).toBe("13 chars · 3 words · 2 lines");
 		expect(position()).toBe("Ln 1, Col 1");
@@ -362,7 +366,9 @@ describe("scratchpad interface", () => {
 		await user.click(screen.getByRole("button", { name: "Next page" }));
 		await waitFor(() => expect(counts()).toBe("4 chars · 1 words · 1 lines"));
 		expect(within(screen.getByLabelText("Editor status")).getByLabelText("Page 2 of 2")).toBeTruthy();
-		expect(container.querySelector(".page-bar-bottom .page-count")).toBeNull();
+		expect(
+			container.querySelector('[data-slot="page-bar"][aria-label="Next page controls"] [data-slot="page-count"]'),
+		).toBeNull();
 	});
 
 	it("keeps insertion slots fixed and extends past the ends with blank pages", async () => {
@@ -371,8 +377,8 @@ describe("scratchpad interface", () => {
 		const below = screen.getByRole("button", { name: "Insert page below" });
 		const previous = () => screen.getByRole("button", { name: "Previous page" });
 		const next = () => screen.getByRole("button", { name: "Next page" });
-		expect(above.parentElement?.className).toBe("page-bar-leading");
-		expect(below.parentElement?.className).toBe("page-bar-leading");
+		expect(above.parentElement?.getAttribute("data-slot")).toBe("page-bar-leading");
+		expect(below.parentElement?.getAttribute("data-slot")).toBe("page-bar-leading");
 		expect(screen.getByRole("button", { name: "First page" }).hasAttribute("disabled")).toBe(true);
 		expect(screen.getAllByRole("button", { name: "Insert page above" })).toHaveLength(1);
 		await user.click(previous());
@@ -398,10 +404,10 @@ describe("scratchpad interface", () => {
 		await user.click(screen.getByRole("button", { name: "App menu" }));
 		expect(await screen.findByRole("menuitem", { name: /^Close/u })).toBeTruthy();
 		expect(screen.queryByRole("menuitem", { name: /Delete page/u })).toBeNull();
-		expect(container.querySelector(".title-bar-menu-open")).not.toBeNull();
-		fireEvent.pointerDown(container.querySelector(".app-name")!);
+		expect(container.querySelector('[data-slot="title-bar"][data-menu-open]')).not.toBeNull();
+		fireEvent.pointerDown(container.querySelector('[data-slot="app-name"]')!);
 		await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
-		expect(container.querySelector(".title-bar-menu-open")).toBeNull();
+		expect(container.querySelector('[data-slot="title-bar"][data-menu-open]')).toBeNull();
 		await user.click(screen.getByRole("button", { name: "App menu" }));
 		await user.click(await screen.findByRole("menuitem", { name: /^Close/u }));
 		await waitFor(() => expect(closed).toHaveBeenCalledOnce());
@@ -410,7 +416,7 @@ describe("scratchpad interface", () => {
 
 	it("keeps menu dismissal out of the title drag gesture while retaining window controls", async () => {
 		const { user, container } = await fixture();
-		const title = container.querySelector<HTMLElement>(".app-name")!;
+		const title = container.querySelector<HTMLElement>('[data-slot="app-name"]')!;
 		const pointerDown = vi.fn<(event: Event) => void>();
 		const mouseDown = vi.fn();
 
@@ -437,16 +443,16 @@ describe("scratchpad interface", () => {
 		await waitFor(() => expect(main.setTitle).toHaveBeenLastCalledWith("dump.txt"));
 		press("s", { ctrlKey: true, shiftKey: true });
 		await waitFor(() => expect(main.showSaveDialog).toHaveBeenCalledOnce());
-		expect(container.querySelector(".app-name")?.textContent).toBe("dump.txt");
+		expect(container.querySelector('[data-slot="app-name"]')?.textContent).toBe("dump.txt");
 		main.showSaveDialog = async () => ({ path: "C:/notes/renamed.txt", name: "renamed.txt", hash: null });
 		press("s", { ctrlKey: true, shiftKey: true });
 		await waitFor(() => expect(main.setTitle).toHaveBeenLastCalledWith("renamed.txt"));
-		expect(container.querySelector(".app-name")?.textContent).toBe("renamed.txt");
+		expect(container.querySelector('[data-slot="app-name"]')?.textContent).toBe("renamed.txt");
 		files.set("C:/notes/opened.txt", new TextEncoder().encode("replacement"));
 		main.showOpenDialog = async () => ({ path: "C:/notes/opened.txt", name: "opened.txt", hash: null });
 		press("o", { ctrlKey: true });
 		await waitFor(() => expect(editor().state.doc.toString()).toBe("replacement"));
-		expect(container.querySelector(".app-name")?.textContent).toBe("opened.txt");
+		expect(container.querySelector('[data-slot="app-name"]')?.textContent).toBe("opened.txt");
 		await waitFor(() => expect(main.setTitle).toHaveBeenLastCalledWith("opened.txt"));
 	});
 
@@ -568,7 +574,7 @@ describe("scratchpad interface", () => {
 		await user.click(await screen.findByRole("menuitem", { name: "Keybinds" }));
 		await screen.findByRole("dialog", { name: "Keybinds" });
 		press("n", { ctrlKey: true });
-		expect(document.querySelector(".page-count")?.getAttribute("aria-label")).toBe("Page 1 of 1");
+		expect(document.querySelector('[data-slot="page-count"]')?.getAttribute("aria-label")).toBe("Page 1 of 1");
 		await user.keyboard("{Escape}");
 		await waitFor(() => expect(screen.queryByRole("dialog", { name: "Keybinds" })).toBeNull());
 		expect(document.activeElement).toBe(editor().contentDOM);
@@ -627,9 +633,9 @@ describe("scratchpad interface", () => {
 		const font = await within(dialog).findByRole("option", { name: "Arial" });
 		await user.click(font);
 		await waitFor(() =>
-			expect(container.querySelector<HTMLElement>(".dump-app")?.style.getPropertyValue("--editor-font")).toBe(
-				'"Arial", sans-serif',
-			),
+			expect(
+				container.querySelector<HTMLElement>('[data-slot="dump-app"]')?.style.getPropertyValue("--editor-font"),
+			).toBe('"Arial", sans-serif'),
 		);
 		await user.click(screen.getByRole("button", { name: "Apply" }));
 		await user.click(screen.getByRole("button", { name: "App menu" }));
@@ -637,9 +643,9 @@ describe("scratchpad interface", () => {
 			await user.click(screen.getByRole("menuitem", { name: "Increase text size" }));
 		expect(screen.getByRole("menu")).toBeTruthy();
 		await waitFor(() =>
-			expect(container.querySelector<HTMLElement>(".dump-app")?.style.getPropertyValue("--editor-size")).toBe(
-				"14pt",
-			),
+			expect(
+				container.querySelector<HTMLElement>('[data-slot="dump-app"]')?.style.getPropertyValue("--editor-size"),
+			).toBe("14pt"),
 		);
 	});
 
@@ -653,15 +659,15 @@ describe("scratchpad interface", () => {
 		await user.click(screen.getByRole("button", { name: "Retry" }));
 		await user.click(await screen.findByRole("option", { name: "Arial" }));
 		await waitFor(() =>
-			expect(container.querySelector<HTMLElement>(".dump-app")?.style.getPropertyValue("--editor-font")).toBe(
-				'"Arial", sans-serif',
-			),
+			expect(
+				container.querySelector<HTMLElement>('[data-slot="dump-app"]')?.style.getPropertyValue("--editor-font"),
+			).toBe('"Arial", sans-serif'),
 		);
 		await user.click(screen.getByRole("button", { name: "Cancel" }));
 		await waitFor(() =>
-			expect(container.querySelector<HTMLElement>(".dump-app")?.style.getPropertyValue("--editor-font")).toBe(
-				'"Consolas", monospace',
-			),
+			expect(
+				container.querySelector<HTMLElement>('[data-slot="dump-app"]')?.style.getPropertyValue("--editor-font"),
+			).toBe('"Consolas", monospace'),
 		);
 		expect(main.getSystemFonts).toHaveBeenCalledTimes(2);
 	});
@@ -735,8 +741,8 @@ describe("scratchpad interface", () => {
 		await act(async () => {
 			api.current!.persistence.state.error = "Disk write failed.";
 		});
-		await waitFor(() => expect(container.querySelector(".save-error")).not.toBeNull());
-		const banner = container.querySelector<HTMLElement>(".save-error")!;
+		await waitFor(() => expect(container.querySelector('[data-slot="alert"]')).not.toBeNull());
+		const banner = container.querySelector<HTMLElement>('[data-slot="alert"]')!;
 		expect(within(banner).getByRole("button", { name: "Save As…" }).hasAttribute("disabled")).toBe(true);
 		expect(within(banner).getByRole("button", { name: "Open…" }).hasAttribute("disabled")).toBe(true);
 	});

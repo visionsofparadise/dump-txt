@@ -130,7 +130,7 @@ export const FontPicker = scope(({ context }: FontPickerProps) => {
 			if (font) {
 				selectFont(font);
 
-				const option = list.current?.querySelectorAll<HTMLButtonElement>(".font-option")[next];
+				const option = list.current?.querySelectorAll<HTMLButtonElement>('[role="option"]')[next];
 
 				option?.focus();
 				option?.scrollIntoView({ block: "nearest" });
@@ -179,6 +179,7 @@ export const FontPicker = scope(({ context }: FontPickerProps) => {
 				<div
 					ref={list}
 					className="font-list"
+					data-slot="font-list"
 					role="listbox"
 					aria-label="Installed fonts"
 					tabIndex={0}
@@ -202,7 +203,7 @@ export const FontPicker = scope(({ context }: FontPickerProps) => {
 						<p>No matching fonts.</p>
 					)}
 				</div>
-				<footer className="font-picker-actions">
+				<footer className="font-picker-actions" data-slot="dialog-footer">
 					<button type="button" className="panel-button" onClick={dismiss}>
 						<X size={16} aria-hidden />
 						Cancel

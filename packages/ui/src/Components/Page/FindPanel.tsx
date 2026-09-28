@@ -58,7 +58,7 @@ export const FindPanel = scope(({ context }: FindPanelProps) => {
 			}
 		};
 
-		const surface = input.current?.closest<HTMLElement>(".dump-ui");
+		const surface = input.current?.closest<HTMLElement>('[data-slot="dump-ui"]');
 
 		surface?.addEventListener("keydown", focusFind);
 
@@ -85,8 +85,14 @@ export const FindPanel = scope(({ context }: FindPanelProps) => {
 	const disabled = persistenceState.locked;
 
 	return (
-		<div role="dialog" aria-modal="false" className="transient-panel find-panel" aria-label="Find and replace">
-			<div className="panel-options">
+		<div
+			role="dialog"
+			aria-modal="false"
+			className="transient-panel find-panel"
+			data-slot="find-panel"
+			aria-label="Find and replace"
+		>
+			<div className="panel-options" data-slot="panel-options">
 				<input
 					ref={input}
 					onKeyDown={handleKeyDown}
@@ -131,7 +137,7 @@ export const FindPanel = scope(({ context }: FindPanelProps) => {
 					<X size={14} aria-hidden="true" />
 				</button>
 			</div>
-			<div className="panel-options">
+			<div className="panel-options" data-slot="panel-options">
 				<input
 					className="panel-input"
 					type="text"
@@ -161,7 +167,7 @@ export const FindPanel = scope(({ context }: FindPanelProps) => {
 					Replace all
 				</button>
 			</div>
-			<div className="panel-options">
+			<div className="panel-options" data-slot="panel-options">
 				<label>
 					<input
 						type="checkbox"

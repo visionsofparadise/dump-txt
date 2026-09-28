@@ -10,7 +10,7 @@ interface HeaderBarControlsProps {
 
 export function HeaderBarControls({ context }: HeaderBarControlsProps) {
 	return (
-		<div className="header-bar-controls">
+		<div className="header-bar-controls" data-slot="header-bar-controls">
 			<MinimizeButton className="header-bar-button" context={context}>
 				<Minus size={12} strokeWidth={2.4} aria-hidden />
 			</MinimizeButton>

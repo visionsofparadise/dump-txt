@@ -1,7 +1,6 @@
 import { scope } from "opshot";
 import { useCallback, useContext, useEffect, type PointerEvent, type ReactNode } from "react";
 import { PlatformContext } from "../models/PlatformContext";
-import { cn } from "../utils/cn";
 import { barMenuPlatforms } from "../utils/platformGroups";
 import { HeaderBarControls } from "./HeaderBarControls";
 import { TrafficLights } from "./TrafficLights";
@@ -30,7 +29,7 @@ export const TitleBar = scope(({ children, chrome, onDismissMenu, context }: Tit
 			if (
 				event.target instanceof Node &&
 				event.currentTarget.contains(event.target) &&
-				!(event.target instanceof Element && event.target.closest(".title-menu"))
+				!(event.target instanceof Element && event.target.closest('[data-slot="title-menu"]'))
 			) {
 				event.preventDefault();
 				onDismissMenu?.();
@@ -45,15 +44,24 @@ export const TitleBar = scope(({ children, chrome, onDismissMenu, context }: Tit
 
 	return barMenuPlatforms.has(platform) && decorations === "native" ? null : (
 		<header
-			className={cn("title-bar", menuOpen && "title-bar-menu-open")}
+			className="title-bar"
+			data-slot="title-bar"
+			data-menu-open={menuOpen || undefined}
 			data-platform={platform}
 			data-tauri-drag-region={menuOpen ? undefined : ""}
 			aria-label="Window controls"
 			onPointerDown={menuOpen ? dismissMenu : undefined}
 		>
 			{platform === "macos" && decorations === "drawn" && <TrafficLights context={context} />}
-			<div className="title-menu">{children}</div>
-			<span className="app-name" title={filename} data-tauri-drag-region={menuOpen ? undefined : ""}>
+			<div className="title-menu" data-slot="title-menu">
+				{children}
+			</div>
+			<span
+				className="app-name"
+				data-slot="app-name"
+				title={filename}
+				data-tauri-drag-region={menuOpen ? undefined : ""}
+			>
 				{filename}
 			</span>
 			{platform === "windows" && <WindowControls context={context} />}

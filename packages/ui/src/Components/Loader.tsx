@@ -18,11 +18,11 @@ export const Loader = scope(({ surface, apiRef, context }: LoaderProps) => {
 	const dump = persistence.context;
 
 	return (
-		<div className="dump-ui" ref={surface}>
+		<div className="dump-ui" data-slot="dump-ui" ref={surface}>
 			{dump ? (
 				<Layout key={generation} ref={apiRef} surface={surface} context={dump} />
 			) : (
-				<main className="loading-app">
+				<main className="loading-app" data-slot="loading-app">
 					<TitleBar context={context} />
 					<div className="loading-copy">Opening dump…</div>
 					<SaveStatus context={context} />

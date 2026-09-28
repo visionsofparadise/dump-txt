@@ -13,8 +13,8 @@ export const DownBar = scope(({ context }: DownBarProps) => {
 	const { bar, atEnd, blankEnd, locked, insert, navigate, boundary, move, remove } = useBarControls(context, "down");
 
 	return (
-		<nav ref={bar} className="page-bar page-bar-bottom" aria-label="Next page controls">
-			<div className="page-bar-leading">
+		<nav ref={bar} className="page-bar page-bar-bottom" data-slot="page-bar" aria-label="Next page controls">
+			<div className="page-bar-leading" data-slot="page-bar-leading">
 				<BarButton
 					label="Insert page below"
 					shortcut="Ctrl+N"

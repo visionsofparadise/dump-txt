@@ -152,18 +152,19 @@ try {
 	const typeText = async (text) => {
 		if (driverProvider !== "embedded") return browser.keys(text);
 		return evaluate((value) => {
-			const content = document.querySelector(".page-current .cm-content");
+			const content = document.querySelector('[data-slot="page-current"] .cm-content');
 			if (document.activeElement !== content) throw new Error("Text insertion requires the focused editor");
 			if (!document.execCommand("insertText", false, value)) throw new Error("Engine text insertion failed");
 		}, text);
 	};
-	const count = () => evaluate(() => document.querySelector(".page-count").textContent.trim().replace("Pages ", ""));
+	const count = () =>
+		evaluate(() => document.querySelector('[data-slot="page-count"]').textContent.trim().replace("Pages ", ""));
 	const settled = async () => {
 		await delay(80);
 		await waitFor(
 			() =>
-				document.querySelectorAll(".page-snapshot").length === 0 &&
-				!document.querySelector(".page-current .page-editor-covered"),
+				document.querySelectorAll('[data-slot="page-snapshot"]').length === 0 &&
+				!document.querySelector('[data-slot="page-current"] [data-slot="page-editor"][data-covered]'),
 		);
 		await delay(250);
 	};
@@ -173,15 +174,17 @@ try {
 	};
 	const scroll = async (top) => {
 		await evaluate((value) => {
-			document.querySelector(".page-current .cm-scroller").scrollTop = value;
+			document.querySelector('[data-slot="page-current"] .cm-scroller').scrollTop = value;
 		}, top);
 		await delay(200);
-		return evaluate(() => document.querySelector(".page-current .cm-scroller").scrollTop);
+		return evaluate(() => document.querySelector('[data-slot="page-current"] .cm-scroller').scrollTop);
 	};
 	const wheel = (deltaY, options = {}) =>
 		evaluate(
 			(delta, attributes) => {
-				const element = document.querySelector(attributes.bar ? ".page-bar" : ".page-current .cm-scroller");
+				const element = document.querySelector(
+					attributes.bar ? '[data-slot="page-bar"]' : '[data-slot="page-current"] .cm-scroller',
+				);
 				const rectangle = element.getBoundingClientRect();
 				const event = new WheelEvent("wheel", {
 					bubbles: true,
@@ -199,7 +202,7 @@ try {
 		);
 	const selectText = async (text) => {
 		await evaluate(() => {
-			const content = document.querySelector(".page-current .cm-content");
+			const content = document.querySelector('[data-slot="page-current"] .cm-content');
 			content.focus();
 			window.tauriTestSelections.push({
 				phase: "focus",
@@ -211,7 +214,7 @@ try {
 		await waitFor(() => document.hasFocus());
 		await delay(250);
 		await evaluate((needle) => {
-			const content = document.querySelector(".page-current .cm-content");
+			const content = document.querySelector('[data-slot="page-current"] .cm-content');
 			const walker = document.createTreeWalker(content, NodeFilter.SHOW_TEXT);
 			let node;
 			while ((node = walker.nextNode())) {
@@ -238,7 +241,8 @@ try {
 	};
 	await waitFor(
 		() =>
-			document.querySelector(".cm-content") && document.querySelector(".page-count")?.textContent.includes("1 / 3"),
+			document.querySelector(".cm-content") &&
+			document.querySelector('[data-slot="page-count"]')?.textContent.includes("1 / 3"),
 	);
 	await settled();
 	report.engine = await evaluate(() => ({
@@ -295,7 +299,7 @@ try {
 	check(
 		"40px chrome",
 		await evaluate(() =>
-			[...document.querySelectorAll(".title-bar,.page-bar")].every(
+			[...document.querySelectorAll('[data-slot="title-bar"],[data-slot="page-bar"]')].every(
 				(bar) => bar.getBoundingClientRect().height === 40,
 			),
 		),
@@ -303,24 +307,32 @@ try {
 	);
 	await screenshot("initial");
 	await click('[aria-label="App menu"]');
-	await waitFor(() => !!document.querySelector(".menu-content"));
+	await waitFor(
+		() =>
+			!!document.querySelector(':is([data-slot="dropdown-menu-content"], [data-slot="dropdown-menu-sub-content"])'),
+	);
 	check(
 		"menu aligned with its platform trigger",
 		await evaluate(() => {
-			const menu = document.querySelector(".menu-content").getBoundingClientRect();
+			const menu = document
+				.querySelector(':is([data-slot="dropdown-menu-content"], [data-slot="dropdown-menu-sub-content"])')
+				.getBoundingClientRect();
 			const trigger = document.querySelector('[aria-label="App menu"]').getBoundingClientRect();
 			return window.dumpPlatform === "macos" ? menu.right - trigger.right : menu.left - trigger.left;
 		}),
 		0,
 		1,
 	);
-	await click(process.platform === "linux" ? ".cm-content" : ".app-name");
-	await waitFor(() => !document.querySelector(".menu-content"));
+	await click(process.platform === "linux" ? ".cm-content" : '[data-slot="app-name"]');
+	await waitFor(
+		() =>
+			!document.querySelector(':is([data-slot="dropdown-menu-content"], [data-slot="dropdown-menu-sub-content"])'),
+	);
 	await click(".cm-content");
 	await navigate(1);
 	check("long page entry", await count(), "2 / 3");
 	const leading = await evaluate(() => {
-		const scroller = document.querySelector(".page-current .cm-scroller");
+		const scroller = document.querySelector('[data-slot="page-current"] .cm-scroller');
 		const line = scroller.querySelector(".cm-line");
 		const rectangle = line.getBoundingClientRect();
 		const viewport = scroller.getBoundingClientRect();
@@ -336,16 +348,16 @@ try {
 		window.tauriTestFrames = [];
 		const until = performance.now() + 750;
 		requestAnimationFrame(function capture() {
-			const live = document.querySelector(".page-current .cm-editor");
-			const current = live.closest(".page-current");
+			const live = document.querySelector('[data-slot="page-current"] .cm-editor');
+			const current = live.closest('[data-slot="page-current"]');
 			window.tauriTestFrames.push({
 				top: live.getBoundingClientRect().top,
-				viewportTop: document.querySelector(".page-viewport").getBoundingClientRect().top,
+				viewportTop: document.querySelector('[data-slot="page-viewport"]').getBoundingClientRect().top,
 				opacity: [live, live.parentElement, current].reduce(
 					(opacity, node) => opacity * Number(getComputedStyle(node).opacity),
 					1,
 				),
-				snapshots: [...document.querySelectorAll(".page-snapshot")].map((node) => ({
+				snapshots: [...document.querySelectorAll('[data-slot="page-snapshot"]')].map((node) => ({
 					top: node.getBoundingClientRect().top,
 					fills: node.getAnimations().map((animation) => animation.effect.getTiming().fill),
 				})),
@@ -382,7 +394,7 @@ try {
 	await navigate(-1);
 	check(
 		"scroll restoration",
-		await evaluate(() => document.querySelector(".page-current .cm-scroller").scrollTop),
+		await evaluate(() => document.querySelector('[data-slot="page-current"] .cm-scroller').scrollTop),
 		remembered,
 		2,
 	);
@@ -398,7 +410,7 @@ try {
 			wheelDeltaY: event.wheelDeltaY ?? null,
 		};
 		Object.defineProperty(event, "wheelDeltaY", { value: -120 });
-		const scroller = document.querySelector(".page-current .cm-scroller");
+		const scroller = document.querySelector('[data-slot="page-current"] .cm-scroller');
 		const origin = Math.max(0, parseFloat(getComputedStyle(document.querySelector(".cm-content")).paddingTop) - 10);
 		scroller.scrollTop = origin;
 		const lineHeight = parseFloat(getComputedStyle(document.querySelector(".cm-content")).lineHeight);
@@ -420,7 +432,7 @@ try {
 	);
 	check(
 		"one normalized notch moves three rendered lines",
-		(await evaluate(() => document.querySelector(".page-current .cm-scroller").scrollTop)) -
+		(await evaluate(() => document.querySelector('[data-slot="page-current"] .cm-scroller').scrollTop)) -
 			report.syntheticWheel.frames[0].top,
 		lineHeight * 3,
 		2,
@@ -444,11 +456,11 @@ try {
 	);
 	await scroll(0);
 	const boundaryPage = await evaluate(() => {
-		const scroller = document.querySelector(".page-current .cm-scroller");
+		const scroller = document.querySelector('[data-slot="page-current"] .cm-scroller');
 		const send = (deltaY) =>
 			scroller.dispatchEvent(new WheelEvent("wheel", { deltaY, bubbles: true, cancelable: true }));
 		send(-299);
-		const page = document.querySelector(".page-count").textContent.trim().replace("Pages ", "");
+		const page = document.querySelector('[data-slot="page-count"]').textContent.trim().replace("Pages ", "");
 		send(-1);
 		return page;
 	});
@@ -459,18 +471,20 @@ try {
 	if (!report.engine.reducedMotion) {
 		await navigate(1);
 		await scroll(wheelOrigin);
-		const queuedOrigin = await evaluate(() => document.querySelector(".page-current .cm-scroller").scrollTop);
+		const queuedOrigin = await evaluate(
+			() => document.querySelector('[data-slot="page-current"] .cm-scroller').scrollTop,
+		);
 		await navigate(-1);
 		const overlap = await evaluate(async () => {
 			document
-				.querySelector(".page-bar")
+				.querySelector('[data-slot="page-bar"]')
 				.dispatchEvent(new WheelEvent("wheel", { deltaY: 100, bubbles: true, cancelable: true }));
 			const startedAt = performance.now();
 			while (performance.now() - startedAt < 1000) {
 				await new Promise(requestAnimationFrame);
-				const snapshots = document.querySelectorAll(".page-snapshot").length;
-				const scroller = document.querySelector(".page-current .cm-scroller");
-				const page = document.querySelector(".page-count").textContent.trim().replace("Pages ", "");
+				const snapshots = document.querySelectorAll('[data-slot="page-snapshot"]').length;
+				const scroller = document.querySelector('[data-slot="page-current"] .cm-scroller');
+				const page = document.querySelector('[data-slot="page-count"]').textContent.trim().replace("Pages ", "");
 				if (!snapshots || page !== "2 / 3" || !scroller.textContent.startsWith("Line 1:")) continue;
 				const before = scroller.scrollTop;
 				const event = new WheelEvent("wheel", { deltaY: 120, bubbles: true, cancelable: true });
@@ -495,7 +509,8 @@ try {
 		await settled();
 		check(
 			"queued notch scrolls newly entered long page",
-			(await evaluate(() => document.querySelector(".page-current .cm-scroller").scrollTop)) - queuedOrigin,
+			(await evaluate(() => document.querySelector('[data-slot="page-current"] .cm-scroller').scrollTop)) -
+				queuedOrigin,
 			lineHeight * 3,
 			2,
 			"Synthetic DOM notch; actual rendered geometry",
@@ -504,7 +519,8 @@ try {
 		await delay(350);
 		check(
 			"continued notch scrolls after entry settles",
-			(await evaluate(() => document.querySelector(".page-current .cm-scroller").scrollTop)) - queuedOrigin,
+			(await evaluate(() => document.querySelector('[data-slot="page-current"] .cm-scroller').scrollTop)) -
+				queuedOrigin,
 			lineHeight * 6,
 			2,
 			"Synthetic DOM notch; actual rendered geometry",
@@ -520,19 +536,19 @@ try {
 	check("occurrence seed", await evaluate(() => window.getSelection().toString()), "cat", 0, "DOM range selection");
 	check(
 		"faint occurrence preview",
-		await evaluate(() => document.querySelectorAll(".page-current .cm-occurrence-preview").length),
+		await evaluate(() => document.querySelectorAll('[data-slot="page-current"] .cm-occurrence-preview').length),
 		1,
 	);
 	await chord(modifier, "d");
 	await delay(200);
 	check(
 		"first Ctrl/Command+D adds occurrence",
-		await evaluate(() => document.querySelector(".status-counts").textContent.includes("2 selections")),
+		await evaluate(() => document.querySelector('[data-slot="status-counts"]').textContent.includes("2 selections")),
 		true,
 	);
 	check(
 		"active matches removed from previews",
-		await evaluate(() => document.querySelectorAll(".page-current .cm-occurrence-preview").length),
+		await evaluate(() => document.querySelectorAll('[data-slot="page-current"] .cm-occurrence-preview').length),
 		0,
 	);
 	for (const theme of ["dark", "light"]) {
@@ -591,12 +607,12 @@ try {
 		0,
 		"Synthetic DOM wheel",
 	);
-	const zoomed = await evaluate(() => document.querySelector(".page-current .cm-scroller").scrollTop);
+	const zoomed = await evaluate(() => document.querySelector('[data-slot="page-current"] .cm-scroller').scrollTop);
 	await navigate(1);
 	await navigate(-1);
 	check(
 		"zoomed scroll restoration",
-		await evaluate(() => document.querySelector(".page-current .cm-scroller").scrollTop),
+		await evaluate(() => document.querySelector('[data-slot="page-current"] .cm-scroller').scrollTop),
 		zoomed,
 		2,
 	);
@@ -660,9 +676,12 @@ try {
 	);
 	const originalFont = await evaluate(() => getComputedStyle(document.querySelector(".cm-content")).fontFamily);
 	await click('[aria-label="App menu"]');
-	await waitFor(() => !!document.querySelector(".menu-content"));
+	await waitFor(
+		() =>
+			!!document.querySelector(':is([data-slot="dropdown-menu-content"], [data-slot="dropdown-menu-sub-content"])'),
+	);
 	await click('//*[contains(@role,"menuitem")][span[text()="Font…"]]');
-	await waitFor(() => !!document.querySelector(".font-option"));
+	await waitFor(() => !!document.querySelector('[role="option"]'));
 	const chosenFont = await evaluate(() => {
 		const content = document.querySelector(".cm-content");
 		const style = getComputedStyle(content);
@@ -670,7 +689,7 @@ try {
 		const sample = "WWWW iiiii 0123456789";
 		canvas.font = `20px ${style.fontFamily}`;
 		const originalWidth = canvas.measureText(sample).width;
-		for (const option of document.querySelectorAll(".font-option")) {
+		for (const option of document.querySelectorAll('[role="option"]')) {
 			canvas.font = `20px ${JSON.stringify(option.textContent)}`;
 			if (Math.abs(canvas.measureText(sample).width - originalWidth) <= 1) continue;
 			option.dataset.tauriTestFont = "true";
@@ -692,8 +711,8 @@ try {
 			? "Native font list and synthetic DOM pointer font-picker selection"
 			: "Native font list and native WebDriver font-picker selection",
 	);
-	await click(".font-picker-actions button");
-	await waitFor(() => !document.querySelector(".font-picker"));
+	await click('[data-slot="dialog-footer"] button');
+	await waitFor(() => !document.querySelector('[data-slot="font-list"]'));
 	check(
 		"font cancel restores original",
 		await evaluate(() => getComputedStyle(document.querySelector(".cm-content")).fontFamily),
@@ -707,7 +726,7 @@ try {
 		const pages = [];
 		const boundaries = [];
 		for (const deltaY of [200, -100, 100, 200]) {
-			const scroller = document.querySelector(".page-current .cm-scroller");
+			const scroller = document.querySelector('[data-slot="page-current"] .cm-scroller');
 			scroller.scrollTop = deltaY < 0 ? 0 : scroller.scrollHeight - scroller.clientHeight;
 			boundaries.push({
 				deltaY,
@@ -717,7 +736,7 @@ try {
 			const event = new WheelEvent("wheel", { deltaY, bubbles: true, cancelable: true });
 			scroller.dispatchEvent(event);
 			await new Promise(requestAnimationFrame);
-			pages.push(document.querySelector(".page-count").textContent.trim().replace("Pages ", ""));
+			pages.push(document.querySelector('[data-slot="page-count"]').textContent.trim().replace("Pages ", ""));
 		}
 		return { pages, boundaries };
 	});
@@ -750,14 +769,14 @@ try {
 	const rapid = await evaluate(async () => {
 		const observations = [];
 		for (const deltaY of [120, 120, -120]) {
-			const snapshotsBefore = document.querySelectorAll(".page-snapshot").length;
+			const snapshotsBefore = document.querySelectorAll('[data-slot="page-snapshot"]').length;
 			document
-				.querySelector(".page-current .cm-scroller")
+				.querySelector('[data-slot="page-current"] .cm-scroller')
 				.dispatchEvent(new WheelEvent("wheel", { deltaY, shiftKey: true, bubbles: true, cancelable: true }));
 			await new Promise(requestAnimationFrame);
 			observations.push({
-				page: document.querySelector(".page-count").textContent.trim().replace("Pages ", ""),
-				text: document.querySelector(".page-current .cm-content").textContent,
+				page: document.querySelector('[data-slot="page-count"]').textContent.trim().replace("Pages ", ""),
+				text: document.querySelector('[data-slot="page-current"] .cm-content').textContent,
 				snapshotsBefore,
 			});
 		}
@@ -796,15 +815,17 @@ try {
 	await wheel(120, { shiftKey: true });
 	await settled();
 	check("scrolling below last page opens one temporary page", await count(), "4 / 4");
-	await click(".page-current .cm-content");
+	await click('[data-slot="page-current"] .cm-content');
 	await typeText("Retained temporary page");
-	await waitFor(() => document.querySelector(".page-current .cm-content").textContent === "Retained temporary page");
+	await waitFor(
+		() => document.querySelector('[data-slot="page-current"] .cm-content').textContent === "Retained temporary page",
+	);
 	await navigate(-1);
 	check("typing retains temporary page after leaving", await count(), "3 / 4");
 	await navigate(1);
 	check(
 		"retained temporary page keeps typed text",
-		await evaluate(() => document.querySelector(".page-current .cm-content").textContent),
+		await evaluate(() => document.querySelector('[data-slot="page-current"] .cm-content').textContent),
 		"Retained temporary page",
 	);
 	await chord(modifier, "z");

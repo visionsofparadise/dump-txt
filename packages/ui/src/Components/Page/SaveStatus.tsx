@@ -30,7 +30,7 @@ export const SaveStatus = scope(({ context }: SaveStatusProps) => {
 	if (!persistenceState.error) return null;
 
 	return (
-		<div role="status" aria-live="polite" className="save-error">
+		<div role="status" aria-live="polite" className="save-error" data-slot="alert">
 			<span>{persistenceState.error}</span>
 			<div className="save-error-actions">
 				<button className="panel-button" disabled={persistenceState.locked} onClick={retry}>

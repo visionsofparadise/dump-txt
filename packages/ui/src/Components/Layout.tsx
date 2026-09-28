@@ -149,7 +149,13 @@ export const Layout = scope(({ ref, surface, context: dumpContext }: LayoutProps
 	}, [capabilities, chrome, editor, persistence, surface]);
 
 	return (
-		<main className="dump-app" data-platform={platform} data-decorations={decorations} style={appearance}>
+		<main
+			className="dump-app"
+			data-slot="dump-app"
+			data-platform={platform}
+			data-decorations={decorations}
+			style={appearance}
+		>
 			<TitleBar chrome={context.chrome} onDismissMenu={dismissMenu} context={context}>
 				{!barMenuPlatforms.has(platform) && <Menu context={context} />}
 			</TitleBar>

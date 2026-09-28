@@ -25,5 +25,5 @@ export function PageEditor({ editor }: PageEditorProps) {
 		};
 	}, [editor]);
 
-	return <div className="page-editor" ref={parent} />;
+	return <div className="page-editor" data-slot="page-editor" ref={parent} />;
 }

@@ -16,8 +16,13 @@ export const UpBar = scope(({ context, children }: UpBarProps) => {
 	const { bar, atEnd, blankEnd, locked, insert, navigate, boundary, move } = useBarControls(context, "up");
 
 	return (
-		<nav ref={bar} className={cn("page-bar", children && "page-bar-menu")} aria-label="Previous page controls">
-			<div className="page-bar-leading">
+		<nav
+			ref={bar}
+			className={cn("page-bar", children && "page-bar-menu")}
+			data-slot="page-bar"
+			aria-label="Previous page controls"
+		>
+			<div className="page-bar-leading" data-slot="page-bar-leading">
 				<BarButton
 					label="Insert page above"
 					shortcut="Ctrl+Shift+N"

@@ -70,7 +70,9 @@ const invoke = async (command, request = {}) =>
 		),
 	);
 const editorText = () =>
-	evaluate(() => [...document.querySelectorAll(".page-current .cm-line")].map((line) => line.textContent).join("\n"));
+	evaluate(() =>
+		[...document.querySelectorAll('[data-slot="page-current"] .cm-line')].map((line) => line.textContent).join("\n"),
+	);
 
 async function open(profile, name, expectedText) {
 	assert.ok(
@@ -97,7 +99,7 @@ async function open(profile, name, expectedText) {
 		{ timeout: 15000, interval: 50, timeoutMsg: "Production entry did not load" },
 	);
 	await browser.waitUntil(
-		() => evaluate(() => !!document.querySelector('.page-current .cm-content[contenteditable="true"]')),
+		() => evaluate(() => !!document.querySelector('[data-slot="page-current"] .cm-content[contenteditable="true"]')),
 		{ timeout: 15000, interval: 50, timeoutMsg: "Production editor did not become ready" },
 	);
 	await until(async () => (await editorText()) === expectedText, `Restored editor text for ${name}`);
@@ -128,10 +130,10 @@ async function cleanup() {
 }
 
 async function editAndMinimize(text) {
-	await evaluate(() => document.querySelector(".page-current .cm-content").focus());
+	await evaluate(() => document.querySelector('[data-slot="page-current"] .cm-content').focus());
 	await delay(250);
 	await evaluate(() => {
-		const content = document.querySelector(".page-current .cm-content");
+		const content = document.querySelector('[data-slot="page-current"] .cm-content');
 		const range = document.createRange();
 		range.selectNodeContents(content);
 		const selection = getSelection();
@@ -140,7 +142,7 @@ async function editAndMinimize(text) {
 	});
 	await delay(100);
 	const edited = await evaluate(async (value) => {
-		const content = document.querySelector(".page-current .cm-content");
+		const content = document.querySelector('[data-slot="page-current"] .cm-content');
 		if (document.activeElement !== content) throw new Error("Editor must be focused before insertion");
 		const before = performance.now();
 		if (!document.execCommand("insertText", false, value)) throw new Error("Engine text insertion failed");

@@ -35,13 +35,22 @@ export const StatusBar = scope(({ context }: StatusBarProps) => {
 
 	return (
 		<footer className="status-bar" aria-label="Editor status">
-			<span className="status-counts" title={`${selection.selected ? "Selected: " : "Page: "}${countLabel}`}>
+			<span
+				className="status-counts"
+				data-slot="status-counts"
+				title={`${selection.selected ? "Selected: " : "Page: "}${countLabel}`}
+			>
 				{countLabel}
 			</span>
-			<span className="status-position" title={selection.position}>
+			<span className="status-position" data-slot="status-position" title={selection.position}>
 				{selection.position}
 			</span>
-			<span className="page-count" role="status" aria-label={`Page ${index + 1} of ${document.pages.length}`}>
+			<span
+				className="page-count"
+				data-slot="page-count"
+				role="status"
+				aria-label={`Page ${index + 1} of ${document.pages.length}`}
+			>
 				Pages {index + 1} / {document.pages.length}
 			</span>
 		</footer>

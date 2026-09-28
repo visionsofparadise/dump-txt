@@ -39,7 +39,7 @@ export const AppearanceMenu = scope(({ context }: AppearanceMenuProps) => {
 			<DropdownMenuSubTrigger disabled={persistenceState.locked}>
 				<Paintbrush size={14} aria-hidden />
 				<span>Appearance</span>
-				<span className="menu-value">
+				<span className="menu-value" data-slot="dropdown-menu-shortcut" data-variant="value">
 					{session.appearance.theme === "system"
 						? "System"
 						: session.appearance.theme === "light"

@@ -207,7 +207,7 @@
 		-webkit-app-region: drag;
 	}
 
-	.dump-ui .title-bar-menu-open {
+	.dump-ui .title-bar[data-menu-open] {
 		-webkit-app-region: no-drag;
 	}
 
@@ -470,7 +470,7 @@
 		overflow: hidden;
 	}
 
-	.dump-ui .page-editor-covered {
+	.dump-ui .page-editor[data-covered] {
 		opacity: 0;
 	}
 
@@ -951,25 +951,27 @@
 	}
 }
 
-.dump-ui .cm-editor {
+[data-slot="page-editor"] .cm-editor {
 	height: 100%;
 	font-family: var(--editor-font, var(--font-mono));
 	font-size: var(--editor-size, 11pt);
 }
 
-.dump-ui .cm-scroller {
+[data-slot="page-editor"] .cm-scroller {
 	overflow: auto;
 	line-height: 1.5;
+
+	@apply scrollbar-bar;
 }
 
-.dump-ui .cm-editor .cm-content {
+[data-slot="page-editor"] .cm-editor .cm-content {
 	position: relative;
 	min-height: calc(100cqh + 100cqh / 3);
 	padding: calc(100cqh / 3 + 10px) 0;
 	caret-color: --theme(--color-foreground);
 }
 
-.dump-ui .cm-editor .cm-content::before {
+[data-slot="page-editor"] .cm-editor .cm-content::before {
 	content: "";
 	position: absolute;
 	inset: 0;
@@ -984,60 +986,56 @@
 	);
 }
 
-.dump-ui .cm-editor .cm-line {
+[data-slot="page-editor"] .cm-editor .cm-line {
 	padding: 0 14px;
 }
 
-.dump-ui .cm-editor.cm-focused {
+[data-slot="page-editor"] .cm-editor.cm-focused {
 	outline: none;
 }
 
-.dump-ui .cm-editor .cm-cursor {
+[data-slot="page-editor"] .cm-editor .cm-cursor {
 	border-left-color: --theme(--color-foreground);
 }
 
-.dump-ui .page-editor .cm-editor .cm-scroller .cm-selectionLayer .cm-selectionBackground,
-.dump-ui .page-editor .cm-editor.cm-focused .cm-scroller .cm-selectionLayer .cm-selectionBackground {
+[data-slot="page-editor"] .cm-editor .cm-scroller .cm-selectionLayer .cm-selectionBackground,
+[data-slot="page-editor"] .cm-editor.cm-focused .cm-scroller .cm-selectionLayer .cm-selectionBackground {
 	background: --theme(--color-selection);
 }
 
-.dump-ui .cm-editor .cm-active-selection {
+[data-slot="page-editor"] .cm-editor .cm-active-selection {
 	color: --theme(--color-selection-foreground);
 }
 
-.dump-ui .cm-editor .cm-content ::selection,
-.dump-ui .cm-editor .cm-content::selection {
+[data-slot="page-editor"] .cm-editor .cm-content ::selection,
+[data-slot="page-editor"] .cm-editor .cm-content::selection {
 	background: --theme(--color-selection);
 	color: --theme(--color-selection-foreground);
 }
 
-.dump-ui .cm-editor .cm-occurrence-preview {
+[data-slot="page-editor"] .cm-editor .cm-occurrence-preview {
 	background: --theme(--color-selection-muted);
 	color: inherit;
 }
 
 @media (forced-colors: active) {
-	.dump-ui .page-editor .cm-editor .cm-scroller .cm-selectionLayer .cm-selectionBackground,
-	.dump-ui .page-editor .cm-editor.cm-focused .cm-scroller .cm-selectionLayer .cm-selectionBackground {
+	[data-slot="page-editor"] .cm-editor .cm-scroller .cm-selectionLayer .cm-selectionBackground,
+	[data-slot="page-editor"] .cm-editor.cm-focused .cm-scroller .cm-selectionLayer .cm-selectionBackground {
 		background: Highlight;
 	}
 
-	.dump-ui .cm-editor .cm-active-selection {
+	[data-slot="page-editor"] .cm-editor .cm-active-selection {
 		color: HighlightText;
 	}
 
-	.dump-ui .cm-editor .cm-content ::selection,
-	.dump-ui .cm-editor .cm-content::selection {
+	[data-slot="page-editor"] .cm-editor .cm-content ::selection,
+	[data-slot="page-editor"] .cm-editor .cm-content::selection {
 		background: Highlight;
 		color: HighlightText;
 	}
 
-	.dump-ui .cm-editor .cm-occurrence-preview {
+	[data-slot="page-editor"] .cm-editor .cm-occurrence-preview {
 		background: transparent;
 		outline: 1px solid Highlight;
 	}
-}
-
-.dump-ui .page-editor .cm-scroller {
-	@apply scrollbar-bar;
 }

@@ -23,7 +23,7 @@ body:has(.appbox-takeover) {
 	pointer-events: none;
 }
 
-.demo-stage :is(.window-controls, .traffic-lights, .header-bar-controls) button {
+.demo-stage :is([data-slot="window-controls"], [data-slot="traffic-lights"], [data-slot="header-bar-controls"]) button {
 	pointer-events: auto;
 }
 

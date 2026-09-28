@@ -78,8 +78,8 @@ export function PageLayout({ context }: PageLayoutProps) {
 	}, [editor, transition]);
 
 	return (
-		<section className="page-viewport" aria-label="Current page">
-			<div className="page-current" ref={current}>
+		<section className="page-viewport" data-slot="page-viewport" aria-label="Current page">
+			<div className="page-current" data-slot="page-current" ref={current}>
 				<PageEditor editor={editor} />
 			</div>
 			{transition && <PageSnapshot ref={outgoing} snapshot={transition.outgoing} />}

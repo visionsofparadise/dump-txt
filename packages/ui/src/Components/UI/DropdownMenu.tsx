@@ -45,6 +45,7 @@ export function DropdownMenuContent({
 	return (
 		<Portal container={container}>
 			<Content
+				data-slot="dropdown-menu-content"
 				className={cn("menu-content", className)}
 				sideOffset={sideOffset}
 				collisionPadding={collisionPadding}
@@ -92,6 +93,7 @@ export function DropdownMenuSubContent({ className, container, ...props }: Dropd
 	return (
 		<Portal container={container}>
 			<SubContent
+				data-slot="dropdown-menu-sub-content"
 				className={cn("menu-content menu-subcontent", className)}
 				collisionPadding={0}
 				collisionBoundary={container}

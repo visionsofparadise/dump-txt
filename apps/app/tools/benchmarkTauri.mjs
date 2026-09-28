@@ -291,14 +291,15 @@ async function launch(label, executable, profile, round) {
 		while (Date.now() < deadline) {
 			metrics = await evaluate(`(() => {
 if (!document.body) return null;
-const scroller = document.querySelector('.page-current .cm-scroller');
+const scroller = document.querySelector('[data-slot="page-current"] .cm-scroller');
 const dark = matchMedia('(prefers-color-scheme: dark)').matches;
-const surface = getComputedStyle(document.documentElement).getPropertyValue('--color-surface').trim();
+const interfaceRoot = document.querySelector('[data-slot="dump-ui"]');
+const surface = interfaceRoot ? getComputedStyle(interfaceRoot).backgroundColor : null;
 const background = getComputedStyle(document.body).backgroundColor;
 return { origin: performance.timeOrigin, ready: performance.getEntriesByName('dump:editor-ready')[0]?.startTime ?? null,
     firstContentfulPaint: performance.getEntriesByName('first-contentful-paint')[0]?.startTime ?? null,
     dark, surface, background, themed: !!scroller && document.documentElement.dataset.theme === 'system' && background === (dark ? 'rgb(44, 44, 44)' : 'rgb(250, 250, 250)'),
-    page: document.querySelector('.page-count')?.textContent.trim() ?? null,
+    page: document.querySelector('[data-slot="page-count"]')?.textContent.trim() ?? null,
     text: scroller ? [...scroller.querySelectorAll('.cm-line')].map(line => line.textContent).join(String.fromCharCode(10)) : null,
     font: scroller ? getComputedStyle(scroller).fontFamily : null,
     textSize: scroller ? getComputedStyle(scroller).fontSize : null,

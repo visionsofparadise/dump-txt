@@ -54,7 +54,7 @@ export const OccurrencePanel = scope(({ context }: OccurrencePanelProps) => {
 			className="transient-panel occurrence-panel"
 			aria-label="Multiple selections"
 		>
-			<div className="panel-options">
+			<div className="panel-options" data-slot="panel-options">
 				<label>
 					<input
 						type="checkbox"

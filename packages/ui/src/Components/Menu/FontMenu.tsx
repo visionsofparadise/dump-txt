@@ -23,7 +23,9 @@ export const FontMenu = scope(({ context }: FontMenuProps) => {
 		<DropdownMenuItem onSelect={open} disabled={persistenceState.locked || !capabilities.fonts}>
 			<CaseSensitive size={16} aria-hidden />
 			<span>Font…</span>
-			<span className="menu-value">{session.appearance.font}</span>
+			<span className="menu-value" data-slot="dropdown-menu-shortcut" data-variant="value">
+				{session.appearance.font}
+			</span>
 		</DropdownMenuItem>
 	);
 });

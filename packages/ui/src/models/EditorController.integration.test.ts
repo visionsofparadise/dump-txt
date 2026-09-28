@@ -394,10 +394,10 @@ describe("CodeMirror bridge", () => {
 		expect(transition?.incoming).toBeNull();
 		expect(transition?.outgoing.dom.querySelector("[id]")).toBeNull();
 		expect(transition?.outgoing.dom.querySelector("[contenteditable=true]")).toBeNull();
-		expect(view.dom.parentElement?.classList.contains("page-editor-covered")).toBe(true);
+		expect(view.dom.parentElement?.hasAttribute("data-covered")).toBe(true);
 		view.dispatch({ changes: { from: 0, insert: "now " } });
 		expect(documentState.pages[1]?.text).toBe("now two cat");
-		expect(view.dom.parentElement?.classList.contains("page-editor-covered")).toBe(false);
+		expect(view.dom.parentElement?.hasAttribute("data-covered")).toBe(false);
 		expect(transitions.at(-1)).toBeNull();
 		unsubscribe();
 	});
@@ -412,9 +412,9 @@ describe("CodeMirror bridge", () => {
 		const previous = id;
 		controller.showPage("first");
 		controller.finishPageTransition(previous);
-		expect(view.dom.parentElement?.classList.contains("page-editor-covered")).toBe(true);
+		expect(view.dom.parentElement?.hasAttribute("data-covered")).toBe(true);
 		window.dispatchEvent(new Event("resize"));
-		expect(view.dom.parentElement?.classList.contains("page-editor-covered")).toBe(false);
+		expect(view.dom.parentElement?.hasAttribute("data-covered")).toBe(false);
 	});
 
 	it("restores persisted scroll only after measurement without saving intermediate positions", async () => {

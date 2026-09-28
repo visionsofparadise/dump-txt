@@ -49,14 +49,14 @@ async function captureThoughts(rig: DemoRig): Promise<void> {
 	await explain(rig, "Somewhere to put the thought.");
 	await rig.wait(1500);
 	await explain(rig, "New thought? Scroll down for a new page.");
-	await rig.wheel(360, {}, ".page-bar-bottom");
+	await rig.wheel(360, {}, '[data-slot="page-bar"][aria-label="Next page controls"]');
 	rig.assert(
 		rig.context.document.pages.length === 2 && rig.text === "",
 		"Scrolling must create an empty second page.",
 	);
 	await rig.type("Draft reply\n\n", 55);
 	await rig.paste(draft.slice("Draft reply\n\n".length));
-	await rig.wheel(360, {}, ".page-bar-bottom");
+	await rig.wheel(360, {}, '[data-slot="page-bar"][aria-label="Next page controls"]');
 	await rig.type("Checklist\n\n", 55);
 	await rig.paste(checklist.slice("Checklist\n\n".length));
 	rig.assert(rig.context.document.pages.length === 3, "The scratchpad must contain three pages.");
@@ -108,7 +108,7 @@ async function editTogether(rig: DemoRig): Promise<void> {
 		await rig.wait(100);
 	}
 
-	await rig.click(".find-panel label:last-of-type input");
+	await rig.click('[data-slot="find-panel"] label:last-of-type input');
 	await rig.wait(600);
 	await rig.click('[aria-label="Next match"]');
 	await rig.click('[aria-label="Next match"]');
@@ -120,8 +120,8 @@ async function editTogether(rig: DemoRig): Promise<void> {
 		await rig.wait(100);
 	}
 
-	await rig.move(".find-panel .panel-options:nth-child(2) button:last-child");
-	await rig.click(".find-panel .panel-options:nth-child(2) button:last-child");
+	await rig.move('[data-slot="find-panel"] [data-slot="panel-options"]:nth-child(2) button:last-child');
+	await rig.click('[data-slot="find-panel"] [data-slot="panel-options"]:nth-child(2) button:last-child');
 	rig.assert(
 		rig.context.document.pages.every((page) => !page.text.includes("Friday")),
 		"Replace all must update every page.",
