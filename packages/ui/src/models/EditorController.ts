@@ -191,7 +191,7 @@ export class EditorController {
 		this.#view?.dispatch({
 			effects: this.#appearance.reconfigure(
 				EditorView.theme({
-					"&": { fontFamily: "var(--editor-font, Consolas, monospace)", fontSize: "var(--editor-size, 11pt)" },
+					"&": { fontFamily: "var(--editor-font, var(--font-mono))", fontSize: "var(--editor-size, 11pt)" },
 				}),
 			),
 		});
