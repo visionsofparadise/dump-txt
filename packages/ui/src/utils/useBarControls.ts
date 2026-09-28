@@ -6,6 +6,8 @@ export function useBarControls(context: DumpContext, direction: "up" | "down") {
 	const up = direction === "up";
 	const index = document.pages.findIndex((page) => page.id === session.view.activePageId);
 	const atEnd = up ? index === 0 : index === document.pages.length - 1;
+	const current = document.pages[index];
+	const blankEnd = atEnd && current?.temporary === true && current.text === "";
 
 	const bar = useRef<HTMLElement>(null);
 
@@ -43,5 +45,5 @@ export function useBarControls(context: DumpContext, direction: "up" | "down") {
 		editor.focus();
 	}, [editor]);
 
-	return { bar, atEnd, locked: persistenceState.locked, insert, navigate, boundary, move, remove };
+	return { bar, atEnd, blankEnd, locked: persistenceState.locked, insert, navigate, boundary, move, remove };
 }

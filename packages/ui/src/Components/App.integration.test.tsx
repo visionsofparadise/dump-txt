@@ -365,23 +365,29 @@ describe("scratchpad interface", () => {
 		expect(container.querySelector(".page-bar-bottom .page-count")).toBeNull();
 	});
 
-	it("keeps insertion slots fixed and hides boundary navigation", async () => {
+	it("keeps insertion slots fixed and extends past the ends with blank pages", async () => {
 		const { user } = await fixture();
 		const above = screen.getByRole("button", { name: "Insert page above" });
 		const below = screen.getByRole("button", { name: "Insert page below" });
+		const previous = () => screen.getByRole("button", { name: "Previous page" });
+		const next = () => screen.getByRole("button", { name: "Next page" });
 		expect(above.parentElement?.className).toBe("page-bar-leading");
 		expect(below.parentElement?.className).toBe("page-bar-leading");
 		expect(screen.getByRole("button", { name: "First page" }).hasAttribute("disabled")).toBe(true);
-		expect(screen.queryByRole("button", { name: "Previous page" })).toBeNull();
 		expect(screen.getAllByRole("button", { name: "Insert page above" })).toHaveLength(1);
-		await user.click(screen.getByRole("button", { name: "Next page" }));
-		expect(screen.getByRole("status", { name: "Page 2 of 3" })).toBeTruthy();
-		expect(screen.getByRole("button", { name: "Previous page" })).toBeTruthy();
-		expect(screen.getByRole("button", { name: "Insert page above" })).toBeTruthy();
-		expect(screen.getByRole("button", { name: "Insert page below" })).toBeTruthy();
+		await user.click(previous());
+		expect(screen.getByRole("status", { name: "Page 1 of 4" })).toBeTruthy();
+		expect(previous().hasAttribute("disabled")).toBe(true);
+		await user.click(next());
+		expect(screen.getByRole("status", { name: "Page 1 of 3" })).toBeTruthy();
+		expect(previous().hasAttribute("disabled")).toBe(false);
 		await user.click(screen.getByRole("button", { name: "Last page" }));
 		expect(screen.getByRole("button", { name: "Last page" }).hasAttribute("disabled")).toBe(true);
-		expect(screen.queryByRole("button", { name: "Next page" })).toBeNull();
+		await user.click(next());
+		expect(screen.getByRole("status", { name: "Page 4 of 4" })).toBeTruthy();
+		expect(next().hasAttribute("disabled")).toBe(true);
+		await user.click(previous());
+		expect(screen.getByRole("status", { name: "Page 3 of 3" })).toBeTruthy();
 		expect(screen.getByRole("button", { name: "Insert page above" })).toBe(above);
 		expect(screen.getByRole("button", { name: "Insert page below" })).toBe(below);
 	});

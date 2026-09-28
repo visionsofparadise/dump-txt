@@ -10,7 +10,7 @@ interface DownBarProps {
 }
 
 export const DownBar = scope(({ context }: DownBarProps) => {
-	const { bar, atEnd, locked, insert, navigate, boundary, move, remove } = useBarControls(context, "down");
+	const { bar, atEnd, blankEnd, locked, insert, navigate, boundary, move, remove } = useBarControls(context, "down");
 
 	return (
 		<nav ref={bar} className="page-bar page-bar-bottom" aria-label="Next page controls">
@@ -29,8 +29,7 @@ export const DownBar = scope(({ context }: DownBarProps) => {
 				label="Next page"
 				shortcut="Alt+Down"
 				className="page-nav-main"
-				hidden={atEnd}
-				disabled={atEnd || locked}
+				disabled={blankEnd || locked}
 				onClick={navigate}
 			>
 				<ChevronDown size={16} aria-hidden />

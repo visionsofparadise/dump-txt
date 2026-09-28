@@ -333,10 +333,6 @@
 	color: var(--color-ink);
 }
 
-.dump-ui .page-nav-hidden {
-	visibility: hidden;
-}
-
 .dump-ui .status-bar {
 	display: grid;
 	grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);

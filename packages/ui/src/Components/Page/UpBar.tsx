@@ -13,7 +13,7 @@ interface UpBarProps {
 }
 
 export const UpBar = scope(({ context, children }: UpBarProps) => {
-	const { bar, atEnd, locked, insert, navigate, boundary, move } = useBarControls(context, "up");
+	const { bar, atEnd, blankEnd, locked, insert, navigate, boundary, move } = useBarControls(context, "up");
 
 	return (
 		<nav ref={bar} className={cn("page-bar", children && "page-bar-menu")} aria-label="Previous page controls">
@@ -33,8 +33,7 @@ export const UpBar = scope(({ context, children }: UpBarProps) => {
 				label="Previous page"
 				shortcut="Alt+Up"
 				className="page-nav-main"
-				hidden={atEnd}
-				disabled={atEnd || locked}
+				disabled={blankEnd || locked}
 				onClick={navigate}
 			>
 				<ChevronUp size={16} aria-hidden />
