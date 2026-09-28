@@ -10,6 +10,17 @@
 			}
 		]
 	},
+	"overrides": [
+		{
+			"files": ["packages/ui/src/styles.css", "apps/app/src/renderer/styles.css"],
+			"rules": {
+				"declaration-property-value-no-unknown": null,
+				"custom-property-no-missing-var-function": null,
+				"at-rule-prelude-no-invalid": null,
+				"nesting-selector-no-missing-scoping-root": null
+			}
+		}
+	],
 	"ignoreFiles": [
 		"**/node_modules/**",
 		"**/dist/**",

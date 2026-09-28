@@ -19,16 +19,16 @@
 			"ignoreDependencies": ["events"]
 		},
 		"packages/ui": {
-			"project": ["src/**/*.{ts,tsx}", "*.config.ts"],
+			"project": ["src/**/*.{ts,tsx,css}", "*.config.ts"],
 			"ignoreDependencies": ["events"]
 		},
 		"apps/gif": {
 			"entry": ["tools/*.mjs"],
-			"project": ["src/**/*.{ts,tsx}"]
+			"project": ["src/**/*.{ts,tsx,css}"]
 		},
 		"apps/website": {
 			"entry": ["tools/*.mjs", "src/app/index.tsx"],
-			"project": ["src/**/*.{ts,tsx}"]
+			"project": ["src/**/*.{ts,tsx,css}"]
 		},
 		"packages/rig": {
 			"project": ["src/**/*.{ts,tsx}"]

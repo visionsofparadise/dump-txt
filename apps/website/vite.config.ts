@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig, type Plugin } from "vite";
 
@@ -18,7 +19,7 @@ const releaseManifest: Plugin = {
 
 export default defineConfig({
 	base: "./",
-	plugins: [react(), releaseManifest],
+	plugins: [react(), tailwindcss(), releaseManifest],
 	server: { host: "127.0.0.1" },
 	build: {
 		outDir: "dist",
