@@ -4,11 +4,13 @@ import { useCallback, useContext } from "react";
 import { capabilitiesOf } from "../../models/MainCapabilities";
 import { PlatformContext } from "../../models/PlatformContext";
 import { mobilePlatforms } from "../../utils/platformGroups";
+import { Button } from "../UI/Button";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuItem,
 	DropdownMenuSeparator,
+	DropdownMenuShortcut,
 	DropdownMenuTrigger,
 } from "../UI/DropdownMenu";
 import { AppearanceMenu } from "./AppearanceMenu";
@@ -97,14 +99,9 @@ export const Menu = scope(({ context }: MenuProps) => {
 	return (
 		<DropdownMenu modal={false} open={chrome.menuOpen} onOpenChange={menuChanged}>
 			<DropdownMenuTrigger asChild>
-				<button
-					className="chrome-button menu-trigger"
-					aria-label="App menu"
-					title="App menu"
-					disabled={persistenceState.locked}
-				>
-					<MenuIcon size={16} aria-hidden />
-				</button>
+				<Button variant="chrome" aria-label="App menu" title="App menu" disabled={persistenceState.locked}>
+					<MenuIcon className="size-icon" aria-hidden />
+				</Button>
 			</DropdownMenuTrigger>
 			<DropdownMenuContent
 				container={context.surface.current}
@@ -112,64 +109,44 @@ export const Menu = scope(({ context }: MenuProps) => {
 				onCloseAutoFocus={restoreFocus}
 			>
 				<DropdownMenuItem onSelect={openFile} disabled={persistenceState.locked || !capabilities.openDump}>
-					<FolderOpen size={16} aria-hidden />
+					<FolderOpen className="size-icon" aria-hidden />
 					<span>Open…</span>
-					{capabilities.keybinds && (
-						<span className="menu-shortcut" data-slot="dropdown-menu-shortcut" data-variant="shortcut">
-							Ctrl+O
-						</span>
-					)}
+					{capabilities.keybinds && <DropdownMenuShortcut>Ctrl+O</DropdownMenuShortcut>}
 				</DropdownMenuItem>
 				<DropdownMenuItem onSelect={saveAs} disabled={persistenceState.locked || !capabilities.saveAs}>
-					<Save size={16} aria-hidden />
+					<Save className="size-icon" aria-hidden />
 					<span>Save As…</span>
-					{capabilities.keybinds && (
-						<span className="menu-shortcut" data-slot="dropdown-menu-shortcut" data-variant="shortcut">
-							Ctrl+Shift+S
-						</span>
-					)}
+					{capabilities.keybinds && <DropdownMenuShortcut>Ctrl+Shift+S</DropdownMenuShortcut>}
 				</DropdownMenuItem>
 				<DropdownMenuSeparator />
 				<PageFileMenu context={context} />
 				<DropdownMenuSeparator />
 				<DropdownMenuItem onSelect={undo} disabled={!session.canUndo || persistenceState.locked}>
-					<Undo2 size={16} aria-hidden />
+					<Undo2 className="size-icon" aria-hidden />
 					<span>Undo</span>
-					{capabilities.keybinds && (
-						<span className="menu-shortcut" data-slot="dropdown-menu-shortcut" data-variant="shortcut">
-							Ctrl+Z
-						</span>
-					)}
+					{capabilities.keybinds && <DropdownMenuShortcut>Ctrl+Z</DropdownMenuShortcut>}
 				</DropdownMenuItem>
 				<DropdownMenuItem onSelect={redo} disabled={!session.canRedo || persistenceState.locked}>
-					<Redo2 size={16} aria-hidden />
+					<Redo2 className="size-icon" aria-hidden />
 					<span>Redo</span>
-					{capabilities.keybinds && (
-						<span className="menu-shortcut" data-slot="dropdown-menu-shortcut" data-variant="shortcut">
-							Ctrl+Y
-						</span>
-					)}
+					{capabilities.keybinds && <DropdownMenuShortcut>Ctrl+Y</DropdownMenuShortcut>}
 				</DropdownMenuItem>
 				<DropdownMenuItem onSelect={find} disabled={persistenceState.locked}>
-					<Search size={16} aria-hidden />
+					<Search className="size-icon" aria-hidden />
 					<span>Find and replace</span>
-					{capabilities.keybinds && (
-						<span className="menu-shortcut" data-slot="dropdown-menu-shortcut" data-variant="shortcut">
-							Ctrl+F
-						</span>
-					)}
+					{capabilities.keybinds && <DropdownMenuShortcut>Ctrl+F</DropdownMenuShortcut>}
 				</DropdownMenuItem>
 				<DropdownMenuSeparator />
 				<TextSizeMenu context={context} />
 				{(!mobilePlatforms.has(platform ?? "windows") || capabilities.fonts) && <FontMenu context={context} />}
 				<AppearanceMenu context={context} />
 				<DropdownMenuItem onSelect={toggleStatusBar} disabled={persistenceState.locked}>
-					<PanelBottom size={16} aria-hidden />
+					<PanelBottom className="size-icon" aria-hidden />
 					<span>{session.appearance.showStatusBar === false ? "Show status bar" : "Hide status bar"}</span>
 				</DropdownMenuItem>
 				{capabilities.keybinds && (
 					<DropdownMenuItem onSelect={openKeybinds} disabled={persistenceState.locked}>
-						<Keyboard size={16} aria-hidden />
+						<Keyboard className="size-icon" aria-hidden />
 						<span>Keybinds</span>
 					</DropdownMenuItem>
 				)}
@@ -177,7 +154,7 @@ export const Menu = scope(({ context }: MenuProps) => {
 					<>
 						<DropdownMenuSeparator />
 						<DropdownMenuItem onSelect={close} disabled={persistenceState.locked || !capabilities.close}>
-							<X size={16} aria-hidden />
+							<X className="size-icon" aria-hidden />
 							<span>Close</span>
 						</DropdownMenuItem>
 					</>

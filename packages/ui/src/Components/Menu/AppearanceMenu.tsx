@@ -9,6 +9,7 @@ import {
 	DropdownMenuSubContent,
 	DropdownMenuRadioGroup,
 	DropdownMenuRadioItem,
+	DropdownMenuShortcut,
 } from "../UI/DropdownMenu";
 import type { ChromeContext } from "../../models/ChromeContext";
 
@@ -37,15 +38,15 @@ export const AppearanceMenu = scope(({ context }: AppearanceMenuProps) => {
 	return (
 		<DropdownMenuSub>
 			<DropdownMenuSubTrigger disabled={persistenceState.locked}>
-				<Paintbrush size={14} aria-hidden />
+				<Paintbrush className="size-icon" aria-hidden />
 				<span>Appearance</span>
-				<span className="menu-value" data-slot="dropdown-menu-shortcut" data-variant="value">
+				<DropdownMenuShortcut variant="value">
 					{session.appearance.theme === "system"
 						? "System"
 						: session.appearance.theme === "light"
 							? "Light"
 							: "Dark"}
-				</span>
+				</DropdownMenuShortcut>
 			</DropdownMenuSubTrigger>
 			<DropdownMenuSubContent
 				container={context.surface.current}

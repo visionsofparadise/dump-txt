@@ -2,6 +2,10 @@ import { ArrowDown, ArrowUp, X } from "lucide-react";
 import { scope } from "opshot";
 import { useCallback, useEffect, useRef, type ChangeEvent, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { findMatches } from "../../utils/findMatches";
+import { Button } from "../UI/Button";
+import { Checkbox } from "../UI/Checkbox";
+import { Input } from "../UI/Input";
+import { Label } from "../UI/Label";
 import type { DumpContext } from "../../models/DumpContext";
 
 interface FindPanelProps {
@@ -26,12 +30,12 @@ export const FindPanel = scope(({ context }: FindPanelProps) => {
 	);
 
 	const changeMatchCase = useCallback(
-		(event: ChangeEvent<HTMLInputElement>) => editor.updateFind({ matchCase: event.target.checked }),
+		(checked: boolean | "indeterminate") => editor.updateFind({ matchCase: checked === true }),
 		[editor],
 	);
 
 	const changeAllPages = useCallback(
-		(event: ChangeEvent<HTMLInputElement>) => editor.updateFind({ allPages: event.target.checked }),
+		(checked: boolean | "indeterminate") => editor.updateFind({ allPages: checked === true }),
 		[editor],
 	);
 
@@ -93,10 +97,10 @@ export const FindPanel = scope(({ context }: FindPanelProps) => {
 			aria-label="Find and replace"
 		>
 			<div className="panel-options" data-slot="panel-options">
-				<input
+				<Input
 					ref={input}
 					onKeyDown={handleKeyDown}
-					className="panel-input"
+					variant="panel"
 					type="text"
 					aria-label="Find text"
 					placeholder="Find"
@@ -104,8 +108,9 @@ export const FindPanel = scope(({ context }: FindPanelProps) => {
 					disabled={disabled}
 					onChange={changeQuery}
 				/>
-				<button
-					className="panel-button"
+				<Button
+					variant="panel"
+					size="icon"
 					type="button"
 					aria-label="Previous match"
 					onKeyDown={handleKeyDown}
@@ -113,10 +118,11 @@ export const FindPanel = scope(({ context }: FindPanelProps) => {
 					disabled={disabled || matches.length === 0}
 					onClick={previousMatch}
 				>
-					<ArrowUp size={14} aria-hidden="true" />
-				</button>
-				<button
-					className="panel-button"
+					<ArrowUp className="size-icon" aria-hidden="true" />
+				</Button>
+				<Button
+					variant="panel"
+					size="icon"
 					type="button"
 					aria-label="Next match"
 					onKeyDown={handleKeyDown}
@@ -124,22 +130,23 @@ export const FindPanel = scope(({ context }: FindPanelProps) => {
 					disabled={disabled || matches.length === 0}
 					onClick={nextMatch}
 				>
-					<ArrowDown size={14} aria-hidden="true" />
-				</button>
-				<button
-					className="panel-button"
+					<ArrowDown className="size-icon" aria-hidden="true" />
+				</Button>
+				<Button
+					variant="panel"
+					size="icon"
 					type="button"
 					aria-label="Close find"
 					onKeyDown={handleKeyDown}
 					title="Close find (Escape)"
 					onClick={close}
 				>
-					<X size={14} aria-hidden="true" />
-				</button>
+					<X className="size-icon" aria-hidden="true" />
+				</Button>
 			</div>
 			<div className="panel-options" data-slot="panel-options">
-				<input
-					className="panel-input"
+				<Input
+					variant="panel"
 					type="text"
 					aria-label="Replacement text"
 					onKeyDown={handleKeyDown}
@@ -148,46 +155,46 @@ export const FindPanel = scope(({ context }: FindPanelProps) => {
 					disabled={disabled}
 					onChange={changeReplacement}
 				/>
-				<button
-					className="panel-button"
+				<Button
+					variant="panel"
+					size="bar"
 					type="button"
 					disabled={disabled || matches.length === 0}
 					onClick={replace}
 					onKeyDown={handleKeyDown}
 				>
 					Replace
-				</button>
-				<button
-					className="panel-button"
+				</Button>
+				<Button
+					variant="panel"
+					size="bar"
 					type="button"
 					disabled={disabled || matches.length === 0}
 					onClick={replaceAll}
 					onKeyDown={handleKeyDown}
 				>
 					Replace all
-				</button>
+				</Button>
 			</div>
 			<div className="panel-options" data-slot="panel-options">
-				<label>
-					<input
-						type="checkbox"
+				<Label>
+					<Checkbox
 						checked={session.find.matchCase}
 						onKeyDown={handleKeyDown}
 						disabled={disabled}
-						onChange={changeMatchCase}
+						onCheckedChange={changeMatchCase}
 					/>{" "}
 					Match case
-				</label>
-				<label>
-					<input
-						type="checkbox"
+				</Label>
+				<Label>
+					<Checkbox
 						checked={session.find.allPages}
 						onKeyDown={handleKeyDown}
 						disabled={disabled}
-						onChange={changeAllPages}
+						onCheckedChange={changeAllPages}
 					/>{" "}
 					All pages
-				</label>
+				</Label>
 				<output className="panel-count" aria-live="polite">
 					{matches.length === 0 || session.find.activeMatch < 0
 						? `${matches.length} matches`

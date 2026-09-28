@@ -1,8 +1,9 @@
 import { useCallback, type ComponentProps } from "react";
 import { capabilitiesOf } from "../../models/MainCapabilities";
+import { Button } from "../UI/Button";
 import type { AppContext } from "../../models/AppContext";
 
-interface MinimizeButtonProps extends ComponentProps<"button"> {
+interface MinimizeButtonProps extends Omit<ComponentProps<typeof Button>, "className"> {
 	readonly context: AppContext;
 }
 
@@ -17,6 +18,6 @@ export function MinimizeButton({ context, ...props }: MinimizeButtonProps) {
 	}, [capabilities.minimize, main]);
 
 	return (
-		<button {...props} aria-label="Minimize" title="Minimize" onClick={minimize} disabled={!capabilities.minimize} />
+		<Button {...props} aria-label="Minimize" title="Minimize" onClick={minimize} disabled={!capabilities.minimize} />
 	);
 }

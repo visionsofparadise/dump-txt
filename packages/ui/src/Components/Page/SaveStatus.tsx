@@ -1,6 +1,8 @@
 import { scope } from "opshot";
 import { useCallback } from "react";
 import { capabilitiesOf } from "../../models/MainCapabilities";
+import { Alert } from "../UI/Alert";
+import { Button } from "../UI/Button";
 import type { AppContext } from "../../models/AppContext";
 
 interface SaveStatusProps {
@@ -30,27 +32,19 @@ export const SaveStatus = scope(({ context }: SaveStatusProps) => {
 	if (!persistenceState.error) return null;
 
 	return (
-		<div role="status" aria-live="polite" className="save-error" data-slot="alert">
+		<Alert className="absolute right-2.5 bottom-2 left-2.5 z-7 max-h-[calc(100%-16px)]">
 			<span>{persistenceState.error}</span>
 			<div className="save-error-actions">
-				<button className="panel-button" disabled={persistenceState.locked} onClick={retry}>
+				<Button variant="panel" disabled={persistenceState.locked} onClick={retry}>
 					Retry
-				</button>
-				<button
-					className="panel-button"
-					disabled={persistenceState.locked || !capabilities.saveAs}
-					onClick={saveAs}
-				>
+				</Button>
+				<Button variant="panel" disabled={persistenceState.locked || !capabilities.saveAs} onClick={saveAs}>
 					Save As…
-				</button>
-				<button
-					className="panel-button"
-					disabled={persistenceState.locked || !capabilities.openDump}
-					onClick={open}
-				>
+				</Button>
+				<Button variant="panel" disabled={persistenceState.locked || !capabilities.openDump} onClick={open}>
 					Open…
-				</button>
+				</Button>
 			</div>
-		</div>
+		</Alert>
 	);
 });

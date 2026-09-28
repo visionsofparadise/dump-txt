@@ -7,7 +7,7 @@ interface MoveIconProps {
 export function MoveIcon({ up }: MoveIconProps) {
 	return (
 		<Icon
-			size={16}
+			className="size-icon"
 			aria-hidden
 			iconNode={[
 				["path", { key: "head", d: up ? "m18 11-6-6-6 6" : "m6 13 6 6 6-6" }],

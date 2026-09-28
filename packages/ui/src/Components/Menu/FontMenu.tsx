@@ -2,7 +2,7 @@ import { CaseSensitive } from "lucide-react";
 import { scope } from "opshot";
 import { useCallback } from "react";
 import { capabilitiesOf } from "../../models/MainCapabilities";
-import { DropdownMenuItem } from "../UI/DropdownMenu";
+import { DropdownMenuItem, DropdownMenuShortcut } from "../UI/DropdownMenu";
 import type { ChromeContext } from "../../models/ChromeContext";
 
 interface FontMenuProps {
@@ -21,11 +21,9 @@ export const FontMenu = scope(({ context }: FontMenuProps) => {
 
 	return (
 		<DropdownMenuItem onSelect={open} disabled={persistenceState.locked || !capabilities.fonts}>
-			<CaseSensitive size={16} aria-hidden />
+			<CaseSensitive className="size-icon" aria-hidden />
 			<span>Font…</span>
-			<span className="menu-value" data-slot="dropdown-menu-shortcut" data-variant="value">
-				{session.appearance.font}
-			</span>
+			<DropdownMenuShortcut variant="value">{session.appearance.font}</DropdownMenuShortcut>
 		</DropdownMenuItem>
 	);
 });

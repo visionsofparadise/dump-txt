@@ -108,7 +108,7 @@ async function editTogether(rig: DemoRig): Promise<void> {
 		await rig.wait(100);
 	}
 
-	await rig.click('[data-slot="find-panel"] label:last-of-type input');
+	await rig.click('[data-slot="find-panel"] label:last-of-type [role="checkbox"]');
 	await rig.wait(600);
 	await rig.click('[aria-label="Next match"]');
 	await rig.click('[aria-label="Next match"]');

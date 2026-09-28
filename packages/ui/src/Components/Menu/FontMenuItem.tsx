@@ -1,4 +1,5 @@
 import { useCallback, useMemo } from "react";
+import { Button } from "../UI/Button";
 
 interface FontMenuItemProps {
 	readonly font: string;
@@ -12,8 +13,8 @@ export function FontMenuItem({ font, selected, onSelect }: FontMenuItemProps) {
 	const choose = useCallback(() => onSelect(font), [font, onSelect]);
 
 	return (
-		<button
-			className="font-option"
+		<Button
+			variant="option"
 			type="button"
 			role="option"
 			aria-selected={selected}
@@ -22,6 +23,6 @@ export function FontMenuItem({ font, selected, onSelect }: FontMenuItemProps) {
 			onClick={choose}
 		>
 			{font}
-		</button>
+		</Button>
 	);
 }

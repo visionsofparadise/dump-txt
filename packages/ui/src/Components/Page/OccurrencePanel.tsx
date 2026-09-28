@@ -1,6 +1,9 @@
 import { X } from "lucide-react";
 import { scope } from "opshot";
-import { useCallback, type ChangeEvent, type KeyboardEvent, type MouseEvent } from "react";
+import { useCallback, type KeyboardEvent, type MouseEvent } from "react";
+import { Button } from "../UI/Button";
+import { Checkbox } from "../UI/Checkbox";
+import { Label } from "../UI/Label";
 import type { DumpContext } from "../../models/DumpContext";
 
 interface OccurrencePanelProps {
@@ -12,19 +15,19 @@ export const OccurrencePanel = scope(({ context }: OccurrencePanelProps) => {
 	const occurrence = session.view.occurrence;
 
 	const changeMatchCase = useCallback(
-		(event: ChangeEvent<HTMLInputElement>) => editor.updateOccurrenceOptions({ matchCase: event.target.checked }),
+		(checked: boolean | "indeterminate") => editor.updateOccurrenceOptions({ matchCase: checked === true }),
 		[editor],
 	);
 
 	const changeAllPages = useCallback(
-		(event: ChangeEvent<HTMLInputElement>) => editor.updateOccurrenceOptions({ allPages: event.target.checked }),
+		(checked: boolean | "indeterminate") => editor.updateOccurrenceOptions({ allPages: checked === true }),
 		[editor],
 	);
 
 	const close = useCallback(() => editor.closeOccurrence(), [editor]);
 
 	const returnEditorFocus = useCallback(
-		(event: MouseEvent<HTMLInputElement>) => {
+		(event: MouseEvent<HTMLButtonElement>) => {
 			if (event.detail > 0) editor.focus();
 		},
 		[editor],
@@ -55,30 +58,29 @@ export const OccurrencePanel = scope(({ context }: OccurrencePanelProps) => {
 			aria-label="Multiple selections"
 		>
 			<div className="panel-options" data-slot="panel-options">
-				<label>
-					<input
-						type="checkbox"
+				<Label>
+					<Checkbox
 						checked={occurrence.matchCase}
 						onKeyDown={handleKeyDown}
 						disabled={persistenceState.locked}
-						onChange={changeMatchCase}
+						onCheckedChange={changeMatchCase}
 						onClick={returnEditorFocus}
 					/>{" "}
 					Match case
-				</label>
-				<label>
-					<input
-						type="checkbox"
+				</Label>
+				<Label>
+					<Checkbox
 						checked={occurrence.allPages}
 						onKeyDown={handleKeyDown}
 						disabled={persistenceState.locked}
-						onChange={changeAllPages}
+						onCheckedChange={changeAllPages}
 						onClick={returnEditorFocus}
 					/>{" "}
 					All pages
-				</label>
-				<button
-					className="panel-button"
+				</Label>
+				<Button
+					variant="panel"
+					size="bar"
 					type="button"
 					aria-label="Close multiple selections"
 					onKeyDown={handleKeyDown}
@@ -86,8 +88,8 @@ export const OccurrencePanel = scope(({ context }: OccurrencePanelProps) => {
 					disabled={persistenceState.locked}
 					onClick={close}
 				>
-					<X size={14} aria-hidden="true" />
-				</button>
+					<X className="size-icon" aria-hidden="true" />
+				</Button>
 			</div>
 		</div>
 	);

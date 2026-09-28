@@ -26,29 +26,30 @@ export const UpBar = scope(({ context, children }: UpBarProps) => {
 				<BarButton
 					label="Insert page above"
 					shortcut="Ctrl+Shift+N"
-					className="chrome-button page-insert"
+					variant="constructive"
 					disabled={locked}
 					onClick={insert}
 				>
-					<Plus size={16} aria-hidden />
+					<Plus className="size-icon" aria-hidden />
 				</BarButton>
 				{children}
 			</div>
 			<BarButton
 				label="Previous page"
 				shortcut="Alt+Up"
-				className="page-nav-main"
+				variant="nav"
+				offset={children ? "none" : "one"}
 				disabled={blankEnd || locked}
 				onClick={navigate}
 			>
-				<ChevronUp size={16} aria-hidden />
+				<ChevronUp className="size-icon" aria-hidden />
 			</BarButton>
 			<div className="page-bar-trailing">
 				<BarButton label="Move page up" disabled={locked} onClick={move}>
 					<MoveIcon up />
 				</BarButton>
 				<BarButton label="First page" shortcut="Ctrl+Home" disabled={atEnd || locked} onClick={boundary}>
-					<ChevronsUp size={16} aria-hidden />
+					<ChevronsUp className="size-icon" aria-hidden />
 				</BarButton>
 			</div>
 		</nav>

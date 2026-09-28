@@ -11,13 +11,13 @@ interface WindowControlsProps {
 export function WindowControls({ context }: WindowControlsProps) {
 	return (
 		<div className="window-controls" data-slot="window-controls">
-			<MinimizeButton className="chrome-button" context={context}>
+			<MinimizeButton variant="chrome" context={context}>
 				<Minus size={14} aria-hidden />
 			</MinimizeButton>
-			<MaximizeButton className="chrome-button" context={context}>
+			<MaximizeButton variant="chrome" context={context}>
 				{(maximized) => (maximized ? <Copy size={13} aria-hidden /> : <Square size={13} aria-hidden />)}
 			</MaximizeButton>
-			<CloseButton className="chrome-button window-close" context={context}>
+			<CloseButton variant="destructive" context={context}>
 				<X size={14} aria-hidden />
 			</CloseButton>
 		</div>

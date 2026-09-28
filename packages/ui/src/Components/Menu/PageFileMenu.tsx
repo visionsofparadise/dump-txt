@@ -28,11 +28,11 @@ export const PageFileMenu = scope(({ context }: PageFileMenuProps) => {
 	return (
 		<>
 			<DropdownMenuItem onSelect={importPage} disabled={persistenceState.locked || !capabilities.importPage}>
-				<FileInput size={16} aria-hidden />
+				<FileInput className="size-icon" aria-hidden />
 				<span>Import page…</span>
 			</DropdownMenuItem>
 			<DropdownMenuItem onSelect={exportPage} disabled={persistenceState.locked || !capabilities.exportPage}>
-				<FileOutput size={16} aria-hidden />
+				<FileOutput className="size-icon" aria-hidden />
 				<span>Export page…</span>
 			</DropdownMenuItem>
 		</>

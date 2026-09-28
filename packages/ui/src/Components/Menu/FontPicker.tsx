@@ -1,7 +1,9 @@
 import { CaseSensitive, Check, Search, X } from "lucide-react";
 import { scope } from "opshot";
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type KeyboardEvent } from "react";
-import { Dialog, DialogContent, DialogTitle } from "../UI/Dialog";
+import { Button } from "../UI/Button";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "../UI/Dialog";
+import { Input } from "../UI/Input";
 import { FontMenuItem } from "./FontMenuItem";
 import type { ChromeContext } from "../../models/ChromeContext";
 
@@ -160,17 +162,17 @@ export const FontPicker = scope(({ context }: FontPickerProps) => {
 				onOpenAutoFocus={focusSearch}
 				onCloseAutoFocus={restoreFocus}
 			>
-				<header className="font-picker-header">
+				<DialogHeader>
 					<DialogTitle>
 						<CaseSensitive size={18} aria-hidden />
 						Font
 					</DialogTitle>
-				</header>
+				</DialogHeader>
 				<div className="font-search-field">
-					<Search size={16} aria-hidden />
-					<input
+					<Search className="size-icon" aria-hidden />
+					<Input
 						ref={search}
-						className="font-search"
+						variant="bare"
 						aria-label="Search installed fonts"
 						value={query}
 						onChange={queryChanged}
@@ -191,9 +193,9 @@ export const FontPicker = scope(({ context }: FontPickerProps) => {
 					) : error ? (
 						<p role="alert">
 							{error}{" "}
-							<button type="button" className="panel-button" onClick={retry}>
+							<Button variant="panel" type="button" onClick={retry}>
 								Retry
-							</button>
+							</Button>
 						</p>
 					) : filtered.length ? (
 						filtered.map((font) => (
@@ -203,21 +205,22 @@ export const FontPicker = scope(({ context }: FontPickerProps) => {
 						<p>No matching fonts.</p>
 					)}
 				</div>
-				<footer className="font-picker-actions" data-slot="dialog-footer">
-					<button type="button" className="panel-button" onClick={dismiss}>
-						<X size={16} aria-hidden />
+				<DialogFooter>
+					<Button variant="panel" size="block" type="button" onClick={dismiss}>
+						<X className="size-icon" aria-hidden />
 						Cancel
-					</button>
-					<button
+					</Button>
+					<Button
+						variant="panel"
+						size="block"
 						type="button"
-						className="panel-button"
 						onClick={apply}
 						disabled={loading || !!error || persistenceState.locked || !fonts.includes(selected)}
 					>
-						<Check size={16} aria-hidden />
+						<Check className="size-icon" aria-hidden />
 						Apply
-					</button>
-				</footer>
+					</Button>
+				</DialogFooter>
 			</DialogContent>
 		</Dialog>
 	);

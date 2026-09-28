@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState, type ComponentProps, type ReactNode } from "react";
 import { capabilitiesOf } from "../../models/MainCapabilities";
+import { Button } from "../UI/Button";
 import type { AppContext } from "../../models/AppContext";
 
-interface MaximizeButtonProps extends Omit<ComponentProps<"button">, "children"> {
+interface MaximizeButtonProps extends Omit<ComponentProps<typeof Button>, "children" | "className"> {
 	readonly context: AppContext;
 	readonly children?: (maximized: boolean) => ReactNode;
 }
@@ -30,8 +31,8 @@ export function MaximizeButton({ context, children, ...props }: MaximizeButtonPr
 	const label = maximized ? "Restore window" : "Maximize";
 
 	return (
-		<button {...props} aria-label={label} title={label} onClick={toggleMaximize} disabled={!capabilities.maximize}>
+		<Button {...props} aria-label={label} title={label} onClick={toggleMaximize} disabled={!capabilities.maximize}>
 			{children?.(maximized)}
-		</button>
+		</Button>
 	);
 }

@@ -467,7 +467,9 @@ describe("AppFrame", { timeout: 30_000 }, () => {
 		const { container, context, stage } = await mount();
 		const [playback] = playbacks;
 		const demonstrated = context();
-		const missing = new Error('Demo target is missing: [data-slot="find-panel"] label:last-of-type input');
+		const missing = new Error(
+			'Demo target is missing: [data-slot="find-panel"] label:last-of-type [role="checkbox"]',
+		);
 
 		await act(async () => {
 			demonstrated.editor.apply({ type: "insert", text: "demonstrated" });
@@ -528,7 +530,9 @@ describe("AppFrame", { timeout: 30_000 }, () => {
 		const [playback] = playbacks;
 		const demonstrated = context();
 		const editor = container.querySelector(".cm-editor");
-		const missing = new Error('Demo target is missing: [data-slot="find-panel"] label:last-of-type input');
+		const missing = new Error(
+			'Demo target is missing: [data-slot="find-panel"] label:last-of-type [role="checkbox"]',
+		);
 		const rig = new DemoRig({ stage: stage(), pointer: document.createElement("div"), context: () => demonstrated });
 		const wait = vi.spyOn(rig, "wait").mockResolvedValue();
 

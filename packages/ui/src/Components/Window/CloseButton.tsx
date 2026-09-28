@@ -1,8 +1,9 @@
 import { useCallback, type ComponentProps } from "react";
 import { capabilitiesOf } from "../../models/MainCapabilities";
+import { Button } from "../UI/Button";
 import type { AppContext } from "../../models/AppContext";
 
-interface CloseButtonProps extends ComponentProps<"button"> {
+interface CloseButtonProps extends Omit<ComponentProps<typeof Button>, "className"> {
 	readonly context: AppContext;
 }
 
@@ -17,7 +18,7 @@ export function CloseButton({ context, ...props }: CloseButtonProps) {
 	}, [capabilities.close, persistence]);
 
 	return (
-		<button
+		<Button
 			{...props}
 			aria-label="Close window"
 			title="Close window"

@@ -18,37 +18,38 @@ export const DownBar = scope(({ context }: DownBarProps) => {
 				<BarButton
 					label="Insert page below"
 					shortcut="Ctrl+N"
-					className="chrome-button page-insert"
+					variant="constructive"
 					disabled={locked}
 					onClick={insert}
 				>
-					<Plus size={16} aria-hidden />
+					<Plus className="size-icon" aria-hidden />
 				</BarButton>
 			</div>
 			<BarButton
 				label="Next page"
 				shortcut="Alt+Down"
-				className="page-nav-main"
+				variant="nav"
+				offset="two"
 				disabled={blankEnd || locked}
 				onClick={navigate}
 			>
-				<ChevronDown size={16} aria-hidden />
+				<ChevronDown className="size-icon" aria-hidden />
 			</BarButton>
 			<div className="page-bar-trailing">
 				<BarButton
 					label="Delete page"
 					shortcut="Ctrl+Delete"
-					className="chrome-button page-delete"
+					variant="destructive"
 					disabled={locked}
 					onClick={remove}
 				>
-					<Trash2 size={15} aria-hidden />
+					<Trash2 className="size-icon" aria-hidden />
 				</BarButton>
 				<BarButton label="Move page down" disabled={locked} onClick={move}>
 					<MoveIcon up={false} />
 				</BarButton>
 				<BarButton label="Last page" shortcut="Ctrl+End" disabled={atEnd || locked} onClick={boundary}>
-					<ChevronsDown size={16} aria-hidden />
+					<ChevronsDown className="size-icon" aria-hidden />
 				</BarButton>
 			</div>
 		</nav>

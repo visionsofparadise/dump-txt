@@ -4,6 +4,8 @@
 
 @custom-variant hover (&:hover);
 
+@custom-variant touch (&:where([data-slot="dump-app"]:is([data-platform="android"], [data-platform="ios"]) *));
+
 @theme inline {
 	--color-*: initial;
 	--color-background: light-dark(#fafafa, #2c2c2c);
@@ -138,25 +140,6 @@
 		color-scheme: dark;
 	}
 
-	.dump-ui button {
-		cursor: default;
-	}
-
-	.dump-ui button,
-	.dump-ui input {
-		font: inherit;
-	}
-
-	.dump-ui button:disabled {
-		opacity: 0.3;
-	}
-
-	.dump-ui button:focus-visible,
-	.dump-ui input:focus-visible {
-		outline: 1px solid --theme(--color-ring);
-		outline-offset: -3px;
-	}
-
 	.dump-ui .dump-app {
 		display: grid;
 		height: 100%;
@@ -237,28 +220,6 @@
 		padding-left: 12px;
 	}
 
-	.dump-ui .traffic-light {
-		width: 12px;
-		height: 12px;
-		padding: 0;
-		border: 0;
-		border-radius: 50%;
-		box-shadow: var(--shadow-traffic-light);
-		-webkit-app-region: no-drag;
-	}
-
-	.dump-ui .traffic-light-close {
-		background: --theme(--color-macos-close);
-	}
-
-	.dump-ui .traffic-light-minimize {
-		background: --theme(--color-macos-minimize);
-	}
-
-	.dump-ui .traffic-light-maximize {
-		background: --theme(--color-macos-maximize);
-	}
-
 	.dump-ui .header-bar-controls {
 		height: 100%;
 		display: flex;
@@ -268,29 +229,6 @@
 		justify-content: flex-end;
 		gap: 14px;
 		padding-right: 8px;
-	}
-
-	.dump-ui .header-bar-button {
-		width: 24px;
-		height: 24px;
-		padding: 0;
-		border: 0;
-		border-radius: 50%;
-		display: grid;
-		place-items: center;
-		flex: none;
-		background: --theme(--color-gnome-button);
-		color: --theme(--color-gnome-foreground);
-		-webkit-app-region: no-drag;
-	}
-
-	.dump-ui .traffic-light:focus-visible,
-	.dump-ui .header-bar-button:focus-visible {
-		outline-offset: 2px;
-	}
-
-	.dump-ui .header-bar-button:hover:not(:disabled) {
-		background: --theme(--color-gnome-button-hover);
 	}
 
 	.dump-ui .window-controls {
@@ -327,58 +265,6 @@
 		color: --theme(--color-gnome-foreground);
 	}
 
-	.dump-ui .chrome-button {
-		width: var(--spacing-button);
-		height: var(--spacing-bar);
-		padding: 0;
-		border: 0;
-		display: grid;
-		place-items: center;
-		flex: none;
-		background: transparent;
-		color: inherit;
-		-webkit-app-region: no-drag;
-	}
-
-	.dump-ui .dump-app:is([data-platform="android"], [data-platform="ios"]) .chrome-button {
-		min-width: 44px;
-		min-height: 44px;
-		touch-action: manipulation;
-	}
-
-	.dump-ui .title-menu > :where(button) svg,
-	.dump-ui .page-bar :where(button) svg,
-	.dump-ui .menu-item > svg,
-	.dump-ui .menu-size-row > svg,
-	.dump-ui .menu-size-adjust svg,
-	.dump-ui .panel-button svg,
-	.dump-ui .font-search-field > svg {
-		width: var(--spacing-icon);
-		height: var(--spacing-icon);
-	}
-
-	.dump-ui .chrome-button:hover:not(:disabled),
-	.dump-ui .menu-trigger[data-state="open"] {
-		background: --theme(--color-accent);
-		color: --theme(--color-foreground);
-	}
-
-	.dump-ui .title-bar .chrome-button:not(.window-close):hover:not(:disabled),
-	.dump-ui .title-bar .menu-trigger[data-state="open"] {
-		background: --theme(--color-chrome-accent);
-	}
-
-	.dump-ui .window-close:hover:not(:disabled),
-	.dump-ui .page-delete:hover:not(:disabled) {
-		background: --theme(--color-destructive);
-		color: --theme(--color-destructive-foreground);
-	}
-
-	.dump-ui .page-insert:hover:not(:disabled) {
-		background: --theme(--color-constructive);
-		color: --theme(--color-constructive-foreground);
-	}
-
 	.dump-ui .page-bar {
 		height: var(--spacing-bar);
 		display: grid;
@@ -399,28 +285,6 @@
 	.dump-ui .page-bar-leading,
 	.dump-ui .page-bar-trailing {
 		display: flex;
-	}
-
-	.dump-ui .page-nav-main {
-		display: grid;
-		place-items: center;
-		padding: 0 0 0 var(--spacing-button);
-		border: 0;
-		background: transparent;
-		color: inherit;
-	}
-
-	.dump-ui .page-bar-bottom .page-nav-main {
-		padding-left: calc(var(--spacing-button) * 2);
-	}
-
-	.dump-ui .page-bar-menu .page-nav-main {
-		padding-left: 0;
-	}
-
-	.dump-ui .page-nav-main:hover:not(:disabled) {
-		background: --theme(--color-page-hover);
-		color: --theme(--color-foreground);
 	}
 
 	.dump-ui .status-bar {
@@ -479,92 +343,6 @@
 		min-height: 0;
 	}
 
-	.dump-ui .menu-content {
-		z-index: 20;
-		width: 288px;
-		max-width: 100%;
-		max-height: var(--radix-dropdown-menu-content-available-height);
-		overflow-y: auto;
-		padding: 0;
-		border: 0;
-		border-radius: 0;
-		background: --theme(--color-popover);
-		color: --theme(--color-foreground);
-		box-shadow: var(--shadow-menu);
-		font: var(--text-interface) / 1.5 var(--font-interface);
-		animation: var(--animate-panel-appear);
-	}
-
-	.dump-ui .menu-subcontent {
-		width: max-content;
-		min-width: 160px;
-		max-height: min(280px, var(--radix-dropdown-menu-content-available-height));
-		border-radius: 0;
-	}
-
-	.dump-ui .menu-item {
-		display: flex;
-		align-items: center;
-		gap: 12px;
-		height: var(--spacing-bar);
-		min-height: var(--spacing-bar);
-		box-sizing: border-box;
-		padding: 0 12px;
-		outline: none;
-		user-select: none;
-		cursor: default;
-		white-space: nowrap;
-	}
-
-	.dump-ui .menu-item[data-highlighted],
-	.dump-ui .menu-item[data-state="open"] {
-		background: --theme(--color-popover-accent);
-	}
-
-	.dump-ui .menu-item:focus-visible {
-		outline: none;
-	}
-
-	.dump-ui .menu-item[data-disabled] {
-		opacity: 0.3;
-		pointer-events: none;
-	}
-
-	.dump-ui .menu-item > svg {
-		flex: none;
-	}
-
-	.dump-ui .menu-item-inset {
-		position: relative;
-		padding-left: 32px;
-	}
-
-	.dump-ui .menu-check {
-		position: absolute;
-		left: 12px;
-		display: grid;
-		place-items: center;
-	}
-
-	.dump-ui .menu-shortcut,
-	.dump-ui .menu-value {
-		margin-left: auto;
-		color: --theme(--color-popover-muted-foreground);
-		font-size: var(--text-secondary);
-	}
-
-	.dump-ui .menu-value {
-		max-width: 120px;
-		overflow: hidden;
-		text-overflow: ellipsis;
-	}
-
-	.dump-ui .menu-separator {
-		height: 1px;
-		margin: 0;
-		background: --theme(--color-popover-border);
-	}
-
 	.dump-ui .menu-size-row {
 		display: flex;
 		align-items: center;
@@ -577,16 +355,6 @@
 		display: flex;
 		align-items: center;
 		margin-left: auto;
-	}
-
-	.dump-ui .menu-size-adjust {
-		justify-content: center;
-		width: var(--spacing-bar);
-		padding: 0;
-		border: 0;
-		border-radius: 0;
-		background: transparent;
-		color: inherit;
 	}
 
 	.dump-ui .menu-size-value {
@@ -618,62 +386,6 @@
 		gap: 0;
 	}
 
-	.dump-ui .panel-input {
-		flex: 1 1 120px;
-		min-width: 0;
-		width: 0;
-		height: calc(var(--spacing-bar) - 12px);
-		margin: 6px;
-		box-sizing: border-box;
-		border: 0;
-		border-radius: 0;
-		padding: 0 12px;
-		background: --theme(--color-field);
-		color: --theme(--color-foreground);
-	}
-
-	.dump-ui .panel-button {
-		min-height: 32px;
-		min-width: 32px;
-		padding: 3px 6px;
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		gap: 4px;
-		border: 0;
-		border-radius: 2px;
-		color: inherit;
-		background: transparent;
-		white-space: nowrap;
-	}
-
-	.dump-ui .transient-panel .panel-button {
-		height: var(--spacing-bar);
-		min-width: var(--spacing-button);
-		border-radius: 0;
-		padding: 0 12px;
-	}
-
-	.dump-ui .find-panel .panel-button[aria-label] {
-		width: var(--spacing-button);
-		flex: none;
-		padding: 0;
-	}
-
-	.dump-ui .font-picker-actions .panel-button {
-		height: var(--spacing-bar);
-		width: 100%;
-		min-width: 0;
-		justify-content: center;
-		gap: 8px;
-		border-radius: 0;
-		background: transparent;
-	}
-
-	.dump-ui .panel-button:hover:not(:disabled) {
-		background: --theme(--color-accent);
-	}
-
 	.dump-ui .panel-options {
 		display: flex;
 		align-items: center;
@@ -681,48 +393,6 @@
 		gap: 0;
 		flex-wrap: nowrap;
 		font-size: var(--text-interface);
-	}
-
-	.dump-ui .panel-options label {
-		display: inline-flex;
-		align-items: center;
-		gap: 8px;
-		padding: 0 12px;
-		white-space: nowrap;
-	}
-
-	.dump-ui .panel-options input[type="checkbox"] {
-		appearance: none;
-		display: grid;
-		place-items: center;
-		width: 16px;
-		height: 16px;
-		margin: 0;
-		border: 0;
-		border-radius: 0;
-		background: --theme(--color-field);
-		color: --theme(--color-foreground);
-	}
-
-	.dump-ui .panel-options input[type="checkbox"]::before {
-		content: "✓";
-		visibility: hidden;
-		font-size: 13px;
-		line-height: 1;
-	}
-
-	.dump-ui .panel-options input[type="checkbox"]:checked::before {
-		visibility: visible;
-	}
-
-	.dump-ui .transient-panel input:focus-visible {
-		outline: none;
-		background: --theme(--color-field-accent);
-	}
-
-	.dump-ui .transient-panel button:focus-visible {
-		outline: none;
-		background: --theme(--color-accent);
 	}
 
 	.dump-ui .occurrence-panel .panel-options {
@@ -742,58 +412,10 @@
 		padding-right: 12px;
 	}
 
-	.dump-ui .save-error {
-		position: absolute;
-		z-index: 7;
-		right: 10px;
-		left: 10px;
-		bottom: 8px;
-		display: flex;
-		flex-wrap: wrap;
-		align-items: center;
-		justify-content: space-between;
-		gap: 6px;
-		max-height: calc(100% - 16px);
-		overflow: auto;
-		border: 1px solid --theme(--color-border);
-		border-radius: 4px;
-		padding: 7px 10px;
-		background: --theme(--color-card);
-		box-shadow: var(--shadow-toast);
-		font: var(--text-interface) / 1.5 var(--font-interface);
-	}
-
 	.dump-ui .save-error-actions {
 		display: flex;
 		flex-shrink: 0;
 		gap: 3px;
-	}
-
-	.dump-ui .dialog-overlay {
-		position: absolute;
-		inset: 0;
-		z-index: 50;
-		background: --theme(--color-overlay);
-	}
-
-	.dump-ui .dialog-content {
-		position: absolute;
-		top: 50%;
-		left: 50%;
-		z-index: 51;
-		transform: translate(-50%, -50%);
-		outline: none;
-		border-radius: 8px;
-		box-shadow: var(--shadow-dialog);
-	}
-
-	.dump-ui .dialog-title {
-		display: flex;
-		align-items: center;
-		gap: 10px;
-		margin: 0;
-		font-size: var(--text-heading);
-		font-weight: 500;
 	}
 
 	.dump-ui .keybinds-modal {
@@ -842,11 +464,6 @@
 		text-align: right;
 	}
 
-	.dump-ui .keybind-row kbd {
-		font: var(--text-interface) var(--font-mono);
-		white-space: nowrap;
-	}
-
 	.dump-ui .font-picker {
 		display: grid;
 		grid-template-rows: var(--spacing-bar) 52px minmax(80px, 1fr) var(--spacing-bar);
@@ -858,14 +475,6 @@
 		background: --theme(--color-bar);
 		color: --theme(--color-foreground);
 		font: var(--text-interface) / 1.5 var(--font-interface);
-	}
-
-	.dump-ui .font-picker-header {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		padding-left: 14px;
-		background: --theme(--color-chrome);
 	}
 
 	.dump-ui .font-search-field {
@@ -880,20 +489,6 @@
 	.dump-ui .font-search-field > svg {
 		flex: none;
 		color: --theme(--color-muted-foreground);
-	}
-
-	.dump-ui .font-search {
-		width: 100%;
-		min-width: 0;
-		height: 100%;
-		border: 0;
-		padding: 0;
-		background: transparent;
-		color: inherit;
-	}
-
-	.dump-ui .font-search:focus-visible {
-		outline: none;
 	}
 
 	.dump-ui .font-search-field:focus-within {
@@ -911,36 +506,8 @@
 		padding: 0 14px;
 	}
 
-	.dump-ui .font-option {
-		display: block;
-		width: 100%;
-		height: var(--spacing-bar);
-		padding: 0 14px;
-		border: 0;
-		background: transparent;
-		color: inherit;
-		font-size: var(--text-heading);
-		text-align: left;
-	}
-
-	.dump-ui .font-option:hover,
-	.dump-ui .font-option[aria-selected="true"] {
-		background: --theme(--color-field-accent);
-	}
-
-	.dump-ui .font-picker-actions {
-		display: grid;
-		grid-template-columns: 1fr 1fr;
-		background: --theme(--color-chrome);
-	}
-
-	.dump-ui .font-picker-actions .panel-button:hover:not(:disabled) {
-		background: --theme(--color-accent);
-	}
-
 	@media (prefers-reduced-motion: reduce) {
-		.dump-ui .transient-panel,
-		.dump-ui .menu-content {
+		.dump-ui .transient-panel {
 			animation: none;
 		}
 	}

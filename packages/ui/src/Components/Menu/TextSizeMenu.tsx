@@ -1,7 +1,7 @@
 import { Minus, Plus, Type } from "lucide-react";
 import { scope } from "opshot";
 import { useCallback } from "react";
-import { DropdownMenuItem } from "../UI/DropdownMenu";
+import { DropdownMenuStepItem } from "../UI/DropdownMenu";
 import type { DumpContext } from "../../models/DumpContext";
 
 interface TextSizeMenuProps {
@@ -43,28 +43,24 @@ export const TextSizeMenu = scope(({ context }: TextSizeMenuProps) => {
 
 	return (
 		<div className="menu-size-row" role="group" aria-label="Text size">
-			<Type size={16} aria-hidden />
+			<Type className="size-icon" aria-hidden />
 			<span>Text size</span>
 			<div className="menu-size-controls">
-				<DropdownMenuItem
-					asChild
+				<DropdownMenuStepItem
+					aria-label="Decrease text size"
 					onSelect={decrease}
 					disabled={persistenceState.locked || session.appearance.textSize <= 8}
 				>
-					<button className="menu-size-adjust" type="button" aria-label="Decrease text size">
-						<Minus size={16} aria-hidden />
-					</button>
-				</DropdownMenuItem>
+					<Minus className="size-icon" aria-hidden />
+				</DropdownMenuStepItem>
 				<span className="menu-size-value">{session.appearance.textSize} pt</span>
-				<DropdownMenuItem
-					asChild
+				<DropdownMenuStepItem
+					aria-label="Increase text size"
 					onSelect={increase}
 					disabled={persistenceState.locked || session.appearance.textSize >= 24}
 				>
-					<button className="menu-size-adjust" type="button" aria-label="Increase text size">
-						<Plus size={16} aria-hidden />
-					</button>
-				</DropdownMenuItem>
+					<Plus className="size-icon" aria-hidden />
+				</DropdownMenuStepItem>
 			</div>
 		</div>
 	);

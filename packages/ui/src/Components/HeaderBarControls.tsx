@@ -11,10 +11,10 @@ interface HeaderBarControlsProps {
 export function HeaderBarControls({ context }: HeaderBarControlsProps) {
 	return (
 		<div className="header-bar-controls" data-slot="header-bar-controls">
-			<MinimizeButton className="header-bar-button" context={context}>
+			<MinimizeButton variant="gnome" context={context}>
 				<Minus size={12} strokeWidth={2.4} aria-hidden />
 			</MinimizeButton>
-			<MaximizeButton className="header-bar-button" context={context}>
+			<MaximizeButton variant="gnome" context={context}>
 				{(maximized) =>
 					maximized ? (
 						<Copy size={11} strokeWidth={2.4} aria-hidden />
@@ -23,7 +23,7 @@ export function HeaderBarControls({ context }: HeaderBarControlsProps) {
 					)
 				}
 			</MaximizeButton>
-			<CloseButton className="header-bar-button" context={context}>
+			<CloseButton variant="gnome" context={context}>
 				<X size={12} strokeWidth={2.4} aria-hidden />
 			</CloseButton>
 		</div>

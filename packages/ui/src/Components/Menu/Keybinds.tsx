@@ -3,7 +3,9 @@ import { scope } from "opshot";
 import { useCallback, useContext } from "react";
 import { capabilitiesOf } from "../../models/MainCapabilities";
 import { PlatformContext } from "../../models/PlatformContext";
-import { Dialog, DialogContent, DialogTitle } from "../UI/Dialog";
+import { Button } from "../UI/Button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../UI/Dialog";
+import { Kbd } from "../UI/Kbd";
 import type { ChromeContext } from "../../models/ChromeContext";
 
 const groups = [
@@ -110,15 +112,15 @@ export const Keybinds = scope(({ context }: KeybindsProps) => {
 				aria-describedby={undefined}
 				onCloseAutoFocus={restoreFocus}
 			>
-				<header className="font-picker-header">
+				<DialogHeader>
 					<DialogTitle>
 						<Keyboard size={18} aria-hidden />
 						Keybinds
 					</DialogTitle>
-					<button type="button" className="chrome-button" aria-label="Close keybinds" onClick={close}>
+					<Button variant="chrome" type="button" aria-label="Close keybinds" onClick={close}>
 						<X size={16} aria-hidden />
-					</button>
-				</header>
+					</Button>
+				</DialogHeader>
 				<div className="keybinds-list" role="region" aria-label="Keyboard shortcuts">
 					{visibleGroups.map((group) => (
 						<section key={group.title} aria-label={group.title}>
@@ -128,7 +130,7 @@ export const Keybinds = scope(({ context }: KeybindsProps) => {
 									<div className="keybind-row" key={label}>
 										<dt>{label}</dt>
 										<dd>
-											<kbd>{keys.replaceAll("Mod+", `${primaryModifier}+`)}</kbd>
+											<Kbd>{keys.replaceAll("Mod+", `${primaryModifier}+`)}</Kbd>
 										</dd>
 									</div>
 								))}
