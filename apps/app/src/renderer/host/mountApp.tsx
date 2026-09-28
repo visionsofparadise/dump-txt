@@ -1,5 +1,6 @@
 import { App } from "@dump-txt/ui";
 import { createRoot } from "react-dom/client";
+import { suppressWebviewContextMenu } from "./utils/suppressWebviewContextMenu";
 import type { Main } from "@dump-txt/ui/host";
 
 export function mountApp(main: Main, onReady?: () => void, dispose?: () => void): void {
@@ -11,9 +12,11 @@ export function mountApp(main: Main, onReady?: () => void, dispose?: () => void)
 	const cleanup = () => {
 		root.unmount();
 		dispose?.();
+		document.removeEventListener("contextmenu", suppressWebviewContextMenu);
 		window.removeEventListener("unload", cleanup);
 	};
 
+	document.addEventListener("contextmenu", suppressWebviewContextMenu);
 	window.addEventListener("unload", cleanup, { once: true });
 	import.meta.hot?.dispose(cleanup);
 	root.render(<App main={main} onReady={onReady} />);
