@@ -6,6 +6,7 @@ import { Button } from "../UI/Button";
 import { Checkbox } from "../UI/Checkbox";
 import { Input } from "../UI/Input";
 import { Label } from "../UI/Label";
+import { TransientPanel, TransientPanelOptions } from "./TransientPanel";
 import type { DumpContext } from "../../models/DumpContext";
 
 interface FindPanelProps {
@@ -89,14 +90,8 @@ export const FindPanel = scope(({ context }: FindPanelProps) => {
 	const disabled = persistenceState.locked;
 
 	return (
-		<div
-			role="dialog"
-			aria-modal="false"
-			className="transient-panel find-panel"
-			data-slot="find-panel"
-			aria-label="Find and replace"
-		>
-			<div className="panel-options" data-slot="panel-options">
+		<TransientPanel className="grid" data-slot="find-panel" aria-label="Find and replace">
+			<TransientPanelOptions>
 				<Input
 					ref={input}
 					onKeyDown={handleKeyDown}
@@ -143,8 +138,8 @@ export const FindPanel = scope(({ context }: FindPanelProps) => {
 				>
 					<X className="size-icon" aria-hidden="true" />
 				</Button>
-			</div>
-			<div className="panel-options" data-slot="panel-options">
+			</TransientPanelOptions>
+			<TransientPanelOptions>
 				<Input
 					variant="panel"
 					type="text"
@@ -175,8 +170,8 @@ export const FindPanel = scope(({ context }: FindPanelProps) => {
 				>
 					Replace all
 				</Button>
-			</div>
-			<div className="panel-options" data-slot="panel-options">
+			</TransientPanelOptions>
+			<TransientPanelOptions>
 				<Label>
 					<Checkbox
 						checked={session.find.matchCase}
@@ -195,12 +190,15 @@ export const FindPanel = scope(({ context }: FindPanelProps) => {
 					/>{" "}
 					All pages
 				</Label>
-				<output className="panel-count" aria-live="polite">
+				<output
+					className="ml-auto pr-3 text-secondary whitespace-nowrap text-popover-muted-foreground tabular-nums"
+					aria-live="polite"
+				>
 					{matches.length === 0 || session.find.activeMatch < 0
 						? `${matches.length} matches`
 						: `${Math.min(session.find.activeMatch + 1, matches.length)} of ${matches.length}`}
 				</output>
-			</div>
-		</div>
+			</TransientPanelOptions>
+		</TransientPanel>
 	);
 });

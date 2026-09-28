@@ -4,6 +4,7 @@ import { useCallback, type KeyboardEvent, type MouseEvent } from "react";
 import { Button } from "../UI/Button";
 import { Checkbox } from "../UI/Checkbox";
 import { Label } from "../UI/Label";
+import { TransientPanel, TransientPanelOptions } from "./TransientPanel";
 import type { DumpContext } from "../../models/DumpContext";
 
 interface OccurrencePanelProps {
@@ -51,13 +52,8 @@ export const OccurrencePanel = scope(({ context }: OccurrencePanelProps) => {
 	if (!occurrence) return null;
 
 	return (
-		<div
-			role="dialog"
-			aria-modal="false"
-			className="transient-panel occurrence-panel"
-			aria-label="Multiple selections"
-		>
-			<div className="panel-options" data-slot="panel-options">
+		<TransientPanel data-slot="occurrence-panel" aria-label="Multiple selections">
+			<TransientPanelOptions className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_var(--spacing-button)]">
 				<Label>
 					<Checkbox
 						checked={occurrence.matchCase}
@@ -90,7 +86,7 @@ export const OccurrencePanel = scope(({ context }: OccurrencePanelProps) => {
 				>
 					<X className="size-icon" aria-hidden="true" />
 				</Button>
-			</div>
-		</div>
+			</TransientPanelOptions>
+		</TransientPanel>
 	);
 });

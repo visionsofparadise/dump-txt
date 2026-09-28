@@ -42,7 +42,7 @@ const merge = extendTailwindMerge({
 			],
 			font: ["interface", "mono", "title", "gnome"],
 			text: ["interface", "secondary", "heading"],
-			spacing: ["bar", "button", "icon", "status"],
+			spacing: ["bar", "button", "icon", "status", "touch"],
 			shadow: ["menu", "panel", "toast", "dialog", "traffic-light"],
 			animate: ["panel-appear"],
 		},

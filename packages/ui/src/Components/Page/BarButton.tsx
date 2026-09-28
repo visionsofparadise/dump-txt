@@ -6,7 +6,7 @@ interface BarButtonProps {
 	readonly shortcut?: string;
 	readonly disabled: boolean;
 	readonly variant?: ComponentProps<typeof Button>["variant"];
-	readonly offset?: ComponentProps<typeof Button>["offset"];
+	readonly className?: string;
 	readonly onClick: () => void;
 	readonly children: ReactNode;
 }
@@ -16,14 +16,14 @@ export function BarButton({
 	shortcut,
 	disabled,
 	variant = "chrome",
-	offset,
+	className,
 	onClick,
 	children,
 }: BarButtonProps) {
 	return (
 		<Button
 			variant={variant}
-			offset={offset}
+			className={className}
 			aria-label={label}
 			title={shortcut ? `${label} (${shortcut})` : label}
 			disabled={disabled}

@@ -13,6 +13,10 @@ import {
 } from "../UI/DropdownMenu";
 import type { ChromeContext } from "../../models/ChromeContext";
 
+const mobileSubmenuWidth = 160;
+
+const mobileSubmenuStyle = { width: mobileSubmenuWidth };
+
 interface AppearanceMenuProps {
 	readonly context: ChromeContext;
 }
@@ -50,8 +54,8 @@ export const AppearanceMenu = scope(({ context }: AppearanceMenuProps) => {
 			</DropdownMenuSubTrigger>
 			<DropdownMenuSubContent
 				container={context.surface.current}
-				sideOffset={mobile ? -160 : 0}
-				style={mobile ? { width: 160 } : undefined}
+				sideOffset={mobile ? -mobileSubmenuWidth : 0}
+				style={mobile ? mobileSubmenuStyle : undefined}
 			>
 				<DropdownMenuRadioGroup value={session.appearance.theme} onValueChange={themeChanged}>
 					<DropdownMenuRadioItem value="system" disabled={persistenceState.locked}>

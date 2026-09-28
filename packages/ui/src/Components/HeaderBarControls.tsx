@@ -10,7 +10,10 @@ interface HeaderBarControlsProps {
 
 export function HeaderBarControls({ context }: HeaderBarControlsProps) {
 	return (
-		<div className="header-bar-controls" data-slot="header-bar-controls">
+		<div
+			className="col-start-3 row-start-1 flex h-full items-center justify-end gap-3.5 pr-2"
+			data-slot="header-bar-controls"
+		>
 			<MinimizeButton variant="gnome" context={context}>
 				<Minus size={12} strokeWidth={2.4} aria-hidden />
 			</MinimizeButton>

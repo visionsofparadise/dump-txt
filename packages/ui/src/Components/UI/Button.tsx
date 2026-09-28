@@ -3,7 +3,7 @@ import { cn } from "../../utils/cn";
 import type { ComponentProps } from "react";
 
 const chrome =
-	"grid h-bar w-button flex-none place-items-center app-no-drag hover:not-disabled:bg-accent hover:not-disabled:text-foreground data-[state=open]:bg-accent data-[state=open]:text-foreground touch:min-h-11 touch:min-w-11 touch:touch-manipulation";
+	"grid h-bar w-button flex-none place-items-center app-no-drag hover:not-disabled:bg-accent hover:not-disabled:text-foreground data-[state=open]:bg-accent data-[state=open]:text-foreground touch:min-h-touch touch:min-w-touch touch:touch-manipulation";
 
 const panelFocus = "focus-visible:bg-accent focus-visible:outline-none";
 
@@ -38,24 +38,22 @@ const buttonVariants = cva(
 				icon: ["h-bar w-button flex-none rounded-none p-0", panelFocus],
 				block: "h-bar w-full min-w-0 justify-center gap-2 rounded-none",
 			},
-			offset: {
-				none: "pl-0",
-				one: "pl-button",
-				two: "pl-[calc(var(--spacing-button)*2)]",
-			},
+		},
+		defaultVariants: {
+			variant: "panel",
 		},
 	},
 );
 
 interface ButtonProps extends ComponentProps<"button">, VariantProps<typeof buttonVariants> {}
 
-export function Button({ className, variant, tone, size, offset, ...props }: ButtonProps) {
+export function Button({ className, variant = "panel", tone, size, ...props }: ButtonProps) {
 	return (
 		<button
 			data-slot="button"
 			data-variant={variant ?? undefined}
 			data-size={size ?? undefined}
-			className={cn(buttonVariants({ variant, tone, size, offset, className }))}
+			className={cn(buttonVariants({ variant, tone, size, className }))}
 			{...props}
 		/>
 	);

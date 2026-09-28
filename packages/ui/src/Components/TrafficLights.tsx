@@ -9,7 +9,7 @@ interface TrafficLightsProps {
 
 export function TrafficLights({ context }: TrafficLightsProps) {
 	return (
-		<div className="traffic-lights" data-slot="traffic-lights">
+		<div className="col-start-1 row-start-1 flex h-full items-center gap-2 pl-3" data-slot="traffic-lights">
 			<CloseButton variant="macos" tone="close" context={context} />
 			<MinimizeButton variant="macos" tone="minimize" context={context} />
 			<MaximizeButton variant="macos" tone="maximize" context={context} />

@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { PageEditorSurface } from "./Surface";
 import type { EditorController } from "../../models/EditorController";
 
 interface PageEditorProps {
@@ -25,5 +26,5 @@ export function PageEditor({ editor }: PageEditorProps) {
 		};
 	}, [editor]);
 
-	return <div className="page-editor" data-slot="page-editor" ref={parent} />;
+	return <PageEditorSurface className="data-covered:opacity-0" ref={parent} />;
 }

@@ -1,11 +1,13 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { observePageTouch } from "../../utils/observePageTouch";
+import { mobilePlatforms } from "../../utils/platformGroups";
 import { PageEditor } from "./Editor";
 import { FindPanel } from "./FindPanel";
 import { OccurrencePanel } from "./OccurrencePanel";
 import { SaveStatus } from "./SaveStatus";
 import { PageSnapshot } from "./Snapshot";
+import { PageSurface } from "./Surface";
 import type { DumpContext } from "../../models/DumpContext";
 import type { PageTransition } from "../../models/EditorController";
 
@@ -25,7 +27,7 @@ export function PageLayout({ context }: PageLayoutProps) {
 	const outgoing = useRef<HTMLDivElement>(null);
 
 	useEffect(() => {
-		if (!current.current || !["android", "ios"].includes(context.main.platform ?? "")) return;
+		if (!current.current || !mobilePlatforms.has(context.main.platform ?? "")) return;
 
 		return observePageTouch(current.current, editor, navigation);
 	}, [context.main.platform, editor, navigation]);
@@ -78,10 +80,14 @@ export function PageLayout({ context }: PageLayoutProps) {
 	}, [editor, transition]);
 
 	return (
-		<section className="page-viewport" data-slot="page-viewport" aria-label="Current page">
-			<div className="page-current" data-slot="page-current" ref={current}>
+		<section
+			className="relative @container-size min-h-0 overflow-hidden"
+			data-slot="page-viewport"
+			aria-label="Current page"
+		>
+			<PageSurface data-slot="page-current" ref={current}>
 				<PageEditor editor={editor} />
-			</div>
+			</PageSurface>
 			{transition && <PageSnapshot ref={outgoing} snapshot={transition.outgoing} />}
 			{transition?.incoming && <PageSnapshot ref={incoming} snapshot={transition.incoming} />}
 			<FindPanel context={context} />

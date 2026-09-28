@@ -108,28 +108,31 @@ export const Keybinds = scope(({ context }: KeybindsProps) => {
 		<Dialog open={chrome.keybindsOpen} onOpenChange={openChanged}>
 			<DialogContent
 				container={context.surface.current}
-				className="keybinds-modal"
+				className="w-130"
 				aria-describedby={undefined}
 				onCloseAutoFocus={restoreFocus}
 			>
 				<DialogHeader>
 					<DialogTitle>
-						<Keyboard size={18} aria-hidden />
+						<Keyboard className="size-icon" aria-hidden />
 						Keybinds
 					</DialogTitle>
 					<Button variant="chrome" type="button" aria-label="Close keybinds" onClick={close}>
 						<X size={16} aria-hidden />
 					</Button>
 				</DialogHeader>
-				<div className="keybinds-list" role="region" aria-label="Keyboard shortcuts">
+				<div className="scrollbar-bar overflow-y-auto" role="region" aria-label="Keyboard shortcuts">
 					{visibleGroups.map((group) => (
 						<section key={group.title} aria-label={group.title}>
-							<h2>{group.title}</h2>
+							<h2 className="bg-muted p-3 font-semibold">{group.title}</h2>
 							<dl>
 								{group.bindings.map(([label, keys]) => (
-									<div className="keybind-row" key={label}>
+									<div
+										className="flex min-h-bar items-center justify-between gap-4 px-3 hover:bg-accent"
+										key={label}
+									>
 										<dt>{label}</dt>
-										<dd>
+										<dd className="text-right">
 											<Kbd>{keys.replaceAll("Mod+", `${primaryModifier}+`)}</Kbd>
 										</dd>
 									</div>

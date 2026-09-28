@@ -34,19 +34,22 @@ export const StatusBar = scope(({ context }: StatusBarProps) => {
 	const countLabel = `${selectionLabel}${counts.characters} chars · ${counts.words} words · ${counts.lines} lines`;
 
 	return (
-		<footer className="status-bar" aria-label="Editor status">
+		<footer
+			className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 bg-chrome px-2.5 font-mono text-secondary leading-none text-muted-foreground tabular-nums select-none"
+			aria-label="Editor status"
+		>
 			<span
-				className="status-counts"
+				className="truncate"
 				data-slot="status-counts"
 				title={`${selection.selected ? "Selected: " : "Page: "}${countLabel}`}
 			>
 				{countLabel}
 			</span>
-			<span className="status-position" data-slot="status-position" title={selection.position}>
+			<span className="truncate" data-slot="status-position" title={selection.position}>
 				{selection.position}
 			</span>
 			<span
-				className="page-count"
+				className="justify-self-end whitespace-nowrap"
 				data-slot="page-count"
 				role="status"
 				aria-label={`Page ${index + 1} of ${document.pages.length}`}

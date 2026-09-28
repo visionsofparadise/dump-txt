@@ -34,7 +34,7 @@ export const SaveStatus = scope(({ context }: SaveStatusProps) => {
 	return (
 		<Alert className="absolute right-2.5 bottom-2 left-2.5 z-7 max-h-[calc(100%-16px)]">
 			<span>{persistenceState.error}</span>
-			<div className="save-error-actions">
+			<div className="flex shrink-0 gap-0.75">
 				<Button variant="panel" disabled={persistenceState.locked} onClick={retry}>
 					Retry
 				</Button>

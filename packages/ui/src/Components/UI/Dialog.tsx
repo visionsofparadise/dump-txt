@@ -19,7 +19,7 @@ export function DialogContent({ children, className, container, ...props }: Dial
 			<Content
 				data-slot="dialog-content"
 				className={cn(
-					"absolute top-1/2 left-1/2 z-51 -translate-1/2 rounded-lg shadow-dialog outline-none",
+					"absolute top-1/2 left-1/2 z-51 grid max-h-[calc(100%-48px)] max-w-[calc(100%-48px)] -translate-1/2 grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden rounded-lg bg-bar shadow-dialog outline-none",
 					className,
 				)}
 				{...props}
@@ -36,7 +36,7 @@ export function DialogHeader({ className, ...props }: DialogHeaderProps) {
 	return (
 		<header
 			data-slot="dialog-header"
-			className={cn("flex items-center justify-between bg-chrome pl-3.5", className)}
+			className={cn("flex h-bar items-center justify-between bg-chrome pl-3.5", className)}
 			{...props}
 		/>
 	);
@@ -48,7 +48,7 @@ export function DialogFooter({ className, ...props }: DialogFooterProps) {
 	return (
 		<footer
 			data-slot="dialog-footer"
-			className={cn("grid auto-cols-fr grid-flow-col bg-chrome", className)}
+			className={cn("grid h-bar auto-cols-fr grid-flow-col bg-chrome", className)}
 			{...props}
 		/>
 	);

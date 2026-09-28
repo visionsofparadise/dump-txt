@@ -10,7 +10,7 @@ export function Alert({ className, ...props }: AlertProps) {
 			role="status"
 			aria-live="polite"
 			className={cn(
-				"flex flex-wrap items-center justify-between gap-1.5 overflow-auto rounded-sm border border-border bg-card px-2.5 py-1.75 font-interface text-interface leading-[1.5] shadow-toast",
+				"flex flex-wrap items-center justify-between gap-1.5 overflow-auto rounded-sm border border-border bg-card px-2.5 py-1.75 shadow-toast",
 				className,
 			)}
 			{...props}

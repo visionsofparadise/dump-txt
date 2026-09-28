@@ -3,7 +3,7 @@ import { scope } from "opshot";
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type KeyboardEvent } from "react";
 import { Button } from "../UI/Button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "../UI/Dialog";
-import { Input } from "../UI/Input";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "../UI/InputGroup";
 import { FontMenuItem } from "./FontMenuItem";
 import type { ChromeContext } from "../../models/ChromeContext";
 
@@ -157,30 +157,31 @@ export const FontPicker = scope(({ context }: FontPickerProps) => {
 		<Dialog open={open} onOpenChange={openChanged}>
 			<DialogContent
 				container={context.surface.current}
-				className="font-picker"
+				className="h-120 w-110 grid-rows-[auto_auto_minmax(80px,1fr)_auto]"
 				aria-describedby={undefined}
 				onOpenAutoFocus={focusSearch}
 				onCloseAutoFocus={restoreFocus}
 			>
 				<DialogHeader>
 					<DialogTitle>
-						<CaseSensitive size={18} aria-hidden />
+						<CaseSensitive className="size-icon" aria-hidden />
 						Font
 					</DialogTitle>
 				</DialogHeader>
-				<div className="font-search-field">
-					<Search className="size-icon" aria-hidden />
-					<Input
+				<InputGroup className="mx-3 my-2 h-9">
+					<InputGroupAddon>
+						<Search className="size-icon" aria-hidden />
+					</InputGroupAddon>
+					<InputGroupInput
 						ref={search}
-						variant="bare"
 						aria-label="Search installed fonts"
 						value={query}
 						onChange={queryChanged}
 					/>
-				</div>
+				</InputGroup>
 				<div
 					ref={list}
-					className="font-list"
+					className="mx-3 mb-3 min-h-0 scrollbar-bar overflow-auto bg-field [&>p]:px-3.5"
 					data-slot="font-list"
 					role="listbox"
 					aria-label="Installed fonts"

@@ -1,9 +1,9 @@
 import { ChevronUp, ChevronsUp, Plus } from "lucide-react";
 import { scope } from "opshot";
-import { cn } from "../../utils/cn";
 import { useBarControls } from "../../utils/useBarControls";
 import { BarButton } from "./BarButton";
 import { MoveIcon } from "./MoveIcon";
+import { PageBar, PageBarNavigationButton } from "./PageBar";
 import type { DumpContext } from "../../models/DumpContext";
 import type { ReactNode } from "react";
 
@@ -15,14 +15,11 @@ interface UpBarProps {
 export const UpBar = scope(({ context, children }: UpBarProps) => {
 	const { bar, atEnd, blankEnd, locked, insert, navigate, boundary, move } = useBarControls(context, "up");
 
+	const variant = children ? "menu" : "previous";
+
 	return (
-		<nav
-			ref={bar}
-			className={cn("page-bar", children && "page-bar-menu")}
-			data-slot="page-bar"
-			aria-label="Previous page controls"
-		>
-			<div className="page-bar-leading" data-slot="page-bar-leading">
+		<PageBar ref={bar} variant={variant} aria-label="Previous page controls">
+			<div className="flex" data-slot="page-bar-leading">
 				<BarButton
 					label="Insert page above"
 					shortcut="Ctrl+Shift+N"
@@ -34,17 +31,16 @@ export const UpBar = scope(({ context, children }: UpBarProps) => {
 				</BarButton>
 				{children}
 			</div>
-			<BarButton
+			<PageBarNavigationButton
 				label="Previous page"
 				shortcut="Alt+Up"
-				variant="nav"
-				offset={children ? "none" : "one"}
+				bar={variant}
 				disabled={blankEnd || locked}
 				onClick={navigate}
 			>
 				<ChevronUp className="size-icon" aria-hidden />
-			</BarButton>
-			<div className="page-bar-trailing">
+			</PageBarNavigationButton>
+			<div className="flex">
 				<BarButton label="Move page up" disabled={locked} onClick={move}>
 					<MoveIcon up />
 				</BarButton>
@@ -52,6 +48,6 @@ export const UpBar = scope(({ context, children }: UpBarProps) => {
 					<ChevronsUp className="size-icon" aria-hidden />
 				</BarButton>
 			</div>
-		</nav>
+		</PageBar>
 	);
 });

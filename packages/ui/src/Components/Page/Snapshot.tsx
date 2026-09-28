@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef, type Ref } from "react";
+import { PageEditorSurface, PageSurface } from "./Surface";
 import type { PageSnapshot as Snapshot } from "../../models/EditorController";
 
 interface PageSnapshotProps {
@@ -24,8 +25,14 @@ export function PageSnapshot({ snapshot, ref }: PageSnapshotProps) {
 	}, [snapshot]);
 
 	return (
-		<div className="page-snapshot" data-slot="page-snapshot" ref={ref} aria-hidden inert>
-			<div className="page-editor" data-slot="page-editor" ref={content} />
-		</div>
+		<PageSurface
+			className="pointer-events-none overflow-hidden"
+			data-slot="page-snapshot"
+			ref={ref}
+			aria-hidden
+			inert
+		>
+			<PageEditorSurface ref={content} />
+		</PageSurface>
 	);
 }

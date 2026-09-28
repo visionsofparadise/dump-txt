@@ -1,7 +1,7 @@
 import { Minus, Plus, Type } from "lucide-react";
 import { scope } from "opshot";
 import { useCallback } from "react";
-import { DropdownMenuStepItem } from "../UI/DropdownMenu";
+import { DropdownMenuRow, DropdownMenuStepItem } from "../UI/DropdownMenu";
 import type { DumpContext } from "../../models/DumpContext";
 
 interface TextSizeMenuProps {
@@ -42,10 +42,10 @@ export const TextSizeMenu = scope(({ context }: TextSizeMenuProps) => {
 	);
 
 	return (
-		<div className="menu-size-row" role="group" aria-label="Text size">
+		<DropdownMenuRow aria-label="Text size">
 			<Type className="size-icon" aria-hidden />
 			<span>Text size</span>
-			<div className="menu-size-controls">
+			<div className="ml-auto flex items-center">
 				<DropdownMenuStepItem
 					aria-label="Decrease text size"
 					onSelect={decrease}
@@ -53,7 +53,7 @@ export const TextSizeMenu = scope(({ context }: TextSizeMenuProps) => {
 				>
 					<Minus className="size-icon" aria-hidden />
 				</DropdownMenuStepItem>
-				<span className="menu-size-value">{session.appearance.textSize} pt</span>
+				<span className="min-w-10 text-center tabular-nums">{session.appearance.textSize} pt</span>
 				<DropdownMenuStepItem
 					aria-label="Increase text size"
 					onSelect={increase}
@@ -62,6 +62,6 @@ export const TextSizeMenu = scope(({ context }: TextSizeMenuProps) => {
 					<Plus className="size-icon" aria-hidden />
 				</DropdownMenuStepItem>
 			</div>
-		</div>
+		</DropdownMenuRow>
 	);
 });

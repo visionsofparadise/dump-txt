@@ -1,5 +1,6 @@
 import {
 	Content,
+	Group,
 	Item,
 	ItemIndicator,
 	Portal,
@@ -18,10 +19,14 @@ import { cn } from "../../utils/cn";
 import type { ComponentProps } from "react";
 
 const content =
-	"z-20 max-h-(--radix-dropdown-menu-content-available-height) w-72 max-w-full animate-panel-appear overflow-y-auto rounded-none bg-popover p-0 font-interface text-interface text-foreground leading-[1.5] shadow-menu motion-reduce:animate-none";
+	"z-20 max-h-(--radix-dropdown-menu-content-available-height) w-72 max-w-full animate-panel-appear overflow-y-auto rounded-none bg-popover p-0 shadow-menu motion-reduce:animate-none";
 
-const item =
-	"flex h-bar min-h-bar cursor-default items-center gap-3 px-3 whitespace-nowrap outline-none select-none data-disabled:pointer-events-none data-disabled:opacity-30 data-highlighted:bg-popover-accent data-[state=open]:bg-popover-accent [&>svg]:flex-none";
+const row = "flex h-bar items-center gap-3 pl-3 whitespace-nowrap select-none [&>svg]:flex-none";
+
+const item = [
+	row,
+	"min-h-bar cursor-default pr-3 outline-none data-disabled:pointer-events-none data-disabled:opacity-30 data-highlighted:bg-popover-accent data-[state=open]:bg-popover-accent",
+];
 
 interface DropdownMenuProps extends ComponentProps<typeof Root> {}
 
@@ -64,6 +69,12 @@ interface DropdownMenuItemProps extends ComponentProps<typeof Item> {}
 
 export function DropdownMenuItem({ className, ...props }: DropdownMenuItemProps) {
 	return <Item data-slot="dropdown-menu-item" className={cn(item, className)} {...props} />;
+}
+
+interface DropdownMenuRowProps extends ComponentProps<typeof Group> {}
+
+export function DropdownMenuRow({ className, ...props }: DropdownMenuRowProps) {
+	return <Group data-slot="dropdown-menu-row" className={cn(row, className)} {...props} />;
 }
 
 interface DropdownMenuStepItemProps extends Omit<ComponentProps<typeof Item>, "asChild"> {}

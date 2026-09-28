@@ -264,7 +264,7 @@ describe("scratchpad interface", () => {
 			expect(container.querySelector('[data-slot="title-bar"]')).toBeNull();
 			expect(menu.previousElementSibling).toBe(screen.getByRole("button", { name: "Insert page above" }));
 		} else {
-			expect(menu.closest('[data-slot="title-bar"]')?.getAttribute("data-platform")).toBe(platform);
+			expect(menu.closest('[data-slot="title-bar"]')).not.toBeNull();
 			expect(container.querySelector('[data-slot="app-name"]')?.textContent).toBe("dump.txt");
 		}
 		await waitFor(() => expect(main.setTitle).toHaveBeenLastCalledWith("dump.txt"));
@@ -289,8 +289,7 @@ describe("scratchpad interface", () => {
 				});
 			};
 
-			expect(titleBar.getAttribute("data-platform")).toBe(platform);
-			expect(container.querySelector('[data-slot="dump-app"]')?.getAttribute("data-decorations")).toBe("drawn");
+			expect(controls).not.toBeNull();
 			expect(within(titleBar).getByText("dump.txt").getAttribute("data-slot")).toBe("app-name");
 			expect(
 				within(controls)
@@ -321,7 +320,6 @@ describe("scratchpad interface", () => {
 		async (platform) => {
 			const { container } = await fixture(undefined, platform, undefined, "native");
 
-			expect(container.querySelector('[data-slot="dump-app"]')?.getAttribute("data-decorations")).toBe("native");
 			expect(container.querySelector('[data-slot="traffic-lights"]')).toBeNull();
 			expect(container.querySelector('[data-slot="header-bar-controls"]')).toBeNull();
 			expect(screen.queryByRole("button", { name: "Minimize" })).toBeNull();
@@ -369,6 +367,17 @@ describe("scratchpad interface", () => {
 		expect(
 			container.querySelector('[data-slot="page-bar"][aria-label="Next page controls"] [data-slot="page-count"]'),
 		).toBeNull();
+	});
+
+	it("marks the app grid's status bar row hidden when the status bar is toggled off", async () => {
+		const { container, user } = await fixture();
+		const statusBar = () => container.querySelector('[data-slot="dump-app"]')?.getAttribute("data-status-bar");
+
+		expect(statusBar()).toBe("shown");
+		await user.click(screen.getByRole("button", { name: "App menu" }));
+		await user.click(await screen.findByRole("menuitem", { name: "Hide status bar" }));
+		await waitFor(() => expect(statusBar()).toBe("hidden"));
+		expect(screen.queryByLabelText("Editor status")).toBeNull();
 	});
 
 	it("keeps insertion slots fixed and extends past the ends with blank pages", async () => {

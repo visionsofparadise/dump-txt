@@ -13,7 +13,8 @@ import {
 } from "react";
 import { capabilitiesOf } from "../models/MainCapabilities";
 import { PlatformContext } from "../models/PlatformContext";
-import { barMenuPlatforms } from "../utils/platformGroups";
+import { cn } from "../utils/cn";
+import { barMenuPlatforms, mobilePlatforms, showsTitleBar } from "../utils/platformGroups";
 import { Menu } from "./Menu";
 import { ChromeDialogs } from "./Menu/ChromeDialogs";
 import { DownBar } from "./Page/DownBar";
@@ -33,7 +34,6 @@ interface LayoutProps {
 interface EditorStyle extends CSSProperties {
 	readonly "--editor-font": string;
 	readonly "--editor-size": string;
-	readonly "--status-bar-height": string;
 }
 
 export const Layout = scope(({ ref, surface, context: dumpContext }: LayoutProps) => {
@@ -62,9 +62,8 @@ export const Layout = scope(({ ref, surface, context: dumpContext }: LayoutProps
 		() => ({
 			"--editor-font": `"${font}", ${/mono|consol|courier|cascadia/iu.test(font) ? "monospace" : /georgia|cambria|times|serif/iu.test(font) ? "serif" : "sans-serif"}`,
 			"--editor-size": `${textSize}pt`,
-			"--status-bar-height": showStatusBar ? "24px" : "0px",
 		}),
-		[font, textSize, showStatusBar],
+		[font, textSize],
 	);
 
 	useLayoutEffect(() => editor.refreshAppearance(), [editor, font, textSize]);
@@ -150,10 +149,15 @@ export const Layout = scope(({ ref, surface, context: dumpContext }: LayoutProps
 
 	return (
 		<main
-			className="dump-app"
+			className={cn(
+				"grid h-full grid-rows-[var(--spacing-bar)_var(--spacing-bar)_minmax(0,1fr)_var(--spacing-bar)_var(--spacing-status)] overflow-hidden bg-background data-[status-bar=hidden]:[--spacing-status:0px]",
+				!showsTitleBar(platform, decorations) &&
+					"grid-rows-[var(--spacing-bar)_minmax(0,1fr)_var(--spacing-bar)_var(--spacing-status)]",
+				mobilePlatforms.has(platform) && "[--spacing-bar:var(--spacing-touch)]",
+			)}
 			data-slot="dump-app"
 			data-platform={platform}
-			data-decorations={decorations}
+			data-status-bar={showStatusBar ? "shown" : "hidden"}
 			style={appearance}
 		>
 			<TitleBar chrome={context.chrome} onDismissMenu={dismissMenu} context={context}>
