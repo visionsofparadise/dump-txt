@@ -8,12 +8,19 @@
 		"packages/*"
 	],
 	"scripts": {
+		"prestart": "cd apps/app && node ../../sweep.mjs",
 		"start": "turbo start --filter=@dump-txt/app --",
+		"prebuild": "cd apps/app && node ../../sweep.mjs",
 		"build": "turbo build --filter=@dump-txt/app --",
+		"precheck": "cd apps/app && node ../../sweep.mjs",
 		"check": "concurrently --group \"prettier --check .\" \"turbo check\" \"eslint tools.mjs commitlint.config.mjs .githooks/pre-push.mjs --no-cache -f unix\" \"stylelint \\\"**/*.css\\\" -f unix --allow-empty-input --cache\" \"markdownlint-cli2 \\\"**/*.md\\\"\" \"textlint -f compact \\\"**/*.md\\\"\" \"knip --no-progress\" \"jscpd .\" \"node tools.mjs run actionlint\" \"check-dependency-version-consistency .\"",
+		"prefix": "cd apps/app && node ../../sweep.mjs",
 		"fix": "concurrently -m 1 --group \"prettier --write .\" \"turbo fix\" \"eslint tools.mjs commitlint.config.mjs .githooks/pre-push.mjs --fix --cache\" \"stylelint \\\"**/*.css\\\" --fix --allow-empty-input --cache\" \"markdownlint-cli2 --fix \\\"**/*.md\\\"\" \"textlint --fix \\\"**/*.md\\\"\"",
+		"preunit": "cd apps/app && node ../../sweep.mjs",
 		"unit": "turbo unit",
+		"preintegration": "cd apps/app && node ../../sweep.mjs",
 		"integration": "turbo integration",
+		"pretauri-test": "cd apps/app && node ../../sweep.mjs",
 		"tauri-test": "turbo tauri-test --",
 		"prepare": "node -e \"const c=require('node:child_process');if(c.spawnSync('git',['rev-parse','--is-inside-work-tree'],{stdio:'ignore'}).status===0)c.execFileSync('git',['config','core.hooksPath','.githooks'])\" && node tools.mjs install && cargo install styling-lint --version 0.1.0 --locked && cargo install cargo-machete --version 0.9.2 --locked"
 	},
