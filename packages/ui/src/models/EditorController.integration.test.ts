@@ -61,6 +61,7 @@ function fixture(callbacks: ConstructorParameters<typeof EditorController>[4] = 
 }
 
 afterEach(() => {
+	vi.useRealTimers();
 	vi.unstubAllGlobals();
 	vi.restoreAllMocks();
 	for (const controller of controllers.splice(0)) controller.dispose();
@@ -498,7 +499,8 @@ describe("CodeMirror bridge", () => {
 		expect(active).toBeNull();
 	});
 
-	it("requires excess editor scrolling and keeps bar navigation independent", async () => {
+	it("requires excess editor scrolling and keeps bar navigation independent", () => {
+		vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "requestAnimationFrame", "cancelAnimationFrame"] });
 		const { controller, view, session, navigation } = fixture();
 		controller.closeOccurrence();
 		view.dispatch({ selection: EditorSelection.cursor(0) });
@@ -518,8 +520,8 @@ describe("CodeMirror bridge", () => {
 		expect(session.view.activePageId).toBe("first");
 		controller.handleWheel(new WheelEvent("wheel", { deltaY: 200 }));
 		expect(session.view.activePageId).toBe("second");
-		await vi.waitFor(() => expect(view.scrollDOM.scrollTop).toBe(0));
-		await new Promise((resolve) => setTimeout(resolve, 100));
+		vi.advanceTimersByTime(100);
+		expect(view.scrollDOM.scrollTop).toBe(0);
 		navigation.handleWheel(new WheelEvent("wheel", { deltaY: 100 }));
 		expect(session.view.activePageId).not.toBe("second");
 		view.dispatch({ selection: EditorSelection.cursor(0) });

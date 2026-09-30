@@ -78,14 +78,15 @@ describe("Tauri desktop boundary", () => {
 		]) {
 			const event = new KeyboardEvent("keydown", { ...options, cancelable: true });
 
+			native.invoke.mockClear();
 			window.dispatchEvent(event);
 			expect(event.defaultPrevented).toBe(true);
+			expect(native.invoke).toHaveBeenCalledWith("open_inspector", { request: {} });
 		}
-		expect(native.invoke).toHaveBeenCalledTimes(3);
-		expect(native.invoke).toHaveBeenLastCalledWith("open_inspector", { request: {} });
 		desktop.dispose();
+		native.invoke.mockClear();
 		window.dispatchEvent(new KeyboardEvent("keydown", { key: "F12" }));
-		expect(native.invoke).toHaveBeenCalledTimes(3);
+		expect(native.invoke).not.toHaveBeenCalled();
 	});
 
 	it("awaits all native subscriptions before exposing synchronous local events", async () => {
@@ -110,7 +111,8 @@ describe("Tauri desktop boundary", () => {
 
 		await Promise.resolve();
 		expect(ready).toBe(false);
-		expect(native.listen).toHaveBeenCalledTimes(3);
+		for (const channel of ["closeRequested", "windowBoundsChanged", "maximizedChanged"])
+			expect(native.listen).toHaveBeenCalledWith(channel, expect.any(Function));
 		release();
 
 		const desktop = await creating;
@@ -226,7 +228,7 @@ describe("Tauri desktop boundary", () => {
 		expect(native.invoke).toHaveBeenLastCalledWith(command, { request: options });
 		native.invoke.mockResolvedValueOnce({ ok: true, value: null });
 		await expect(desktop.main[method]()).resolves.toBeNull();
-		expect(native.invoke).toHaveBeenCalledTimes(3);
+		expect(native.invoke).toHaveBeenLastCalledWith(command, { request: {} });
 		desktop.dispose();
 	});
 

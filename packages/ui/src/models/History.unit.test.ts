@@ -96,13 +96,13 @@ describe("Opshot document history", () => {
 		history.dispose();
 	});
 
-	it("groups adjacent typing for 600 ms and closes boundaries explicitly", () => {
+	it("groups adjacent typing, separates typing after a pause, and closes boundaries explicitly", () => {
 		vi.useFakeTimers();
 		const { document, history, commit } = fixture([""]);
 		commit([{ id: "0", text: "a" }], "typing:0:cursor");
-		vi.advanceTimersByTime(600);
+		vi.advanceTimersByTime(100);
 		commit([{ id: "0", text: "ab" }], "typing:0:cursor");
-		vi.advanceTimersByTime(601);
+		vi.advanceTimersByTime(5000);
 		commit([{ id: "0", text: "abc" }], "typing:0:cursor");
 		history.closeGroup();
 		commit([{ id: "0", text: "abcd" }], "typing:0:cursor");

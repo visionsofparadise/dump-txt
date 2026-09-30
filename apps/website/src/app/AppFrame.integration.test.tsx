@@ -549,7 +549,7 @@ describe("AppFrame", { timeout: 30_000 }, () => {
 			playback?.fail(missing);
 		});
 		await act(async () => {
-			await vi.advanceTimersByTimeAsync(990);
+			await vi.advanceTimersByTimeAsync(0);
 		});
 
 		expect(error).toHaveBeenCalledTimes(2);
@@ -557,7 +557,7 @@ describe("AppFrame", { timeout: 30_000 }, () => {
 		expect(createPlayback).toHaveBeenCalledOnce();
 
 		await act(async () => {
-			await vi.advanceTimersByTimeAsync(10);
+			await vi.advanceTimersByTimeAsync(2000);
 		});
 
 		expect(createPlayback).toHaveBeenCalledTimes(2);

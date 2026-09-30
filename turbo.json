@@ -11,20 +11,12 @@
 		".textlintrc.json",
 		".textlintignore",
 		"knip.json",
-		".jscpd.json",
 		"tsconfig.json",
 		"rust-toolchain.toml",
 		"rustfmt.toml",
 		"tools.json"
 	],
-	"globalEnv": [
-		"OS",
-		"RUNNER_OS",
-		"PROCESSOR_ARCHITECTURE",
-		"DUMP_TXT_PROFILE",
-		"RUSTFLAGS",
-		"CARGO_BUILD_TARGET"
-	],
+	"globalEnv": ["OS", "RUNNER_OS", "PROCESSOR_ARCHITECTURE", "DUMP_TXT_PROFILE", "RUSTFLAGS", "CARGO_BUILD_TARGET"],
 	"globalPassThroughEnv": [
 		"CARGO_BUILD_JOBS",
 		"CARGO_HOME",

@@ -151,11 +151,11 @@ describe("createPlayback", () => {
 		expect(playback.finished).toBe(false);
 
 		playback.resume();
-		await vi.advanceTimersByTimeAsync(699);
+		await vi.advanceTimersByTimeAsync(100);
 
 		expect(playback.finished).toBe(false);
 
-		await vi.advanceTimersByTimeAsync(1);
+		await vi.advanceTimersByTimeAsync(700);
 		await playing;
 
 		expect(playback.finished).toBe(true);

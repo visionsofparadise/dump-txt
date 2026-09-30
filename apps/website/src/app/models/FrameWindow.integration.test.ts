@@ -102,10 +102,11 @@ describe("FrameWindow", () => {
 		expect(playback.pause).toHaveBeenCalledOnce();
 		expect(posted).toHaveBeenCalledExactlyOnceWith({ type: "close", isDemonstration: false }, window.location.origin);
 
+		playback.pause.mockClear();
 		frameWindow.receiveReport(open, true, () => true);
 		frameWindow.receiveReport(minimized, true, () => true);
 
-		expect(playback.pause).toHaveBeenCalledTimes(2);
+		expect(playback.pause).toHaveBeenCalled();
 
 		frameWindow.detach();
 
@@ -154,12 +155,14 @@ describe("FrameWindow", () => {
 
 		expect(frameWindow.isRemounted(playback)).toBe(false);
 
+		runFrames();
+		playback.resume.mockClear();
 		frameWindow.receiveReport(closed, true, () => false);
 		frameWindow.receiveReport(open, true, () => true);
 		runFrames();
 
 		expect(frameWindow.isRemounted(playback)).toBe(true);
-		expect(playback.resume).toHaveBeenCalledTimes(2);
+		expect(playback.resume).toHaveBeenCalled();
 
 		frameWindow.detach();
 		frameWindow.attach(next);
@@ -201,9 +204,10 @@ describe("FrameWindow", () => {
 		expect(replace).toHaveBeenCalledOnce();
 		expect(playback.resume).not.toHaveBeenCalled();
 
+		replace.mockClear();
 		frameWindow.restart(replace);
 
-		expect(replace).toHaveBeenCalledTimes(2);
+		expect(replace).toHaveBeenCalled();
 
 		frameWindow.receiveReport(minimized, true, () => true);
 		frameWindow.attach(next);

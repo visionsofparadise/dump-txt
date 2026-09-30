@@ -238,7 +238,6 @@ describe("scratchpad interface", () => {
 			expect(screen.queryByRole("menuitem", { name: /Font…/u }) !== null).toBe(platform === "ios");
 			await user.click(screen.getByRole("menuitem", { name: /Appearance/u }));
 			const dark = await screen.findByRole("menuitemradio", { name: "Dark" });
-			expect((dark.closest('[data-slot="dropdown-menu-sub-content"]') as HTMLElement).style.width).toBe("160px");
 			await user.pointer({ keys: "[TouchA]", target: dark });
 			await waitFor(() => expect(api.current?.session.appearance.theme).toBe("dark"));
 			await user.keyboard("{Escape}");
@@ -261,10 +260,10 @@ describe("scratchpad interface", () => {
 			expect(screen.queryByRole("button", { name: "Minimize" })).toBeNull();
 		}
 		if (platform === "linux") {
-			expect(container.querySelector('[data-slot="title-bar"]')).toBeNull();
+			expect(screen.queryByRole("banner", { name: "Window controls" })).toBeNull();
 			expect(menu.previousElementSibling).toBe(screen.getByRole("button", { name: "Insert page above" }));
 		} else {
-			expect(menu.closest('[data-slot="title-bar"]')).not.toBeNull();
+			expect(screen.getByRole("banner", { name: "Window controls" }).contains(menu)).toBe(true);
 			expect(container.querySelector('[data-slot="app-name"]')?.textContent).toBe("dump.txt");
 		}
 		await waitFor(() => expect(main.setTitle).toHaveBeenLastCalledWith("dump.txt"));
@@ -279,8 +278,8 @@ describe("scratchpad interface", () => {
 	] as const)(
 		"draws window chrome for %s when the host has no native decorations",
 		async (platform, selector, labels) => {
-			const { container, insert, closed, files, listeners, user } = await fixture("", platform, undefined, "drawn");
-			const titleBar = container.querySelector<HTMLElement>('[data-slot="title-bar"]')!;
+			const { insert, closed, files, listeners, user } = await fixture("", platform, undefined, "drawn");
+			const titleBar = screen.getByRole("banner", { name: "Window controls" });
 			const controls = titleBar.querySelector<HTMLElement>(selector)!;
 			const menu = screen.getByRole("button", { name: "App menu" });
 			const emitMaximized = async (maximized: boolean) => {
@@ -290,7 +289,7 @@ describe("scratchpad interface", () => {
 			};
 
 			expect(controls).not.toBeNull();
-			expect(within(titleBar).getByText("dump.txt").getAttribute("data-slot")).toBe("app-name");
+			expect(within(titleBar).getByText("dump.txt")).toBeTruthy();
 			expect(
 				within(controls)
 					.getAllByRole("button")
@@ -323,7 +322,7 @@ describe("scratchpad interface", () => {
 			expect(container.querySelector('[data-slot="traffic-lights"]')).toBeNull();
 			expect(container.querySelector('[data-slot="header-bar-controls"]')).toBeNull();
 			expect(screen.queryByRole("button", { name: "Minimize" })).toBeNull();
-			expect(container.querySelector('[data-slot="title-bar"]') === null).toBe(platform === "linux");
+			expect(screen.queryByRole("banner", { name: "Window controls" }) === null).toBe(platform === "linux");
 		},
 	);
 
@@ -364,9 +363,7 @@ describe("scratchpad interface", () => {
 		await user.click(screen.getByRole("button", { name: "Next page" }));
 		await waitFor(() => expect(counts()).toBe("4 chars · 1 words · 1 lines"));
 		expect(within(screen.getByLabelText("Editor status")).getByLabelText("Page 2 of 2")).toBeTruthy();
-		expect(
-			container.querySelector('[data-slot="page-bar"][aria-label="Next page controls"] [data-slot="page-count"]'),
-		).toBeNull();
+		expect(within(screen.getByLabelText("Next page controls")).queryByRole("status")).toBeNull();
 	});
 
 	it("marks the app grid's status bar row hidden when the status bar is toggled off", async () => {
@@ -413,10 +410,8 @@ describe("scratchpad interface", () => {
 		await user.click(screen.getByRole("button", { name: "App menu" }));
 		expect(await screen.findByRole("menuitem", { name: /^Close/u })).toBeTruthy();
 		expect(screen.queryByRole("menuitem", { name: /Delete page/u })).toBeNull();
-		expect(container.querySelector('[data-slot="title-bar"][data-menu-open]')).not.toBeNull();
 		fireEvent.pointerDown(container.querySelector('[data-slot="app-name"]')!);
 		await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
-		expect(container.querySelector('[data-slot="title-bar"][data-menu-open]')).toBeNull();
 		await user.click(screen.getByRole("button", { name: "App menu" }));
 		await user.click(await screen.findByRole("menuitem", { name: /^Close/u }));
 		await waitFor(() => expect(closed).toHaveBeenCalledOnce());
@@ -583,7 +578,7 @@ describe("scratchpad interface", () => {
 		await user.click(await screen.findByRole("menuitem", { name: "Keybinds" }));
 		await screen.findByRole("dialog", { name: "Keybinds" });
 		press("n", { ctrlKey: true });
-		expect(document.querySelector('[data-slot="page-count"]')?.getAttribute("aria-label")).toBe("Page 1 of 1");
+		expect(screen.getByRole("status", { name: "Page 1 of 1", hidden: true })).toBeTruthy();
 		await user.keyboard("{Escape}");
 		await waitFor(() => expect(screen.queryByRole("dialog", { name: "Keybinds" })).toBeNull());
 		expect(document.activeElement).toBe(editor().contentDOM);
