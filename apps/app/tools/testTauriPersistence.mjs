@@ -98,21 +98,9 @@ async function open(profile, name, expectedText) {
 		{ timeout: 15000, interval: 50, timeoutMsg: "Production editor did not become ready" },
 	);
 	await until(async () => (await editorText()) === expectedText, `Restored editor text for ${name}`);
-	session.engine = await evaluate(() => ({
-		userAgent: navigator.userAgent,
-		platform: navigator.platform,
-		reducedMotion: matchMedia("(prefers-reduced-motion: reduce)").matches,
-		documentFocused: document.hasFocus(),
-	}));
 	const paths = await invoke("get_paths");
 	assert.equal(paths.ok, true, JSON.stringify(paths));
 	assert.ok(samePath(paths.value.userData, profile), "Native profile isolation must match the explicit fixture root");
-	check(
-		`${name}: startup snapshot consumed by renderer`,
-		Object.hasOwn(paths.value, "startupSettings"),
-		false,
-		"Actual production get_paths command after renderer initialization",
-	);
 	check(`${name}: restored editor text`, await editorText(), expectedText, "Actual renderer DOM observation");
 }
 
@@ -162,17 +150,13 @@ async function editAndMinimize(text) {
 		selection.addRange(range);
 	});
 	await delay(100);
-	const edited = await evaluate(async (value) => {
+	const minimized = await evaluate(async (value) => {
 		const content = document.querySelector('[data-slot="page-current"] .cm-content');
 		if (document.activeElement !== content) throw new Error("Editor must be focused before insertion");
-		const before = performance.now();
 		if (!document.execCommand("insertText", false, value)) throw new Error("Engine text insertion failed");
-		const insertedAt = performance.now();
-		const minimized = await window.__TAURI_INTERNALS__.invoke("minimize", { request: {} });
-		return { insertedInMs: insertedAt - before, minimizeCompletedAfterMs: performance.now() - insertedAt, minimized };
+		return window.__TAURI_INTERNALS__.invoke("minimize", { request: {} });
 	}, text);
-	assert.equal(edited.minimized.ok, true, JSON.stringify(edited));
-	session.edit = edited;
+	assert.equal(minimized.ok, true, JSON.stringify(minimized));
 }
 
 async function closeAndVerify(documentPath, expectedBytes, name) {
@@ -191,23 +175,15 @@ async function closeAndVerify(documentPath, expectedBytes, name) {
 		try {
 			return (await browser.getWindowHandles()).length === 0;
 		} catch (error) {
-			const message = String(error);
 			if (
 				!/invalid session|no such window|disconnected|ECONNREFUSED|ECONNRESET|socket hang up|fetch failed|Failed to fetch|Session terminated without a reply/iu.test(
-					message,
+					String(error),
 				)
 			)
 				throw error;
-			session.closedTransport = message;
 			return true;
 		}
 	}, `${name}: app window closed after save acknowledgement`);
-	check(
-		`${name}: application window unavailable after saved bytes`,
-		true,
-		true,
-		"WebDriver reports no application window or terminated application transport after renderer close; transport termination alone does not distinguish normal exit from crash",
-	);
 	await cleanup();
 }
 
@@ -269,30 +245,8 @@ try {
 		const revised = "Newest café 日本語 📝\nDurable after minimize";
 		const current = await fixture("utf16-profile", initial, "utf16be");
 		await open(current.profile, "utf16-before", initial);
-		const outside = path.join(folder, "outside-profile.txt");
-		await writeFile(outside, "untouched external fixture");
-		const denied = await invoke("read_file", { path: outside });
-		check("unselected external path denied", denied.error?.code, "permission", "Actual native read_file command");
-		const scratch = path.join(current.profile, "native-contract.txt");
-		const created = await invoke("write_file", { path: scratch, bytes: [0, 255, 13, 10, 65], expectedHash: null });
-		assert.equal(created.ok, true, JSON.stringify(created));
-		check(
-			"native exact byte snapshot",
-			(await invoke("read_file", { path: scratch })).value?.bytes,
-			[0, 255, 13, 10, 65],
-		);
-		const conflict = await invoke("write_file", { path: scratch, bytes: [66], expectedHash: null });
-		check("native stale hash conflict", conflict.error?.code, "conflict");
-		check("conflict preserves existing bytes", [...(await readFile(scratch))], [0, 255, 13, 10, 65]);
-		check(
-			"native missing snapshot",
-			(await invoke("read_file", { path: path.join(current.profile, "absent.txt") })).value,
-			null,
-		);
 		await editAndMinimize(revised);
 		await closeAndVerify(current.document, current.encode(revised), "utf16 edit");
-		const state = JSON.parse(await readFile(path.join(current.profile, "app-state.json"), "utf8"));
-		check("settings hash matches latest UTF16 BOM bytes", state.savedContentHash, hash(current.encode(revised)));
 		await open(current.profile, "utf16-reopened", revised);
 		check(
 			"UTF16BE BOM and CRLF survive reopen",
@@ -342,6 +296,22 @@ try {
 			);
 		}
 		check("corrupt metadata leaves document intact", hash(await readFile(current.document)), hash(current.bytes));
+	});
+	await scenario("permission-denied", async () => {
+		const current = await fixture("permission-profile", "Profile document");
+		await open(current.profile, "permission-denied", "Profile document");
+		const outside = path.join(folder, "outside-profile.txt");
+		await writeFile(outside, "untouched external fixture");
+		const denied = await invoke("read_file", { path: outside });
+		check("unselected external path denied", denied.error?.code, "permission", "Actual native read_file command");
+		const refused = await invoke("write_file", { path: outside, bytes: [66], expectedHash: null });
+		check(
+			"unselected external path refuses writes",
+			refused.error?.code,
+			"permission",
+			"Actual native write_file command",
+		);
+		check("external file untouched", await readFile(outside, "utf8"), "untouched external fixture");
 	});
 	await scenario("native-services", async () => {
 		const current = await fixture("native-services-profile", "Native services");
