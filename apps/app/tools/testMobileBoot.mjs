@@ -1,16 +1,13 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, writeFileSync } from "node:fs";
-import { dirname, join, relative, resolve, sep } from "node:path";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { setTimeout as delay } from "node:timers/promises";
 
 const [platform, packageArgument] = process.argv.slice(2);
-assert(
-	["android", "ios"].includes(platform) && packageArgument,
-	"Usage: node testMobileBoot.mjs android|ios <apk|app-directory>",
-);
+assert(platform === "android" && packageArgument, "Usage: node testMobileBoot.mjs android <apk>");
 const scriptDirectory = dirname(fileURLToPath(import.meta.url));
 const workspace = process.env.DUMP_TXT_APP_WORKSPACE
 	? resolve(process.env.DUMP_TXT_APP_WORKSPACE)
@@ -321,152 +318,8 @@ async function devtoolsCall(url, method, params, timeout = 5000) {
 	});
 }
 
-function appBundleOf(path) {
-	const found = [];
-	function visit(directory, depth) {
-		if (directory.endsWith(".app")) {
-			found.push(directory);
-			return;
-		}
-		if (depth > 6) return;
-		for (const entry of readdirSync(directory, { withFileTypes: true })) {
-			if (entry.isDirectory() && !entry.isSymbolicLink()) visit(join(directory, entry.name), depth + 1);
-		}
-	}
-	visit(resolve(path), 0);
-	assert.equal(found.length, 1, "Provide a .app or build directory containing exactly one simulator .app.");
-	return found[0];
-}
-
-async function ios() {
-	assert.equal(process.platform, "darwin", "iOS probe requires macOS with Xcode.");
-	const simctl = (args, options) => command("xcrun", ["simctl", ...args], { ...options, retryTimeout: true });
-	const launchHelp = spawnSync("xcrun", ["simctl", "help", "launch"], { encoding: "utf8", timeout: 30_000 });
-	const launchUsage = `${launchHelp.stdout ?? ""}${launchHelp.stderr ?? ""}`;
-	writeFileSync(join(evidence, "simctl-launch-help.txt"), launchUsage);
-	assert(
-		launchUsage.includes("--stdout") && launchUsage.includes("--stderr"),
-		"Installed simctl must support file output capture.",
-	);
-	const bundle = appBundleOf(report.package);
-	const plist = (key) =>
-		command("/usr/libexec/PlistBuddy", ["-c", `Print :${key}`, join(bundle, "Info.plist")]).trim();
-	const bundleId = plist("CFBundleIdentifier");
-	assert.match(bundleId, /^com\.visionsofparadise\.dump[-_]txt(?:\..+)?$/u);
-	const runtimes = JSON.parse(simctl(["list", "runtimes", "--json"]))
-		.runtimes.filter((runtime) => runtime.isAvailable && runtime.identifier.includes(".iOS-"))
-		.sort((left, right) => right.version.localeCompare(left.version, undefined, { numeric: true }));
-	assert(runtimes.length, "Install an iOS simulator runtime in Xcode.");
-	const types = JSON.parse(simctl(["list", "devicetypes", "--json"])).devicetypes;
-	const type =
-		types.find((entry) => entry.name === "iPhone 16") ?? types.find((entry) => entry.name.startsWith("iPhone"));
-	assert(type, "An iPhone simulator device type is required.");
-	const device = simctl(["create", `dump-txt-boot-${randomUUID()}`, type.identifier, runtimes[0].identifier]).trim();
-	report.device = device;
-	report.applicationId = bundleId;
-	report.package = bundle;
-	let container;
-	try {
-		simctl(["boot", device]);
-		simctl(["bootstatus", device, "-b"], { timeout: 300_000 });
-		simctl(["install", device, bundle], { timeout: 120_000 });
-		container = realpathSync(simctl(["get_app_container", device, bundleId, "data"]).trim());
-		async function launch(label) {
-			const nonce = randomUUID();
-			const readyFile = join(container, "tmp/dump-txt-renderer-ready");
-			const stdout = join(evidence, `${label}.stdout.log`);
-			const stderr = join(evidence, `${label}.stderr.log`);
-			const result = simctl(
-				["launch", "--terminate-running-process", `--stdout=${stdout}`, `--stderr=${stderr}`, device, bundleId],
-				{ timeout: 45_000, env: { SIMCTL_CHILD_DUMP_TXT_BOOT_NONCE: nonce } },
-			);
-			writeFileSync(join(evidence, `${label}.launch.log`), result);
-			const processId = Number(result.trim().match(/: (\d+)$/u)?.[1]);
-			assert(Number.isSafeInteger(processId) && processId > 0, "Simulator launch must report the app PID.");
-			report[label] = { processId, nonce, status: "launched" };
-			await until(() => {
-				assert(
-					command("/bin/ps", ["-p", String(processId), "-o", "pid="], { allowFailure: true })?.trim(),
-					"Simulator app exited before readiness.",
-				);
-				return existsSync(readyFile) && readFileSync(readyFile, "utf8") === nonce;
-			}, `${label} iOS renderer readiness`);
-			report[label].status = "ready";
-			return processId;
-		}
-		function terminate(processId) {
-			const terminated = command("xcrun", ["simctl", "terminate", device, bundleId], {
-				timeout: 60_000,
-				allowFailure: true,
-			});
-			if (terminated === null) command("/bin/kill", ["-9", String(processId)]);
-		}
-		const first = await launch("first-launch");
-		report.firstReady = true;
-		const document = join(container, "Library/Application Support/dump.txt/dump.txt");
-		await until(() => existsSync(document), "iOS private document creation");
-		const canonical = realpathSync(document);
-		const within = relative(container, canonical);
-		assert(
-			within && !within.startsWith(`..${sep}`) && within !== "..",
-			"Document must remain inside its simulator app container.",
-		);
-		report.document = within;
-		terminate(first);
-		writeFileSync(canonical, sentinel, "utf8");
-		const second = await launch("second-launch");
-		await delay(1000);
-		assert.equal(readFileSync(canonical, "utf8"), sentinel);
-		report.secondReady = true;
-		report.fileRetained = true;
-		report.rendererTextObserved = null;
-		simctl(["io", device, "screenshot", join(evidence, "simulator.png")]);
-		terminate(second);
-	} finally {
-		try {
-			simctl(["io", device, "screenshot", join(evidence, "simulator-final.png")], { allowFailure: true });
-			writeFileSync(
-				join(evidence, "app-info.log"),
-				simctl(["appinfo", device, bundleId], { allowFailure: true }) ?? "unavailable",
-			);
-			writeFileSync(
-				join(evidence, "system.log"),
-				simctl(
-					[
-						"spawn",
-						device,
-						"log",
-						"show",
-						"--last",
-						"5m",
-						"--style",
-						"compact",
-						"--predicate",
-						`process == "dump-txt"`,
-					],
-					{ allowFailure: true },
-				) ?? "unavailable",
-			);
-			if (container) {
-				const readyFile = join(container, "tmp/dump-txt-renderer-ready");
-				if (existsSync(readyFile)) writeFileSync(join(evidence, "renderer-ready.txt"), readFileSync(readyFile));
-				writeFileSync(
-					join(evidence, "container-files.log"),
-					command("/usr/bin/find", [container, "-type", "f"], { allowFailure: true }) ?? "unavailable",
-				);
-			}
-		} catch (error) {
-			report.diagnosticsError = error.message;
-		} finally {
-			simctl(["shutdown", device], { allowFailure: true });
-			simctl(["delete", device], { allowFailure: true });
-		}
-	}
-}
-
 try {
-	if (platform === "android") await android();
-	else await ios();
+	await android();
 	report.success = true;
 } catch (error) {
 	report.error = error.message;

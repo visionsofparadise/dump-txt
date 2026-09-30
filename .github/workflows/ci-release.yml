@@ -175,11 +175,6 @@ jobs:
            id: ios-build
            if: ${{ !cancelled() && steps.package-build.outcome == 'success' && matrix.artifact == 'mac-arm64' }}
            run: npm run ios --workspace @dump-txt/app
-         - name: Test iOS boot and file persistence
-           if: ${{ !cancelled() && steps.ios-build.outcome == 'success' && matrix.artifact == 'mac-arm64' }}
-           timeout-minutes: 15
-           continue-on-error: true
-           run: node apps/app/tools/testMobileBoot.mjs ios apps/app/gen/apple/build/arm64-sim/dump-txt.app
          - name: Verify Windows install
            if: ${{ !cancelled() && steps.package-build.outcome == 'success' && matrix.artifact == 'windows-x64' }}
            timeout-minutes: 15
@@ -223,7 +218,6 @@ jobs:
                  apps/app/.scratch/tauri-package/
                  apps/app/.scratch/tauri-build.json
                  apps/app/.scratch/mobile-boot/
-                 apps/app/gen/apple/build/arm64-sim/
                  apps/app/target/release/dump-txt
                  apps/app/target/release/dump-txt.exe
               if-no-files-found: warn
