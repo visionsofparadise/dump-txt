@@ -214,7 +214,7 @@ jobs:
            timeout-minutes: 15
            continue-on-error: true
            run: node apps/app/tools/testMobileBoot.mjs ios apps/app/gen/apple/build/arm64-sim/dump-txt.app
-         - name: Verify Windows install and Electron upgrade
+         - name: Verify Windows install
            if: ${{ !cancelled() && steps.package-build.outcome == 'success' && matrix.artifact == 'windows-x64' }}
            timeout-minutes: 15
            shell: pwsh

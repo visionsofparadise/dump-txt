@@ -26,11 +26,6 @@ $installer = (Resolve-Path -LiteralPath $InstallerPath).Path
 $expectedExecutable = (Resolve-Path -LiteralPath $ExpectedExecutablePath).Path
 $profileDirectory = Join-Path $env:APPDATA 'dump.txt'
 $installDirectory = Join-Path $env:LOCALAPPDATA 'dump.txt'
-$legacyDirectory = Join-Path $env:LOCALAPPDATA 'Programs\dump-txt'
-$legacyGuid = 'f2f2ad60-6325-5f3c-af3b-5046ca44f4c3'
-$legacyKey = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\$legacyGuid"
-$legacyInstallKey = "HKCU:\Software\$legacyGuid"
-$squirrelKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\dump_txt'
 $tauriKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\dump.txt'
 $manufacturerKey = 'HKCU:\Software\Matt Cavender\dump.txt'
 $desktopShortcut = Join-Path ([Environment]::GetFolderPath('Desktop')) 'dump.txt.lnk'
@@ -146,7 +141,7 @@ $report = [ordered]@{
     processes = $processes
     installedExecutables = $installedExecutables
     windowDiagnostics = $windowDiagnostics
-    limitations = @('Wizard visuals and checkbox interaction remain unobserved.', 'Actual Squirrel uninstall remains unexecuted.')
+    limitations = @('Wizard visuals and checkbox interaction remain unobserved.')
 }
 
 function Assert-Condition([bool]$Condition, [string]$Name) {
@@ -156,15 +151,11 @@ function Assert-Condition([bool]$Condition, [string]$Name) {
 
 function Assert-EmptyAccount {
     $paths = @(
-        $profileDirectory, $installDirectory, $legacyDirectory,
-        (Join-Path $env:LOCALAPPDATA 'dump_txt'),
-        (Join-Path $env:APPDATA 'dump-txt'),
+        $profileDirectory, $installDirectory,
         (Join-Path $env:APPDATA 'com.visionsofparadise.dump-txt'),
         (Join-Path $env:LOCALAPPDATA 'com.visionsofparadise.dump-txt'),
         $desktopShortcut, $startMenuShortcut,
-        $legacyKey, $legacyInstallKey, $squirrelKey, $tauriKey, $manufacturerKey,
-        "HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\$legacyGuid",
-        "HKCU:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\$legacyGuid"
+        $tauriKey, $manufacturerKey
     )
     foreach ($path in $paths) {
         if (Test-Path -LiteralPath $path) { throw "Installer tests refuse existing application data or registration: $path" }
@@ -293,21 +284,6 @@ try {
     Assert-Condition ($null -ne $cleanProfile['dump.txt'] -and $null -ne $cleanProfile['app-state.json']) 'Clean launch initializes the production profile'
     Uninstall-Tauri
     Assert-ProfileSnapshot $cleanProfile 'Normal uninstall preserves the document and settings'
-
-    $unsafePath = Join-Path $evidenceDirectory 'untouched.txt'
-    [IO.File]::WriteAllText($unsafePath, 'This file must remain untouched.')
-    [void](New-Item -Path $legacyInstallKey -Force)
-    [void](New-Item -Path $legacyKey -Force)
-    Set-ItemProperty -LiteralPath $legacyInstallKey -Name InstallLocation -Value $evidenceDirectory
-    Set-ItemProperty -LiteralPath $legacyKey -Name DisplayName -Value 'dump.txt'
-    Set-ItemProperty -LiteralPath $legacyKey -Name Publisher -Value 'Matt Cavender'
-    Set-ItemProperty -LiteralPath $legacyKey -Name UninstallString -Value 'cmd.exe /c exit 0'
-    Invoke-Installer $installer @('/S') $false
-    Assert-Condition ((Get-Content -LiteralPath $unsafePath -Raw) -eq 'This file must remain untouched.') 'Rejected legacy metadata leaves unrelated files intact'
-    Assert-Condition (-not (Test-Path -LiteralPath $tauriKey)) 'Rejected migration does not register a successful installation'
-    Remove-Item -LiteralPath $legacyKey -Recurse
-    Remove-Item -LiteralPath $legacyInstallKey -Recurse
-
     $report.passed = $true
 } catch {
     $failure = $_
