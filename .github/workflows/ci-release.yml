@@ -159,10 +159,6 @@ jobs:
            if: ${{ !cancelled() && steps.android-build.outcome == 'success' && matrix.artifact == 'linux-x64' }}
            timeout-minutes: 15
            uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
-           env:
-              MOBILE_REQUIRE_ANDROID_USER_AGENT: "1"
-              MOBILE_REQUIRE_RENDERER_TEXT: "1"
-              MOBILE_REQUIRE_EDITOR_AUTOSAVE: "1"
            with:
               api-level: 34
               target: google_apis

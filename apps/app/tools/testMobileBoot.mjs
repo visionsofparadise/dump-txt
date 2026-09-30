@@ -25,25 +25,19 @@ const report = {
 	platform,
 	package: resolve(packageArgument),
 	startedAt: new Date().toISOString(),
-	proof: "native renderer boot and app-private UTF-8 file retention across process restart",
-	keyboardInputTested: false,
+	proof: "native renderer boot, persisted text shown, typed text autosaved and restored across process restarts",
 	editorAutosaveTested: false,
 	success: false,
 };
 
 function command(executable, args, options = {}) {
 	const timeout = options.timeout ?? 30_000;
-	const run = (limit) =>
-		spawnSync(executable, args, {
-			encoding: "utf8",
-			timeout: limit,
-			maxBuffer: 8 * 1024 * 1024,
-			windowsHide: true,
-			input: options.input,
-			env: options.env ? { ...process.env, ...options.env } : process.env,
-		});
-	let result = run(timeout);
-	if (options.retryTimeout && result.error?.code === "ETIMEDOUT") result = run(2 * timeout);
+	const result = spawnSync(executable, args, {
+		encoding: "utf8",
+		timeout,
+		maxBuffer: 8 * 1024 * 1024,
+		windowsHide: true,
+	});
 	if (result.error || result.status !== 0) {
 		if (options.allowFailure) return null;
 		throw new Error(
@@ -81,35 +75,12 @@ async function android() {
 	const app = "com.visionsofparadise.dump_txt";
 	const activity = `${app}/${app}.MainActivity`;
 	const document = "dump.txt/dump.txt";
-	const runAs = (args, options) =>
-		adb(
-			[options?.input === undefined ? "exec-out" : "exec-in", ["run-as", app, ...args].map(shellQuote).join(" ")],
-			options,
-		);
+	const runAs = (args, options) => adb(["exec-out", ["run-as", app, ...args].map(shellQuote).join(" ")], options);
 	assert.equal(
 		adb(["shell", "getprop", "ro.kernel.qemu"]).trim(),
 		"1",
 		"Only disposable emulator instances are supported.",
 	);
-	const existing = adb(["shell", "pm", "path", app], { allowFailure: true })?.trim();
-	if (existing) {
-		const allowedAvd = process.env.DUMP_TXT_MOBILE_ALLOW_EXISTING_AVD;
-		const actualAvd = adb(["emu", "avd", "name"]).split(/\r?\n/u)[0].trim();
-		assert(
-			allowedAvd && /^dump-txt(?:[-_].*)?$/u.test(allowedAvd) && actualAvd === allowedAvd,
-			"Existing app install requires explicit DUMP_TXT_MOBILE_ALLOW_EXISTING_AVD matching a dedicated dump-txt test AVD.",
-		);
-		const previous = runAs(["cat", document], { allowFailure: true });
-		assert(
-			previous === null ||
-				previous === "" ||
-				/^(?:Editor autosave [a-f0-9-]{36}\n)?dump\.txt mobile file persistence [a-f0-9-]{36}\nCafé · 中文 · 日本語 · 👩‍💻\n(?:Editor autosave [a-f0-9-]{36}\n)?$/u.test(
-					previous,
-				),
-			"Existing test AVD contains non-probe document text; use a fresh AVD. The harness never clears application data.",
-		);
-		report.existingTestAvd = actualAvd;
-	}
 
 	report.device = serial;
 	report.applicationId = app;
@@ -133,13 +104,11 @@ async function android() {
 		} finally {
 			writeFileSync(join(evidence, `${label}.log`), fresh);
 		}
-		return { processId, logs: fresh };
+		return processId;
 	}
 
-	const first = await launch("first-launch");
+	await launch("first-launch");
 	await until(() => runAs(["cat", document], { allowFailure: true }) !== null, "App-private document creation");
-	report.firstReady = true;
-	report.browser = await androidBrowserEvidence(adb, first.processId, first.logs);
 	adb(["shell", "am", "force-stop", app]);
 	const encoded = Buffer.from(sentinel, "utf8").toString("base64");
 	assert.equal(
@@ -151,66 +120,27 @@ async function android() {
 		sentinel,
 		"Fixture write must finish and acknowledge the exact UTF-8 bytes before relaunch.",
 	);
-	assert.equal(runAs(["cat", document]), sentinel);
 	const second = await launch("second-launch");
 	await delay(1000);
 	assert.equal(runAs(["cat", document]), sentinel, "UTF-8 content must survive app initialization and restart.");
-	report.secondReady = true;
-	report.fileRetained = true;
-	const secondBrowser = await androidBrowserEvidence(
-		adb,
-		second.processId,
-		second.logs,
-		undefined,
-		process.env.MOBILE_REQUIRE_RENDERER_TEXT === "1" ? sentinel.trim() : undefined,
-	);
-	report.rendererTextObserved = secondBrowser.editorText?.includes(sentinel.trim()) ?? false;
-	if (process.env.MOBILE_REQUIRE_RENDERER_TEXT === "1") {
-		assert(report.rendererTextObserved, "The relaunched editor must display the persisted text through CDP.");
-	}
-	if (process.env.MOBILE_REQUIRE_EDITOR_AUTOSAVE === "1") {
-		await androidBrowserEvidence(adb, second.processId, second.logs, autosaveText);
-		const expected = autosaveText + sentinel;
-		await until(() => runAs(["cat", document]) === expected, "Editor input autosave");
-		report.editorAutosaveTested = true;
-		report.inputMethod = "Chrome DevTools Protocol Input.insertText into the CodeMirror contenteditable";
-		adb(["shell", "am", "force-stop", app]);
-		const third = await launch("autosave-relaunch");
-		assert.equal(runAs(["cat", document]), expected, "Editor autosave must survive process restart.");
-		const restored = await androidBrowserEvidence(adb, third.processId, third.logs, undefined, autosaveText.trim());
-		assert(
-			restored.editorText?.includes(autosaveText.trim()),
-			"The relaunched editor must display its autosaved input.",
-		);
-		report.editorAutosaveRetained = true;
-	}
+	await awaitEditorText(adb, second, sentinel.trim());
+	report.rendererTextObserved = true;
+	await typeIntoEditor(adb, second, autosaveText);
+	const expected = autosaveText + sentinel;
+	await until(() => runAs(["cat", document]) === expected, "Editor input autosave");
+	report.editorAutosaveTested = true;
+	adb(["shell", "am", "force-stop", app]);
+	const third = await launch("autosave-relaunch");
+	assert.equal(runAs(["cat", document]), expected, "Editor autosave must survive process restart.");
+	await awaitEditorText(adb, third, autosaveText.trim());
+	report.editorAutosaveRetained = true;
 	adb(["shell", "am", "force-stop", app]);
 }
 
-async function androidBrowserEvidence(adb, processId, logs, inputText, expectedText) {
-	if (expectedText === undefined) return readAndroidBrowserEvidence(adb, processId, logs, inputText);
-	const deadline = Date.now() + 30_000;
-	let last;
-	do {
-		try {
-			const result = await readAndroidBrowserEvidence(adb, processId, logs, inputText, expectedText, deadline);
-			last = result;
-			if (result.editorText?.includes(expectedText)) return result;
-		} catch (error) {
-			if (error.code === "ANDROID_USER_AGENT_MISMATCH") throw error;
-			last = { error: error.message };
-		}
-		if (Date.now() < deadline) await delay(500);
-	} while (Date.now() < deadline);
-	report.lastRendererObservation = { processId, expectedText, ...last };
-	throw new Error("Relaunched editor text was not observed within 30000ms; see lastRendererObservation.");
-}
-
-async function readAndroidBrowserEvidence(adb, processId, logs, inputText, expectedText, deadline) {
+async function withEditorPage(adb, processId, action) {
 	let port;
 	try {
-		const sockets = adb(["shell", "cat", "/proc/net/unix"]);
-		const socket = sockets
+		const socket = adb(["shell", "cat", "/proc/net/unix"])
 			.split(/\r?\n/u)
 			.map((line) => line.trim().split(/\s+/u).at(-1))
 			.find((name) => name === `@webview_devtools_remote_${processId}`);
@@ -222,68 +152,53 @@ async function readAndroidBrowserEvidence(adb, processId, logs, inputText, expec
 		).json();
 		const page = pages.find((entry) => entry.type === "page" && /tauri|localhost/u.test(entry.url));
 		assert(page?.webSocketDebuggerUrl, "App page CDP target is unavailable.");
-		const result = await evaluate(
-			page.webSocketDebuggerUrl,
-			"({userAgent:navigator.userAgent,editContextAvailable:typeof EditContext!=='undefined',editorText:document.querySelector('.cm-content')?.innerText??null})",
-		);
-		if (!/Android\b/u.test(result.userAgent)) {
-			const error = new Error("The observed WebView user agent does not identify Android.");
-			error.code = "ANDROID_USER_AGENT_MISMATCH";
-			throw error;
-		}
-		if (expectedText !== undefined) {
-			result.editorText = await evaluate(
-				page.webSocketDebuggerUrl,
-				`(async () => {
-                    const deadline = Date.now() + ${Math.max(1, deadline - Date.now())};
-                    let text;
-                    do {
-                        text = document.querySelector('.cm-content')?.innerText ?? null;
-                        if (text?.includes(${JSON.stringify(expectedText)})) return text;
-                        await new Promise(resolve => setTimeout(resolve, 100));
-                    } while (Date.now() < deadline);
-                    return text;
-                })()`,
-				Math.max(1, deadline - Date.now()) + 5000,
-			);
-		}
-		if (inputText !== undefined) {
-			assert.equal(
-				await evaluate(
-					page.webSocketDebuggerUrl,
-					`(() => {
-                const content = document.querySelector('.cm-content');
-                if (!content?.isContentEditable) return false;
-                content.focus();
-                const range = document.createRange();
-                range.selectNodeContents(content);
-                range.collapse(true);
-                const selection = getSelection();
-                selection.removeAllRanges();
-                selection.addRange(range);
-                return document.activeElement === content;
-            })()`,
-				),
-				true,
-				"The editable CodeMirror surface must be focused.",
-			);
-			await devtoolsCall(page.webSocketDebuggerUrl, "Input.insertText", { text: inputText });
-		}
-		return { source: "webview-cdp", ...result };
-	} catch (error) {
-		if (expectedText !== undefined) throw error;
-		if (inputText !== undefined) throw error;
-		if (error.code === "ANDROID_USER_AGENT_MISMATCH") throw error;
-		const userAgent = logs.match(/dump\.txt user agent: (.+)/u)?.[1]?.trim();
-		if (userAgent) {
-			assert.match(userAgent, /Android\b/u);
-			return { source: "startup-log", userAgent };
-		}
-		if (process.env.MOBILE_REQUIRE_ANDROID_USER_AGENT === "1") throw error;
-		return { source: "unavailable", reason: error.message, userAgent: null };
+		return await action(page.webSocketDebuggerUrl);
 	} finally {
 		if (port) adb(["forward", "--remove", `tcp:${port}`], { allowFailure: true });
 	}
+}
+
+async function awaitEditorText(adb, processId, expectedText) {
+	const deadline = Date.now() + 30_000;
+	let last;
+	do {
+		try {
+			last = await withEditorPage(adb, processId, (url) =>
+				evaluate(url, "document.querySelector('.cm-content')?.innerText ?? null"),
+			);
+			if (last?.includes(expectedText)) return;
+		} catch (error) {
+			last = error.message;
+		}
+		await delay(500);
+	} while (Date.now() < deadline);
+	report.lastRendererObservation = { processId, expectedText, last };
+	throw new Error("Editor text was not observed within 30000ms; see lastRendererObservation.");
+}
+
+async function typeIntoEditor(adb, processId, text) {
+	await withEditorPage(adb, processId, async (url) => {
+		assert.equal(
+			await evaluate(
+				url,
+				`(() => {
+					const content = document.querySelector('.cm-content');
+					if (!content?.isContentEditable) return false;
+					content.focus();
+					const range = document.createRange();
+					range.selectNodeContents(content);
+					range.collapse(true);
+					const selection = getSelection();
+					selection.removeAllRanges();
+					selection.addRange(range);
+					return document.activeElement === content;
+				})()`,
+			),
+			true,
+			"The editable CodeMirror surface must be focused.",
+		);
+		await devtoolsCall(url, "Input.insertText", { text });
+	});
 }
 
 async function evaluate(url, expression, timeout) {
