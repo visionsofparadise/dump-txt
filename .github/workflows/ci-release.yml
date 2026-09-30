@@ -328,7 +328,7 @@ jobs:
            if: steps.release.outputs.result == 'published'
            env:
               GH_TOKEN: ${{ github.token }}
-           run: node apps/app/tools/releaseRetention.mjs releases v$(node -p "JSON.parse(require('node:fs').readFileSync('apps/app/package.json', 'utf8')).version")
+           run: node apps/app/tools/releaseRetention.mjs releases "v$(node -p "JSON.parse(require('node:fs').readFileSync('apps/app/package.json', 'utf8')).version")"
          - name: Generate the published release demonstration and website
            if: steps.release.outputs.result == 'published'
            env:
