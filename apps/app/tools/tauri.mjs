@@ -67,7 +67,7 @@ const frontendArguments = ["--config", "vite.tauri.config.ts", "--mode", probe ?
 const nativeArguments = platform ? [platform, command] : [command];
 if (command === "dev") {
 	const host = platform ? "0.0.0.0" : "127.0.0.1";
-	const port = await freePort(host, 1420);
+	const port = await freePort(host, 5173);
 	frontendArguments.push("--host", host, "--port", String(port));
 	nativeArguments.push("--config", JSON.stringify({ build: { devUrl: `http://127.0.0.1:${port}` } }));
 }

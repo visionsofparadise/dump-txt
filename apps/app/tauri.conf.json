@@ -4,7 +4,7 @@
 	"version": "0.3.3",
 	"identifier": "com.visionsofparadise.dump-txt",
 	"build": {
-		"devUrl": "http://127.0.0.1:1420",
+		"devUrl": "http://127.0.0.1:5173",
 		"frontendDist": "dist"
 	},
 	"app": {
