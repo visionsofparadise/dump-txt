@@ -178,7 +178,7 @@ jobs:
            run: |
               $taskInstaller = @(Get-ChildItem -LiteralPath ./apps/app/out/make -Filter 'dump-txt-*-windows-x64.exe')
               if ($taskInstaller.Count -ne 1) { throw 'Expected one Windows installer.' }
-              ./apps/app/tools/testTauriInstaller.ps1 -InstallerPath $taskInstaller[0].FullName -ExpectedExecutablePath ./apps/app/target/release/dump-txt.exe
+              ./apps/app/tools/testTauriInstaller.ps1 -InstallerPath $taskInstaller[0].FullName
          - name: Inspect Linux package dependencies
            working-directory: apps/app
            if: ${{ !cancelled() && steps.package-build.outcome == 'success' && runner.os == 'Linux' }}

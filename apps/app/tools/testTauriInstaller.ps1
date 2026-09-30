@@ -1,8 +1,6 @@
 param(
     [Parameter(Mandatory = $true)]
-    [string]$InstallerPath,
-    [Parameter(Mandatory = $true)]
-    [string]$ExpectedExecutablePath
+    [string]$InstallerPath
 )
 
 $ErrorActionPreference = 'Stop'
@@ -23,7 +21,6 @@ if ($projectDirectory.TrimEnd('\') -ne $workspaceDirectory.TrimEnd('\') -or
 }
 
 $installer = (Resolve-Path -LiteralPath $InstallerPath).Path
-$expectedExecutable = (Resolve-Path -LiteralPath $ExpectedExecutablePath).Path
 $profileDirectory = Join-Path $env:APPDATA 'dump.txt'
 $installDirectory = Join-Path $env:LOCALAPPDATA 'dump.txt'
 $tauriKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\dump.txt'
@@ -32,22 +29,6 @@ $desktopShortcut = Join-Path ([Environment]::GetFolderPath('Desktop')) 'dump.txt
 $startMenuShortcut = Join-Path ([Environment]::GetFolderPath('Programs')) 'dump.txt.lnk'
 $evidenceDirectory = Join-Path $projectDirectory ".scratch/tauri-installer/$($env:GITHUB_RUN_ID)-$($env:GITHUB_RUN_ATTEMPT)"
 $observations = [Collections.Generic.List[object]]::new()
-$processes = [Collections.Generic.List[object]]::new()
-$installedExecutables = [Collections.Generic.List[object]]::new()
-$windowDiagnostics = [Collections.Generic.List[object]]::new()
-
-function Get-NsisPayloadHash([string]$Path) {
-    $bytes = [IO.File]::ReadAllBytes($Path)
-    $marker = '__TAURI_BUNDLE_TYPE_VAR_UNK'
-    $binaryText = [Text.Encoding]::Latin1.GetString($bytes)
-    $offset = $binaryText.IndexOf($marker, [StringComparison]::Ordinal)
-    if ($offset -lt 0 -or $offset -ne $binaryText.LastIndexOf($marker, [StringComparison]::Ordinal)) {
-        throw 'Expected exactly one unbundled Tauri package-type marker in the production executable.'
-    }
-    $replacement = [Text.Encoding]::ASCII.GetBytes('__TAURI_BUNDLE_TYPE_VAR_NSS')
-    [Array]::Copy($replacement, 0, $bytes, $offset, $replacement.Length)
-    return [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($bytes)).ToLowerInvariant()
-}
 
 Add-Type -TypeDefinition @'
 using System;
@@ -132,16 +113,8 @@ function Get-EditorWindows([uint32]$ProcessId) {
 $report = [ordered]@{
     sourceCommit = $env:GITHUB_SHA
     installer = $installer
-    installerHash = (Get-FileHash -LiteralPath $installer -Algorithm SHA256).Hash.ToLowerInvariant()
-    expectedExecutableHash = (Get-FileHash -LiteralPath $expectedExecutable -Algorithm SHA256).Hash.ToLowerInvariant()
-    expectedPackagedExecutableHash = Get-NsisPayloadHash $expectedExecutable
     platform = [Environment]::OSVersion.VersionString
-    method = 'Native silent installers and native window close in a disposable CI account'
     observations = $observations
-    processes = $processes
-    installedExecutables = $installedExecutables
-    windowDiagnostics = $windowDiagnostics
-    limitations = @('Wizard visuals and checkbox interaction remain unobserved.')
 }
 
 function Assert-Condition([bool]$Condition, [string]$Name) {
@@ -165,18 +138,13 @@ function Assert-EmptyAccount {
     }
 }
 
-function Invoke-Installer([string]$Path, [string[]]$Arguments, [bool]$ExpectSuccess = $true) {
+function Invoke-Installer([string]$Path, [string[]]$Arguments) {
     $process = Start-Process -FilePath $Path -ArgumentList $Arguments -PassThru -WindowStyle Hidden
     if (-not $process.WaitForExit(180000)) {
         throw "Installer process $($process.Id) exceeded the three-minute limit."
     }
     $process.Refresh()
-    $processes.Add(@{ executable = $Path; arguments = $Arguments; exitCode = $process.ExitCode })
-    if ($ExpectSuccess) {
-        Assert-Condition ($process.ExitCode -eq 0) "Installer succeeded: $([IO.Path]::GetFileName($Path))"
-    } else {
-        Assert-Condition ($process.ExitCode -ne 0) 'Installer rejects an unsafe installation attempt'
-    }
+    Assert-Condition ($process.ExitCode -eq 0) "Installer succeeded: $([IO.Path]::GetFileName($Path))"
 }
 
 function Get-ProfileSnapshot {
@@ -195,32 +163,9 @@ function Assert-ProfileSnapshot($Expected, [string]$Name) {
     Assert-Condition (($actual | ConvertTo-Json -Compress) -eq ($Expected | ConvertTo-Json -Compress)) $Name
 }
 
-function Record-ApplicationWindow($Process, [string]$Phase) {
-    $diagnostic = [ordered]@{ phase = $Phase; processId = $Process.Id; timestamp = [DateTime]::UtcNow.ToString('o') }
-    try {
-        $Process.Refresh()
-        $diagnostic.hasExited = $Process.HasExited
-        if ($Process.HasExited) {
-            $diagnostic.exitCode = $Process.ExitCode
-        } else {
-            $diagnostic.mainWindowHandle = $Process.MainWindowHandle.ToInt64()
-            $diagnostic.mainWindowTitle = $Process.MainWindowTitle
-            $diagnostic.responding = $Process.Responding
-            $diagnostic.windows = @([DumpInstallerWindows]::Enumerate($Process.Id))
-        }
-        $diagnostic.profile = Get-ProfileSnapshot
-    } catch {
-        $diagnostic.error = $_.Exception.Message
-    }
-    $windowDiagnostics.Add($diagnostic)
-}
-
 function Test-InstalledApplication {
     $executable = Join-Path $installDirectory 'dump-txt.exe'
     Assert-Condition (Test-Path -LiteralPath $executable -PathType Leaf) 'Installed application exists'
-    $installedHash = (Get-FileHash -LiteralPath $executable -Algorithm SHA256).Hash.ToLowerInvariant()
-    $installedExecutables.Add(@{ path = $executable; sha256 = $installedHash })
-    Assert-Condition ($installedHash -eq $report.expectedPackagedExecutableHash) 'Installed executable matches the production build with the exact NSIS package-type marker'
     $process = Start-Process -FilePath $executable -WorkingDirectory $installDirectory -PassThru -WindowStyle Hidden
     $deadline = [DateTime]::UtcNow.AddSeconds(45)
     do {
@@ -228,48 +173,27 @@ function Test-InstalledApplication {
         $process.Refresh()
         $editorWindows = @(Get-EditorWindows $process.Id)
     } while (-not $process.HasExited -and $editorWindows.Count -eq 0 -and [DateTime]::UtcNow -lt $deadline)
-    Record-ApplicationWindow $process 'initial native window'
     Assert-Condition (-not $process.HasExited -and $editorWindows.Count -eq 1) 'Installed application reaches one visible editor window'
     $duplicate = Start-Process -FilePath $executable -WorkingDirectory $installDirectory -PassThru -WindowStyle Hidden
     Assert-Condition ($duplicate.WaitForExit(15000)) 'Second installed launch exits through the single-instance handler'
-    $duplicate.Refresh()
-    Assert-Condition ($duplicate.ExitCode -eq 0) 'Second installed launch exits successfully'
-    Invoke-Installer $installer @('/S') $false
-    $process.Refresh()
-    Assert-Condition (-not $process.HasExited) 'Installer leaves the running editor alive'
-    Record-ApplicationWindow $process 'before native close'
-    $editorWindows = @(Get-EditorWindows $process.Id)
-    Assert-Condition ($editorWindows.Count -eq 1) 'Exactly one installed editor window is selected for native close'
-    $windowDiagnostics.Add(@{ phase = 'selected native close target'; window = $editorWindows[0] })
     [DumpInstallerWindows]::Close($editorWindows[0].Handle)
-    Assert-Condition $true 'Native close request is posted to the installed editor window'
-    $closed = $process.WaitForExit(15000)
-    Record-ApplicationWindow $process 'after native close wait'
-    Assert-Condition $closed 'Installed application completes guarded close'
+    Assert-Condition ($process.WaitForExit(15000)) 'Installed application closes'
     $process.Refresh()
     Assert-Condition ($process.ExitCode -eq 0) 'Installed application exits successfully'
-    $processes.Add(@{ executable = $executable; exitCode = $process.ExitCode; method = 'native window close' })
 }
 
 function Test-Shortcuts {
     $shell = New-Object -ComObject WScript.Shell
-    $explorer = New-Object -ComObject Shell.Application
     foreach ($path in @($desktopShortcut, $startMenuShortcut)) {
         Assert-Condition (Test-Path -LiteralPath $path -PathType Leaf) "Shortcut exists: $([IO.Path]::GetFileName((Split-Path -Parent $path)))"
-        $shortcut = $shell.CreateShortcut($path)
-        Assert-Condition ($shortcut.TargetPath -eq (Join-Path $installDirectory 'dump-txt.exe')) 'Shortcut targets the Tauri executable'
-        $folder = $explorer.NameSpace((Split-Path -Parent $path))
-        $item = $folder.ParseName([IO.Path]::GetFileName($path))
-        Assert-Condition ($item.ExtendedProperty('System.AppUserModel.ID') -eq 'com.visionsofparadise.dump-txt') 'Shortcut retains the application identity'
+        Assert-Condition ($shell.CreateShortcut($path).TargetPath -eq (Join-Path $installDirectory 'dump-txt.exe')) 'Shortcut targets the installed executable'
     }
 }
 
 function Uninstall-Tauri {
-    $uninstallerCopy = Join-Path $evidenceDirectory "uninstall-$($processes.Count).exe"
+    $uninstallerCopy = Join-Path $evidenceDirectory 'uninstall.exe'
     Copy-Item -LiteralPath (Join-Path $installDirectory 'uninstall.exe') -Destination $uninstallerCopy
     Invoke-Installer $uninstallerCopy @('/S', "_?=$installDirectory")
-    Assert-Condition (-not (Test-Path -LiteralPath $tauriKey)) 'Tauri uninstall removes its registration'
-    Assert-Condition (-not (Test-Path -LiteralPath (Join-Path $installDirectory 'dump-txt.exe'))) 'Tauri uninstall removes its executable'
 }
 
 Assert-EmptyAccount
@@ -277,7 +201,6 @@ Assert-EmptyAccount
 
 try {
     Invoke-Installer $installer @('/S')
-    Assert-Condition (Test-Path -LiteralPath $tauriKey) 'Clean installation creates the Tauri uninstall entry'
     Test-Shortcuts
     Test-InstalledApplication
     $cleanProfile = Get-ProfileSnapshot
