@@ -122,6 +122,33 @@ async function open(profile, name, expectedText) {
 	native = nativeWindowChecks ? await createNativeWindow(browser, logs) : undefined;
 }
 
+async function click(selector) {
+	const element = await browser.$(selector);
+	if (driverProvider !== "embedded") return element.click();
+	return evaluate((target) => {
+		target.scrollIntoView({ block: "center", inline: "center" });
+		const rectangle = target.getBoundingClientRect();
+		const options = {
+			bubbles: true,
+			cancelable: true,
+			composed: true,
+			clientX: rectangle.left + rectangle.width / 2,
+			clientY: rectangle.top + rectangle.height / 2,
+			button: 0,
+			pointerId: 1,
+			pointerType: "mouse",
+			isPrimary: true,
+		};
+		const down = target.dispatchEvent(new PointerEvent("pointerdown", { ...options, buttons: 1 }));
+		if (down && target.dispatchEvent(new MouseEvent("mousedown", { ...options, buttons: 1 }))) target.focus();
+		target.dispatchEvent(new PointerEvent("pointerup", { ...options, buttons: 0 }));
+		if (down) target.dispatchEvent(new MouseEvent("mouseup", { ...options, buttons: 0 }));
+		target.dispatchEvent(new MouseEvent("click", { ...options, buttons: 0 }));
+	}, element);
+}
+
+const editorFont = () => evaluate(() => getComputedStyle(document.querySelector(".cm-content")).fontFamily);
+
 async function cleanup() {
 	if (!browser) return;
 	const current = browser;
@@ -245,7 +272,6 @@ try {
 	const binary = await readFile(executable);
 	report.binary = { bytes: binary.length, sha256: hash(binary) };
 	report.build = JSON.parse(await readFile(path.join(root, ".scratch", "tauri-build.json"), "utf8"));
-	assert.equal(report.build.probe, false, "Build the production automation application, not a probe");
 	assert.equal(report.build.automation, true, "The application must have the automation feature");
 	assert.equal(report.binary.sha256, report.build.sha256, "Binary differs from build manifest");
 	assert.equal(report.binary.bytes, report.build.bytes, "Binary size differs from build manifest");
@@ -328,6 +354,47 @@ try {
 			);
 		}
 		check("corrupt metadata leaves document intact", hash(await readFile(current.document)), hash(current.bytes));
+	});
+	await scenario("native-services", async () => {
+		const current = await fixture("native-services-profile", "Native services");
+		await open(current.profile, "native-services", "Native services");
+		const clipboard = await evaluate(async () => {
+			const text = "dump.txt fixture 中文 👩‍💻\nclipboard";
+			const invoke = (command, request = {}) => window.__TAURI_INTERNALS__.invoke(command, { request });
+			const original = await invoke("read_clipboard");
+			if (!original.ok) return { error: `Clipboard snapshot failed: ${original.error.message}` };
+			try {
+				await invoke("write_clipboard", { text });
+				const read = await invoke("read_clipboard");
+				return { roundtrip: read.ok && read.value === text };
+			} finally {
+				await invoke("write_clipboard", { text: original.value });
+			}
+		});
+		check("native Unicode clipboard roundtrip", clipboard, { roundtrip: true }, "Real native clipboard commands");
+		const originalFont = await editorFont();
+		await click('[aria-label="App menu"]');
+		await until(() => evaluate(() => !!document.querySelector('[role="menuitem"]')), "app menu");
+		await click('//*[@role="menuitem"][span[text()="Font…"]]');
+		await until(() => evaluate(() => !!document.querySelector('[role="option"]')), "native font list");
+		const chosenFont = await evaluate(() => {
+			const canvas = document.createElement("canvas").getContext("2d");
+			const sample = "WWWW iiiii 0123456789";
+			canvas.font = `20px ${getComputedStyle(document.querySelector(".cm-content")).fontFamily}`;
+			const originalWidth = canvas.measureText(sample).width;
+			for (const option of document.querySelectorAll('[role="option"]')) {
+				canvas.font = `20px ${JSON.stringify(option.textContent)}`;
+				if (Math.abs(canvas.measureText(sample).width - originalWidth) <= 1) continue;
+				option.dataset.tauriTestFont = "true";
+				return option.textContent;
+			}
+			throw new Error("No installed font with distinct metrics available");
+		});
+		await click('[data-tauri-test-font="true"]');
+		await until(async () => (await editorFont()).includes(chosenFont), "native font previews in the editor");
+		await click('[data-slot="dialog-footer"] button');
+		await until(() => evaluate(() => !document.querySelector('[role="option"]')), "font picker closes");
+		check("font cancel restores the original font", await editorFont(), originalFont, "Actual renderer style");
 	});
 } catch (error) {
 	failures.push({ name: "harness setup", error: error.stack ?? String(error) });

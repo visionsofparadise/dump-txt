@@ -60,8 +60,7 @@ $testExitCode = 1
 try {
     Push-Location -LiteralPath $projectDirectory
     try {
-        if ($Persistence) { & npm.cmd run tauri-test }
-        else { & npm.cmd run tauri-test -- --probe }
+        & npm.cmd run tauri-test
         $testExitCode = $LASTEXITCODE
     } finally { Pop-Location }
 } finally {

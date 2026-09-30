@@ -16,16 +16,15 @@ const command = arguments_.shift();
 const nativeScript =
 	(platform === "ios" && command === "xcode-script") ||
 	(platform === "android" && command === "android-studio-script");
-const probe = arguments_.includes("--probe");
 const automation = arguments_.includes("--automation");
 const supported = new Set(["dev", "build"]);
 
 if (
 	(!supported.has(command) && !nativeScript) ||
-	(!nativeScript && arguments_.some((argument) => !["--probe", "--automation"].includes(argument))) ||
-	(platform && (probe || automation))
+	(!nativeScript && arguments_.some((argument) => argument !== "--automation")) ||
+	(platform && automation)
 ) {
-	throw new Error("Use [android|ios] dev [--probe] [--automation] or [android|ios] build [--probe] [--automation]");
+	throw new Error("Use [android|ios] dev [--automation] or [android|ios] build [--automation]");
 }
 
 const environment = { ...process.env };
@@ -37,8 +36,7 @@ if (existsSync(cargoDirectory)) {
 }
 
 const options = { cwd: directory, env: environment, stdio: "inherit", windowsHide: true };
-environment.TAURI_TEST_AUTOMATION = automation ? "true" : "false";
-if (command === "dev" && !probe && !platform)
+if (command === "dev" && !platform)
 	environment.DUMP_TXT_PROFILE ??= fileURLToPath(new URL("../../../.scratch/tauri-dev-profile", import.meta.url));
 
 function run(executable, arguments_) {
@@ -63,7 +61,7 @@ async function freePort(host, port) {
 }
 
 const vite = join(require.resolve("vite/package.json"), "..", "bin", "vite.js");
-const frontendArguments = ["--config", "vite.tauri.config.ts", "--mode", probe ? "probe" : "production"];
+const frontendArguments = ["--config", "vite.tauri.config.ts", "--mode", "production"];
 const nativeArguments = platform ? [platform, command] : [command];
 if (command === "dev") {
 	const host = platform ? "0.0.0.0" : "127.0.0.1";
@@ -71,19 +69,12 @@ if (command === "dev") {
 	frontendArguments.push("--host", host, "--port", String(port));
 	nativeArguments.push("--config", JSON.stringify({ build: { devUrl: `http://127.0.0.1:${port}` } }));
 }
-if (probe)
-	nativeArguments.push("--config", "tauri.probe.conf.json", "--features", automation ? "probe,automation" : "probe");
-else if (!platform && (command === "dev" || automation))
+if (!platform && (command === "dev" || automation))
 	nativeArguments.push(
 		"--config",
 		JSON.stringify({ identifier: `com.visionsofparadise.dump-txt.${automation ? "test" : "dev"}` }),
 	);
-if (automation) {
-	if (!probe) nativeArguments.push("--features", "automation");
-	const automationConfig = JSON.parse(readFileSync(join(directory, "tauri.automation.conf.json"), "utf8"));
-	automationConfig.app.security.capabilities[0] = probe ? "probe" : "main";
-	nativeArguments.push("--config", JSON.stringify(automationConfig));
-}
+if (automation) nativeArguments.push("--features", "automation", "--config", "tauri.automation.conf.json");
 if (command === "build") {
 	const source = {
 		commit: execFileSync("git", ["rev-parse", "HEAD"], { cwd: directory, encoding: "utf8" }).trim(),
@@ -93,13 +84,13 @@ if (command === "build") {
 	nativeArguments.push("--ci");
 	if (platform === "android") nativeArguments.push("--debug", "--apk");
 	if (platform === "ios") nativeArguments.push("-t", "aarch64-sim");
-	if (probe || automation) nativeArguments.push("--no-bundle");
+	if (automation) nativeArguments.push("--no-bundle");
 	run(process.execPath, [require.resolve("@tauri-apps/cli/tauri.js"), ...nativeArguments]);
 	if (platform === "android") {
 		const { version } = JSON.parse(readFileSync(join(directory, "package.json"), "utf8"));
 		console.log("Packages:", normalizeTauriPackages(directory, version, "android", "universal"));
 	}
-	if (!platform && !probe && !automation) {
+	if (!platform && !automation) {
 		const { version } = JSON.parse(readFileSync(join(directory, "package.json"), "utf8"));
 		console.log("Packages:", normalizeTauriPackages(directory, version));
 	}
@@ -117,7 +108,6 @@ if (command === "build") {
 			JSON.stringify(
 				{
 					...source,
-					probe,
 					automation,
 					executable,
 					bytes: bytes.length,

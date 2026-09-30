@@ -12,7 +12,7 @@
 		},
 		"apps/app": {
 			"project": ["src/**/*.{ts,tsx,css}", "*.config.ts"],
-			"entry": ["src/renderer/probe.tsx", "tools/*.mjs"],
+			"entry": ["tools/*.mjs"],
 			"vite": {
 				"config": ["vite.*.config.ts"]
 			},

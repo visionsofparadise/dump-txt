@@ -26,15 +26,14 @@ use tauri_plugin_dialog::DialogExt;
 
 fn navigation_allowed(url: &tauri::Url, development_origin: Option<&tauri::Url>) -> bool {
     if let Some(origin) = development_origin {
-        return url.origin() == origin.origin()
-            && matches!(url.path(), "/" | "/index.html" | "/probe.html");
+        return url.origin() == origin.origin() && matches!(url.path(), "/" | "/index.html");
     }
 
     matches!(
         (url.scheme(), url.host_str()),
         ("tauri", Some("localhost")) | ("http" | "https", Some("tauri.localhost"))
     ) && url.port().is_none()
-        && matches!(url.path(), "" | "/" | "/index.html" | "/probe.html")
+        && matches!(url.path(), "" | "/" | "/index.html")
         && url.query().is_none()
 }
 
@@ -75,25 +74,15 @@ pub fn run() {
             let configuration = app.config();
 
             #[cfg(desktop)]
-            if cfg!(feature = "probe")
-                != (configuration.identifier == "com.visionsofparadise.dump-txt.probe")
-            {
-                return Err("The probe feature and isolated probe identifier must be used together.".into());
-            }
-
-            #[cfg(desktop)]
             let isolated = cfg!(feature = "automation") || tauri::is_dev();
 
             #[cfg(desktop)]
-            if !cfg!(feature = "probe")
-                && isolated == (configuration.identifier == "com.visionsofparadise.dump-txt")
+            if isolated == (configuration.identifier == "com.visionsofparadise.dump-txt")
             {
                 return Err("Development and automation require an isolated application identifier.".into());
             }
 
-            let (theme, bounds) = if cfg!(feature = "probe") {
-                (startup::StartupTheme::System, None)
-            } else {
+            let (theme, bounds) = {
                 let prepared = (|| -> Result<_, Box<dyn std::error::Error>> {
                     #[cfg(mobile)]
                     let isolated_root = None;

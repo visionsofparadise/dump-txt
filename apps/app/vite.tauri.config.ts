@@ -3,13 +3,10 @@ import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 
-export default defineConfig(({ mode }) => ({
+export default defineConfig({
 	root: fileURLToPath(new URL(".", import.meta.url)),
 	clearScreen: false,
 	cacheDir: "node_modules/.vite-tauri",
-	define: {
-		"import.meta.env.VITE_TEST_AUTOMATION": JSON.stringify(process.env.TAURI_TEST_AUTOMATION === "true"),
-	},
 	plugins: [
 		react(),
 		tailwindcss(),
@@ -28,6 +25,5 @@ export default defineConfig(({ mode }) => ({
 		outDir: "dist",
 		emptyOutDir: true,
 		target: ["chrome111", "safari16.4"],
-		rollupOptions: { input: mode === "probe" ? "probe.html" : "index.html" },
 	},
-}));
+});

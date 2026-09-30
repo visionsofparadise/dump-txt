@@ -33,10 +33,8 @@
 		3584CCD14B7D91F47BE6F621 /* startup.test.rs */ = {isa = PBXFileReference; path = startup.test.rs; sourceTree = "<group>"; };
 		38B9612FF062DA3D1ED951B2 /* startup.rs */ = {isa = PBXFileReference; path = startup.rs; sourceTree = "<group>"; };
 		476163BDA7F9897B26B64304 /* dialogs.rs */ = {isa = PBXFileReference; path = dialogs.rs; sourceTree = "<group>"; };
-		4E4AC410A2E93A341A12BBBE /* createProbeMain.unit.test.ts */ = {isa = PBXFileReference; path = createProbeMain.unit.test.ts; sourceTree = "<group>"; };
 		4E880037B0F875D7C67FC849 /* menu.test.rs */ = {isa = PBXFileReference; path = menu.test.rs; sourceTree = "<group>"; };
 		54657FF0DA34979F915AC32F /* invokeTauri.ts */ = {isa = PBXFileReference; path = invokeTauri.ts; sourceTree = "<group>"; };
-		5787AC5E35C0937FB587CB57 /* probe.tsx */ = {isa = PBXFileReference; path = probe.tsx; sourceTree = "<group>"; };
 		57B32223C3C381EED60A6527 /* window.test.rs */ = {isa = PBXFileReference; path = window.test.rs; sourceTree = "<group>"; };
 		5D17B8F2692EEFC8E936DAE7 /* readyTauriRenderer.ts */ = {isa = PBXFileReference; path = readyTauriRenderer.ts; sourceTree = "<group>"; };
 		663C42A2D6426D36BB6E88FF /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
@@ -46,7 +44,6 @@
 		6918299149EDA3C934C1F207 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		6A68BDF9FB0189E07B16181A /* window_theme.rs */ = {isa = PBXFileReference; path = window_theme.rs; sourceTree = "<group>"; };
 		6B0A6E47A1F64529159D0646 /* clipboard.rs */ = {isa = PBXFileReference; path = clipboard.rs; sourceTree = "<group>"; };
-		6BECB36FBBEE0F177E962F9F /* probeText.ts */ = {isa = PBXFileReference; path = probeText.ts; sourceTree = "<group>"; };
 		6DB5F0C57C3A35897749AB6C /* error.test.rs */ = {isa = PBXFileReference; path = error.test.rs; sourceTree = "<group>"; };
 		781C8A4388AD9127D2EEF85D /* mountApp.tsx */ = {isa = PBXFileReference; path = mountApp.tsx; sourceTree = "<group>"; };
 		7960CD0FB60088E2BFDB5D3A /* dialogs.test.rs */ = {isa = PBXFileReference; path = dialogs.test.rs; sourceTree = "<group>"; };
@@ -59,7 +56,6 @@
 		AAEACC92F925F2C4832511DE /* error.rs */ = {isa = PBXFileReference; path = error.rs; sourceTree = "<group>"; };
 		ADE3D668BAD55F91926D93C2 /* fonts.test.rs */ = {isa = PBXFileReference; path = fonts.test.rs; sourceTree = "<group>"; };
 		B24F1F4E6EC54DACC48B4999 /* dump-txt_iOS.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = "dump-txt_iOS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
-		B345DDFE2D7272E0834A06DC /* createProbeMain.ts */ = {isa = PBXFileReference; path = createProbeMain.ts; sourceTree = "<group>"; };
 		B48DA0B1329EC23434CDE213 /* files.test.rs */ = {isa = PBXFileReference; path = files.test.rs; sourceTree = "<group>"; };
 		B4B223484011FD44BCB91CDD /* files.rs */ = {isa = PBXFileReference; path = files.rs; sourceTree = "<group>"; };
 		C4C29AFBC12A3E5D7CA83F6F /* QuartzCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuartzCore.framework; path = System/Library/Frameworks/QuartzCore.framework; sourceTree = SDKROOT; };
@@ -215,7 +211,6 @@
 			isa = PBXGroup;
 			children = (
 				CB04B4082B7D2970B51044DD /* index.tsx */,
-				5787AC5E35C0937FB587CB57 /* probe.tsx */,
 				02CFE00EE0E945D07CE7703D /* styles.css */,
 				E8C0592F3E0D5B7250422C8B /* host */,
 			);
@@ -241,13 +236,10 @@
 		E8C0592F3E0D5B7250422C8B /* host */ = {
 			isa = PBXGroup;
 			children = (
-				B345DDFE2D7272E0834A06DC /* createProbeMain.ts */,
-				4E4AC410A2E93A341A12BBBE /* createProbeMain.unit.test.ts */,
 				66CDDD4C7E058EC5A97B8CF0 /* createTauriMain.integration.test.ts */,
 				8135E6BD5A5656E3CB1155B6 /* createTauriMain.ts */,
 				781C8A4388AD9127D2EEF85D /* mountApp.tsx */,
 				F5FFA92FC3A19AE15E235CC7 /* platformOf.ts */,
-				6BECB36FBBEE0F177E962F9F /* probeText.ts */,
 				5D17B8F2692EEFC8E936DAE7 /* readyTauriRenderer.ts */,
 				5E35FDB597B029E78E30B90E /* utils */,
 			);
