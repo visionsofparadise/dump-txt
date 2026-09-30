@@ -35,14 +35,18 @@ const report = {
 };
 
 function command(executable, args, options = {}) {
-	const result = spawnSync(executable, args, {
-		encoding: "utf8",
-		timeout: options.timeout ?? 30_000,
-		maxBuffer: 8 * 1024 * 1024,
-		windowsHide: true,
-		input: options.input,
-		env: options.env ? { ...process.env, ...options.env } : process.env,
-	});
+	const timeout = options.timeout ?? 30_000;
+	const run = (limit) =>
+		spawnSync(executable, args, {
+			encoding: "utf8",
+			timeout: limit,
+			maxBuffer: 8 * 1024 * 1024,
+			windowsHide: true,
+			input: options.input,
+			env: options.env ? { ...process.env, ...options.env } : process.env,
+		});
+	let result = run(timeout);
+	if (options.retryTimeout && result.error?.code === "ETIMEDOUT") result = run(2 * timeout);
 	if (result.error || result.status !== 0) {
 		if (options.allowFailure) return null;
 		throw new Error(
@@ -336,7 +340,7 @@ function appBundleOf(path) {
 
 async function ios() {
 	assert.equal(process.platform, "darwin", "iOS probe requires macOS with Xcode.");
-	const simctl = (args, options) => command("xcrun", ["simctl", ...args], options);
+	const simctl = (args, options) => command("xcrun", ["simctl", ...args], { ...options, retryTimeout: true });
 	const launchHelp = spawnSync("xcrun", ["simctl", "help", "launch"], { encoding: "utf8", timeout: 30_000 });
 	const launchUsage = `${launchHelp.stdout ?? ""}${launchHelp.stderr ?? ""}`;
 	writeFileSync(join(evidence, "simctl-launch-help.txt"), launchUsage);
@@ -372,17 +376,10 @@ async function ios() {
 			const readyFile = join(container, "tmp/dump-txt-renderer-ready");
 			const stdout = join(evidence, `${label}.stdout.log`);
 			const stderr = join(evidence, `${label}.stderr.log`);
-			const launchArguments = [
-				"launch",
-				"--terminate-running-process",
-				`--stdout=${stdout}`,
-				`--stderr=${stderr}`,
-				device,
-				bundleId,
-			];
-			const launchOptions = { timeout: 90_000, env: { SIMCTL_CHILD_DUMP_TXT_BOOT_NONCE: nonce } };
-			const result =
-				simctl(launchArguments, { ...launchOptions, allowFailure: true }) ?? simctl(launchArguments, launchOptions);
+			const result = simctl(
+				["launch", "--terminate-running-process", `--stdout=${stdout}`, `--stderr=${stderr}`, device, bundleId],
+				{ timeout: 45_000, env: { SIMCTL_CHILD_DUMP_TXT_BOOT_NONCE: nonce } },
+			);
 			writeFileSync(join(evidence, `${label}.launch.log`), result);
 			const processId = Number(result.trim().match(/: (\d+)$/u)?.[1]);
 			assert(Number.isSafeInteger(processId) && processId > 0, "Simulator launch must report the app PID.");
@@ -398,8 +395,11 @@ async function ios() {
 			return processId;
 		}
 		function terminate(processId) {
-			if (simctl(["terminate", device, bundleId], { timeout: 60_000, allowFailure: true }) !== null) return;
-			command("/bin/kill", ["-9", String(processId)]);
+			const terminated = command("xcrun", ["simctl", "terminate", device, bundleId], {
+				timeout: 60_000,
+				allowFailure: true,
+			});
+			if (terminated === null) command("/bin/kill", ["-9", String(processId)]);
 		}
 		const first = await launch("first-launch");
 		report.firstReady = true;
