@@ -114,10 +114,9 @@ async function android() {
 	report.applicationId = app;
 	report.document = document;
 	report.install = adb(["install", "-r", report.package], { timeout: 180_000 }).trim();
+	adb(["logcat", "-G", "16M"]);
 
 	async function launch(label) {
-		const nonce = `dump-txt-boot-${randomUUID()}`;
-		adb(["shell", "log", "-t", "DumpTxtBoot", nonce]);
 		adb(["shell", "am", "start", "-W", "-n", activity], { timeout: 45_000 });
 		const processId = await until(
 			() => adb(["shell", "pidof", app], { allowFailure: true })?.trim(),
@@ -127,14 +126,8 @@ async function android() {
 		let fresh = "";
 		try {
 			await until(() => {
-				const logs = adb(["logcat", "-d", "-v", "threadtime", "-t", "4000"]);
-				const boundary = logs.indexOf(nonce);
-				if (boundary < 0) return false;
-				fresh = logs.slice(boundary + nonce.length);
-				return fresh.split(/\r?\n/u).some((line) => {
-					const fields = line.trim().split(/\s+/u);
-					return fields[2] === processId && line.includes(marker);
-				});
+				fresh = adb(["logcat", "-d", "-v", "threadtime", `--pid=${processId}`]);
+				return fresh.includes(marker);
 			}, `${label} renderer readiness`);
 		} finally {
 			writeFileSync(join(evidence, `${label}.log`), fresh);
@@ -379,10 +372,17 @@ async function ios() {
 			const readyFile = join(container, "tmp/dump-txt-renderer-ready");
 			const stdout = join(evidence, `${label}.stdout.log`);
 			const stderr = join(evidence, `${label}.stderr.log`);
-			const result = simctl(["launch", `--stdout=${stdout}`, `--stderr=${stderr}`, device, bundleId], {
-				timeout: 45_000,
-				env: { SIMCTL_CHILD_DUMP_TXT_BOOT_NONCE: nonce },
-			});
+			const launchArguments = [
+				"launch",
+				"--terminate-running-process",
+				`--stdout=${stdout}`,
+				`--stderr=${stderr}`,
+				device,
+				bundleId,
+			];
+			const launchOptions = { timeout: 90_000, env: { SIMCTL_CHILD_DUMP_TXT_BOOT_NONCE: nonce } };
+			const result =
+				simctl(launchArguments, { ...launchOptions, allowFailure: true }) ?? simctl(launchArguments, launchOptions);
 			writeFileSync(join(evidence, `${label}.launch.log`), result);
 			const processId = Number(result.trim().match(/: (\d+)$/u)?.[1]);
 			assert(Number.isSafeInteger(processId) && processId > 0, "Simulator launch must report the app PID.");
@@ -395,8 +395,13 @@ async function ios() {
 				return existsSync(readyFile) && readFileSync(readyFile, "utf8") === nonce;
 			}, `${label} iOS renderer readiness`);
 			report[label].status = "ready";
+			return processId;
 		}
-		await launch("first-launch");
+		function terminate(processId) {
+			if (simctl(["terminate", device, bundleId], { timeout: 60_000, allowFailure: true }) !== null) return;
+			command("/bin/kill", ["-9", String(processId)]);
+		}
+		const first = await launch("first-launch");
 		report.firstReady = true;
 		const document = join(container, "Library/Application Support/dump.txt/dump.txt");
 		await until(() => existsSync(document), "iOS private document creation");
@@ -407,16 +412,16 @@ async function ios() {
 			"Document must remain inside its simulator app container.",
 		);
 		report.document = within;
-		simctl(["terminate", device, bundleId]);
+		terminate(first);
 		writeFileSync(canonical, sentinel, "utf8");
-		await launch("second-launch");
+		const second = await launch("second-launch");
 		await delay(1000);
 		assert.equal(readFileSync(canonical, "utf8"), sentinel);
 		report.secondReady = true;
 		report.fileRetained = true;
 		report.rendererTextObserved = null;
 		simctl(["io", device, "screenshot", join(evidence, "simulator.png")]);
-		simctl(["terminate", device, bundleId]);
+		terminate(second);
 	} finally {
 		try {
 			simctl(["io", device, "screenshot", join(evidence, "simulator-final.png")], { allowFailure: true });
