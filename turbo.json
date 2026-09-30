@@ -11,6 +11,7 @@
 		".textlintrc.json",
 		".textlintignore",
 		"knip.json",
+		".jscpd.json",
 		"tsconfig.json",
 		"rust-toolchain.toml",
 		"rustfmt.toml",
