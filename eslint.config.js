@@ -340,7 +340,7 @@ export default tseslint.config(
 	},
 
 	{
-		files: ["**/tools/testTauriPersistence.mjs", "**/tools/testWindowChrome.mjs", "**/tools/nativeWindow.mjs"],
+		files: ["**/tools/testTauriPersistence.mjs"],
 		languageOptions: { globals: globals.browser },
 	},
 

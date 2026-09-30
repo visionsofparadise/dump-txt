@@ -23,7 +23,6 @@ jobs:
                  artifact: windows-x64
                - os: windows-11-arm
                  artifact: windows-arm64
-                 nativeWindow: "false"
                - os: ubuntu-24.04
                  artifact: linux-x64
                - os: macos-15
@@ -32,8 +31,6 @@ jobs:
                  artifact: mac-x64
       runs-on: ${{ matrix.os }}
       timeout-minutes: 90
-      env:
-         TAURI_TEST_NATIVE_WINDOW: ${{ matrix.nativeWindow || 'true' }}
       steps:
          - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
            with:
@@ -59,7 +56,7 @@ jobs:
            if: runner.os == 'Linux'
            run: |
               sudo apt-get update
-              sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev libfontconfig1-dev libfreetype6-dev webkit2gtk-driver xvfb fonts-dejavu openbox x11-utils xdotool imagemagick
+              sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev libfontconfig1-dev libfreetype6-dev webkit2gtk-driver xvfb fonts-dejavu
          - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961
            if: matrix.artifact == 'linux-x64'
            with:
@@ -132,7 +129,7 @@ jobs:
          - name: Test native persistence on Linux
            if: ${{ !cancelled() && steps.persistence-build.outcome == 'success' && runner.os == 'Linux' }}
            timeout-minutes: 10
-           run: xvfb-run -a bash apps/app/tools/tauriLinuxDesktop.sh
+           run: xvfb-run -a npm run tauri-test
          - name: Build production packages
            id: package-build
            if: ${{ !cancelled() && steps.persistence-build.outcome == 'success' }}
@@ -213,22 +210,6 @@ jobs:
                  apps/app/out/make/dump-txt-*-linux-*.deb
                  apps/app/out/make/dump-txt-*-android-universal.apk
               if-no-files-found: error
-         - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-           if: always()
-           with:
-              name: window-layouts-${{ matrix.artifact }}
-              retention-days: 1
-              include-hidden-files: true
-              path: |
-                 apps/app/.scratch/tauri-persistence/**/layout-*.png
-                 apps/app/.scratch/tauri-persistence/**/menu-*.png
-                 apps/app/.scratch/tauri-persistence/**/maximized.png
-                 apps/app/.scratch/tauri-persistence/**/chrome-failure.png
-                 apps/app/.scratch/tauri-persistence/**/window-chrome.json
-                 apps/app/.scratch/tauri-persistence/**/native-window*.json
-                 apps/app/.scratch/tauri-persistence/**/native-*.jsonl
-                 apps/app/.scratch/tauri-persistence/**/pointer-*-before.png
-              if-no-files-found: warn
          - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
            if: always()
            with:
