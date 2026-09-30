@@ -1,3 +1,5 @@
+#[cfg(all(feature = "automation", target_os = "windows"))]
+mod automation;
 mod clipboard;
 mod dialogs;
 mod document;
@@ -159,6 +161,11 @@ pub fn run() {
                 .traffic_light_position(tauri::LogicalPosition::new(14.0, 12.0));
             #[cfg(target_os = "linux")]
             let window = window.decorations(true);
+            #[cfg(all(feature = "automation", target_os = "windows"))]
+            let window = match automation::browser_arguments()? {
+                Some(arguments) => window.additional_browser_args(&arguments),
+                None => window,
+            };
             let window = window.build()?;
 
             #[cfg(mobile)]

@@ -110,6 +110,8 @@ jobs:
          - name: Test native persistence on Windows and macOS
            if: ${{ !cancelled() && steps.persistence-build.outcome == 'success' && runner.os != 'Linux' }}
            timeout-minutes: 10
+           env:
+              TAURI_TEST_WEBVIEW_DATA_FOLDER: ${{ runner.temp }}/webview2
            run: npm run tauri-test
          - name: Test native persistence on Linux
            if: ${{ !cancelled() && steps.persistence-build.outcome == 'success' && runner.os == 'Linux' }}
