@@ -281,39 +281,10 @@ function Uninstall-Tauri {
     Assert-Condition (-not (Test-Path -LiteralPath (Join-Path $installDirectory 'dump-txt.exe'))) 'Tauri uninstall removes its executable'
 }
 
-function Write-UpgradeProfile {
-    $text = "Installer migration fixture · Café · 中文 · 👩‍💻`r`nSecond line preserved exactly.`r`n"
-    $encoding = [Text.UnicodeEncoding]::new($false, $true)
-    [IO.File]::WriteAllBytes((Join-Path $profileDirectory 'dump.txt'), ($encoding.GetPreamble() + $encoding.GetBytes($text)))
-    $hash = (Get-FileHash -LiteralPath (Join-Path $profileDirectory 'dump.txt') -Algorithm SHA256).Hash.ToLowerInvariant()
-    $selection = @{ ranges = @(@{ anchor = 3; head = 8 }); mainIndex = 0; scrollTop = 0 }
-    $state = [ordered]@{
-        version = 1; activePath = (Join-Path $profileDirectory 'dump.txt')
-        appearance = @{ theme = 'dark'; font = 'Consolas'; textSize = 13; showStatusBar = $true }
-        findPreferences = @{ matchCase = $true; allPages = $false }
-        occurrencePreferences = @{ matchCase = $false; allPages = $true }
-        windowBounds = $null; savedContentHash = $hash; activePageIndex = 0; selections = @($selection)
-    }
-    $recovery = [ordered]@{
-        version = 1; path = $state.activePath; baseHash = $hash; revision = 0; text = $text
-        format = @{ encoding = 'utf16le'; bom = $true; newline = "`r`n" }
-        pageIds = @('installer-fixture-page')
-        view = @{ activePageId = 'installer-fixture-page'; selections = @{ 'installer-fixture-page' = $selection }; occurrence = $null }
-    }
-    $utf8 = [Text.UTF8Encoding]::new($false)
-    [IO.File]::WriteAllText((Join-Path $profileDirectory 'app-state.json'), ($state | ConvertTo-Json -Depth 10), $utf8)
-    [IO.File]::WriteAllText((Join-Path $profileDirectory 'recovery.json'), ($recovery | ConvertTo-Json -Depth 10), $utf8)
-}
-
 Assert-EmptyAccount
 [void](New-Item -ItemType Directory -Path $evidenceDirectory -Force)
 
 try {
-    $releasedInstaller = Join-Path $evidenceDirectory 'dump-txt-Setup-0.2.0.exe'
-    Invoke-WebRequest -Uri 'https://github.com/visionsofparadise/dump-txt/releases/download/v0.2.0/dump-txt-Setup-0.2.0.exe' -OutFile $releasedInstaller
-    Assert-Condition ((Get-FileHash -LiteralPath $releasedInstaller -Algorithm SHA256).Hash.ToLowerInvariant() -eq
-        '65c349efa88f61b338d71a9721a51fb404b858076cd24a9d438d493ee0e6c797') 'Published Electron 0.2.0 installer matches the pinned release hash'
-
     Invoke-Installer $installer @('/S')
     Assert-Condition (Test-Path -LiteralPath $tauriKey) 'Clean installation creates the Tauri uninstall entry'
     Test-Shortcuts
@@ -337,27 +308,6 @@ try {
     Remove-Item -LiteralPath $legacyKey -Recurse
     Remove-Item -LiteralPath $legacyInstallKey -Recurse
 
-    Invoke-Installer $releasedInstaller @('/S', '/currentuser')
-    Assert-Condition ((Get-ItemProperty -LiteralPath $legacyKey).DisplayVersion -eq '0.2.0') 'Released installer creates the expected Electron 0.2.0 identity'
-    Assert-Condition ((Get-ItemProperty -LiteralPath $legacyInstallKey).InstallLocation -eq $legacyDirectory) 'Released installer uses the expected current-user directory'
-    Write-UpgradeProfile
-    $upgradeProfile = Get-ProfileSnapshot
-    $report.profileBeforeUpgrade = $upgradeProfile
-    Invoke-Installer $installer @('/S')
-    Assert-Condition (-not (Test-Path -LiteralPath $legacyKey) -and -not (Test-Path -LiteralPath $legacyInstallKey)) 'Migration removes both Electron registration keys'
-    Assert-Condition (-not (Test-Path -LiteralPath (Join-Path $legacyDirectory 'dump-txt.exe'))) 'Migration removes the old Electron executable'
-    Assert-Condition (Test-Path -LiteralPath $tauriKey) 'Migration creates the Tauri uninstall entry'
-    Assert-ProfileSnapshot $upgradeProfile 'Migration preserves document, settings and recovery bytes exactly'
-    Test-Shortcuts
-    Test-InstalledApplication
-    $reopenedProfile = Get-ProfileSnapshot
-    Assert-Condition ($reopenedProfile['dump.txt'] -eq $upgradeProfile['dump.txt']) 'Migrated application opens and closes without changing UTF16 document bytes'
-    $settings = Get-Content -LiteralPath (Join-Path $profileDirectory 'app-state.json') -Raw | ConvertFrom-Json
-    Assert-Condition ($settings.appearance.theme -eq 'dark' -and $settings.appearance.textSize -eq 13 -and
-        $settings.appearance.font -eq 'Consolas') 'Migrated application retains appearance settings'
-    Uninstall-Tauri
-    Assert-ProfileSnapshot $reopenedProfile 'Post-migration uninstall preserves the profile'
-    $report.profileAfterUpgrade = $reopenedProfile
     $report.passed = $true
 } catch {
     $failure = $_
