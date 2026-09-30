@@ -77,7 +77,7 @@ async function open(profile, name, expectedText) {
 	process.env.DUMP_TXT_PROFILE = profile;
 	const logs = path.join(folder, name);
 	await mkdir(logs, { recursive: true });
-	browser = await startHostSession(logs, { sessionName: name, commandTimeout: 15000 });
+	browser = await startHostSession(logs, { commandTimeout: 15000 });
 	browser.options.connectionRetryCount = 0;
 	browser.options.connectionRetryTimeout = 15000;
 	session = { name, profile };

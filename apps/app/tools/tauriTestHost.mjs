@@ -25,7 +25,7 @@ export function hostReport() {
 	};
 }
 
-export async function startHostSession(folder, { sessionName, commandTimeout = 30000 } = {}) {
+export async function startHostSession(folder, { commandTimeout = 30000 } = {}) {
 	const installedDriver = path.join(
 		homedir(),
 		".cargo",
@@ -39,18 +39,6 @@ export async function startHostSession(folder, { sessionName, commandTimeout = 3
 		startTimeout: 120000,
 		commandTimeout,
 	});
-	const webviewRoot = process.env.TAURI_TEST_WEBVIEW_DATA_FOLDER;
-	if (process.platform === "win32" && webviewRoot) {
-		capabilities["tauri:options"].webviewOptions = {
-			userDataFolder: sessionName ? path.join(webviewRoot, sessionName) : webviewRoot,
-			additionalBrowserArguments: [
-				"remote-debugging-port=0",
-				"remote-debugging-address=127.0.0.1",
-				"enable-logging",
-				`log-file=${path.join(folder, "webview2.log")}`,
-			],
-		};
-	}
 	Object.assign(capabilities["wdio:tauriServiceOptions"], {
 		logDir: folder,
 		captureBackendLogs: true,
