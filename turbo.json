@@ -17,7 +17,17 @@
 		"rustfmt.toml",
 		"tools.json"
 	],
-	"globalEnv": ["OS", "RUNNER_OS", "PROCESSOR_ARCHITECTURE", "DUMP_TXT_PROFILE", "RUSTFLAGS", "CARGO_BUILD_TARGET"],
+	"globalEnv": [
+		"OS",
+		"RUNNER_OS",
+		"RUNNER_ARCH",
+		"ImageOS",
+		"ImageVersion",
+		"PROCESSOR_ARCHITECTURE",
+		"DUMP_TXT_PROFILE",
+		"RUSTFLAGS",
+		"CARGO_BUILD_TARGET"
+	],
 	"globalPassThroughEnv": [
 		"CARGO_BUILD_JOBS",
 		"CARGO_HOME",
@@ -52,12 +62,34 @@
 			"dependsOn": ["check"],
 			"cache": false
 		},
+		"@dump-txt/app#integration": {
+			"dependsOn": [
+				"check",
+				"@dump-txt/ui#integration",
+				"@dump-txt/rig#integration",
+				"@dump-txt/website#integration"
+			],
+			"cache": false
+		},
 		"start": {
 			"cache": false,
 			"persistent": true
 		},
 		"tauri-test": {
 			"cache": false
+		},
+		"@dump-txt/app#release": {
+			"cache": true,
+			"inputs": [
+				"$TURBO_DEFAULT$",
+				"!src/**/*.test.*",
+				"!tools/test*",
+				"!tools/*.unit.test.mjs",
+				"../../packages/ui/**",
+				"!../../packages/ui/**/*.test.*",
+				"!../../packages/ui/node_modules/**"
+			],
+			"outputs": ["out/make/**"]
 		}
 	}
 }

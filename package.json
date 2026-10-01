@@ -20,6 +20,8 @@
 		"unit": "turbo unit",
 		"preintegration": "cd apps/app && node ../../sweep.mjs",
 		"integration": "turbo integration",
+		"prerelease": "cd apps/app && node ../../sweep.mjs",
+		"release": "turbo run release --filter=@dump-txt/app",
 		"pretauri-test": "cd apps/app && node ../../sweep.mjs",
 		"tauri-test": "turbo tauri-test --",
 		"prepare": "node -e \"const c=require('node:child_process');if(c.spawnSync('git',['rev-parse','--is-inside-work-tree'],{stdio:'ignore'}).status===0)c.execFileSync('git',['config','core.hooksPath','.githooks'])\" && node tools.mjs install && cargo install styling-lint --version 0.1.0 --locked && cargo install cargo-machete --version 0.9.2 --locked"
