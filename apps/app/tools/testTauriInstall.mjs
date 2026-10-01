@@ -166,12 +166,22 @@ async function testMac() {
 	try {
 		await secondLaunchHandsOff(executable, () => processesOf(executable).includes(first));
 	} finally {
-		run("osascript", ["-e", `quit app "${basename(bundle, ".app")}"`], { timeout: 20000 });
+		try {
+			run("osascript", ["-e", `quit app "${basename(bundle, ".app")}"`], { timeout: 20000 });
+		} catch {
+			// A hung or failed quit falls through to the kill below.
+		}
 		const deadline = Date.now() + 15000;
 		while (processesOf(executable).includes(first) && Date.now() < deadline) await delay(500);
 		const quit = !processesOf(executable).includes(first);
 		report.observations.push({ name: "app quits through AppleScript", actual: quit, expected: true, passed: quit });
-		if (!quit) process.kill(Number(first), "SIGKILL");
+		if (!quit) {
+			try {
+				process.kill(Number(first), "SIGKILL");
+			} catch {
+				// The process exited between the lookup and the kill.
+			}
+		}
 	}
 
 	runOrThrow("sudo", ["rm", "-rf", installed]);
