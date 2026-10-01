@@ -208,7 +208,7 @@ jobs:
          - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
            with:
               name: installer-${{ matrix.artifact }}
-              retention-days: 1
+              retention-days: 7
               path: |
                  apps/app/out/make/dump-txt-*-windows-x64.exe
                  apps/app/out/make/dump-txt-*-windows-arm64.exe
