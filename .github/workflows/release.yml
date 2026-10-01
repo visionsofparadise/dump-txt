@@ -1,20 +1,77 @@
-name: CI and release
+name: Release
 
-on:
-   push:
-      branches: [main]
-   pull_request:
-   workflow_dispatch:
+on: workflow_dispatch
 
 permissions:
    contents: read
 
 concurrency:
-   group: ci-release-${{ github.ref }}
+   group: release
    cancel-in-progress: false
 
 jobs:
+   gate:
+      if: github.ref == 'refs/heads/main'
+      runs-on: ubuntu-24.04
+      timeout-minutes: 90
+      steps:
+         - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+           with:
+              persist-credentials: false
+              fetch-depth: 0
+         - name: Refuse a released version
+           env:
+              GH_TOKEN: ${{ github.token }}
+           run: |
+              tag="v$(jq -r .version apps/app/package.json)"
+              if [ "$(gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json isDraft -q .isDraft 2>/dev/null)" = "false" ]; then
+                 echo "::error::$tag is already released; bump the version"
+                 exit 1
+              fi
+         - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+           with:
+              node-version: 24
+              cache: npm
+         - name: Pin npm 12
+           run: npm install -g npm@12
+         - name: Enforce install-script allowlist
+           run: npm config set strict-allow-scripts=true --location=project
+         - name: Free Linux runner disk space
+           run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL /usr/local/share/boost
+         - name: Install pinned Rust toolchain
+           run: rustup show
+         - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+           with:
+              workspaces: apps/app -> target
+              key: gate
+              cache-on-failure: "true"
+              save-if: ${{ github.ref == 'refs/heads/main' }}
+         - run: npm ci
+         - name: Install Linux native and driver dependencies
+           run: |
+              sudo apt-get update
+              sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev libfontconfig1-dev libfreetype6-dev webkit2gtk-driver xvfb fonts-dejavu
+         - name: Install native WebDriver
+           run: cargo install tauri-driver --version 2.0.6 --locked
+         - run: npm run check
+         - run: npm run unit
+         - name: Integration and native persistence
+           run: xvfb-run -a npm run integration
+         - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+           if: failure()
+           continue-on-error: true
+           with:
+              name: tauri-evidence-gate
+              retention-days: 1
+              include-hidden-files: true
+              path: |
+                 apps/app/.scratch/tauri-persistence/
+                 apps/app/.scratch/tauri-build.json
+                 apps/app/target/release/dump-txt
+              if-no-files-found: warn
+
    build:
+      needs: gate
       strategy:
          fail-fast: false
          matrix:
@@ -35,6 +92,7 @@ jobs:
          - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
            with:
               persist-credentials: false
+              fetch-depth: 0
          - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
            with:
               node-version: 24
@@ -49,14 +107,15 @@ jobs:
            with:
               workspaces: apps/app -> target
               key: ${{ matrix.artifact }}
+              cache-targets: ${{ matrix.artifact == 'linux-x64' || matrix.artifact == 'mac-arm64' }}
               cache-on-failure: "true"
               save-if: ${{ github.ref == 'refs/heads/main' }}
          - run: npm ci
-         - name: Install Linux native and driver dependencies
+         - name: Install Linux native dependencies
            if: runner.os == 'Linux'
            run: |
               sudo apt-get update
-              sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev libfontconfig1-dev libfreetype6-dev webkit2gtk-driver xvfb fonts-dejavu
+              sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev libfontconfig1-dev libfreetype6-dev xvfb fonts-dejavu dbus
          - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961
            if: matrix.artifact == 'linux-x64'
            with:
@@ -73,7 +132,7 @@ jobs:
               echo "NDK_HOME=$ANDROID_HOME/ndk/27.2.12479018" >> "$GITHUB_ENV"
               echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
          - name: Restore stable Android debug signing key
-           if: matrix.artifact == 'linux-x64' && github.event_name != 'pull_request'
+           if: matrix.artifact == 'linux-x64'
            env:
               ANDROID_DEBUG_KEYSTORE_BASE64: ${{ secrets.ANDROID_DEBUG_KEYSTORE_BASE64 }}
            run: |
@@ -90,43 +149,32 @@ jobs:
          - name: Install CocoaPods
            if: matrix.artifact == 'mac-arm64'
            run: brew list cocoapods || brew install cocoapods
-         - name: Install native WebDriver
-           if: runner.os != 'macOS'
-           run: cargo install tauri-driver --version 2.0.6 --locked
-         - name: Use the runner image's ARM64 Edge WebDriver
-           if: matrix.artifact == 'windows-arm64'
+         - uses: rharkor/caching-for-turbo@2238fae6eb9a9936f92356f54cb3660200d105e7
+           with:
+              use-relative-cache-path: true
+              cache-prefix: turbo-
+         - run: npm run release
+         - name: Verify Windows install
+           if: matrix.artifact == 'windows-x64'
+           timeout-minutes: 15
            shell: pwsh
            run: |
-              $driver = Join-Path $env:EDGEWEBDRIVER 'msedgedriver.exe'
-              if (-not (Test-Path -LiteralPath $driver)) { throw "Expected the image's Edge WebDriver at $driver." }
-              "MS_EDGE_DRIVER=$driver" | Add-Content -LiteralPath $env:GITHUB_ENV
-              $env:EDGEWEBDRIVER | Add-Content -LiteralPath $env:GITHUB_PATH
-         - run: npm run check
-         - run: npm run unit
-         - run: npm run integration
-         - name: Build production persistence test app
-           id: persistence-build
-           run: npm run build -- --automation
-         - name: Test native persistence on Windows and macOS
-           if: ${{ !cancelled() && steps.persistence-build.outcome == 'success' && runner.os != 'Linux' }}
+              $taskInstaller = @(Get-ChildItem -LiteralPath ./apps/app/out/make -Filter 'dump-txt-*-windows-x64.exe')
+              if ($taskInstaller.Count -ne 1) { throw 'Expected one Windows installer.' }
+              ./apps/app/tools/testTauriInstaller.ps1 -InstallerPath $taskInstaller[0].FullName
+         - name: Verify Linux packages
+           if: runner.os == 'Linux'
            timeout-minutes: 10
-           env:
-              TAURI_TEST_WEBVIEW_DATA_FOLDER: ${{ runner.temp }}/webview2
-           run: npm run tauri-test
-         - name: Test native persistence on Linux
-           if: ${{ !cancelled() && steps.persistence-build.outcome == 'success' && runner.os == 'Linux' }}
+           run: dbus-run-session -- xvfb-run -a node apps/app/tools/testTauriInstall.mjs
+         - name: Verify macOS packages
+           if: runner.os == 'macOS'
            timeout-minutes: 10
-           run: xvfb-run -a npm run tauri-test
-         - name: Build production packages
-           id: package-build
-           if: ${{ !cancelled() && steps.persistence-build.outcome == 'success' }}
-           run: npm run build
+           run: node apps/app/tools/testTauriInstall.mjs
          - name: Build Android APK
-           id: android-build
-           if: ${{ !cancelled() && steps.package-build.outcome == 'success' && matrix.artifact == 'linux-x64' }}
+           if: matrix.artifact == 'linux-x64'
            run: npm run android --workspace @dump-txt/app
          - name: Verify Android APK signing certificate
-           if: ${{ !cancelled() && steps.android-build.outcome == 'success' && matrix.artifact == 'linux-x64' && github.event_name != 'pull_request' }}
+           if: matrix.artifact == 'linux-x64'
            shell: bash
            run: |
               apksigner=$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -n 1)
@@ -137,13 +185,13 @@ jobs:
               certificate_sha256=$(printf '%s\n' "$certificates" | sed -n 's/^.* certificate SHA-256 digest: //p' | tr -d '\r' | sort -u)
               test "$certificate_sha256" = "059e85e1a8aa67d93842ed55cd8e7a470eef3624c21f50b0527adc061c741eea"
          - name: Enable Android emulator acceleration
-           if: ${{ !cancelled() && steps.android-build.outcome == 'success' && matrix.artifact == 'linux-x64' }}
+           if: matrix.artifact == 'linux-x64'
            run: |
               echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
               sudo udevadm control --reload-rules
               sudo udevadm trigger --name-match=kvm
          - name: Test Android boot and file persistence
-           if: ${{ !cancelled() && steps.android-build.outcome == 'success' && matrix.artifact == 'linux-x64' }}
+           if: matrix.artifact == 'linux-x64'
            timeout-minutes: 15
            uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
            with:
@@ -155,19 +203,9 @@ jobs:
               emulator-options: -no-window -gpu swiftshader -no-snapshot -noaudio -no-boot-anim
               script: node apps/app/tools/testMobileBoot.mjs android apps/app/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk
          - name: Build iOS simulator
-           id: ios-build
-           if: ${{ !cancelled() && steps.package-build.outcome == 'success' && matrix.artifact == 'mac-arm64' }}
+           if: matrix.artifact == 'mac-arm64'
            run: npm run ios --workspace @dump-txt/app
-         - name: Verify Windows install
-           if: ${{ !cancelled() && steps.package-build.outcome == 'success' && matrix.artifact == 'windows-x64' }}
-           timeout-minutes: 15
-           shell: pwsh
-           run: |
-              $taskInstaller = @(Get-ChildItem -LiteralPath ./apps/app/out/make -Filter 'dump-txt-*-windows-x64.exe')
-              if ($taskInstaller.Count -ne 1) { throw 'Expected one Windows installer.' }
-              ./apps/app/tools/testTauriInstaller.ps1 -InstallerPath $taskInstaller[0].FullName
          - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-           if: ${{ !cancelled() && steps.package-build.outcome == 'success' }}
            with:
               name: installer-${{ matrix.artifact }}
               retention-days: 1
@@ -181,17 +219,16 @@ jobs:
               if-no-files-found: error
          - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
            if: failure()
+           continue-on-error: true
            with:
               name: tauri-evidence-${{ matrix.artifact }}
               retention-days: 1
               include-hidden-files: true
               path: |
-                 apps/app/.scratch/tauri-persistence/
                  apps/app/.scratch/tauri-installer/
+                 apps/app/.scratch/tauri-install/
                  apps/app/.scratch/tauri-build.json
                  apps/app/.scratch/mobile-boot/
-                 apps/app/target/release/dump-txt
-                 apps/app/target/release/dump-txt.exe
               if-no-files-found: warn
 
    cleanup-artifacts:
@@ -214,7 +251,6 @@ jobs:
 
    publish:
       needs: build
-      if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
       runs-on: ubuntu-latest
       permissions:
          contents: write
@@ -223,6 +259,7 @@ jobs:
          - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
            with:
               persist-credentials: false
+              fetch-depth: 0
          - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
            with:
               node-version: 24
@@ -236,7 +273,6 @@ jobs:
            id: release
            env:
               GH_TOKEN: ${{ github.token }}
-              RELEASE_DRAFT_ONLY: ${{ vars.DUMP_TXT_RELEASE_REVIEW }}
            run: |
               result=$(node apps/app/tools/release.mjs publish artifacts)
               printf '%s\n' "$result"
