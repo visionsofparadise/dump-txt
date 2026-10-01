@@ -87,7 +87,10 @@
 				"!tools/*.unit.test.mjs",
 				"../../packages/ui/**",
 				"!../../packages/ui/**/*.test.*",
-				"!../../packages/ui/node_modules/**"
+				"!../../packages/ui/node_modules/**",
+				"!../../packages/ui/.turbo/**",
+				"!../../packages/ui/**/*.tsbuildinfo",
+				"../../package-lock.json"
 			],
 			"outputs": ["out/make/**"]
 		}
